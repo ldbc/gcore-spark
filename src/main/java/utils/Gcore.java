@@ -38,15 +38,12 @@ public class Gcore {
         loggger.debug("Loaded {}", gcore);
     }
 
-    /** Parses a G-CORE query from a file. */
-    public IStrategoTerm parseQuery(String fileName) throws IOException, ParseException {
-        FileObject gcoreFile = spoofax.resourceService.resolve("res:" + fileName);
-        String gcoreContents = spoofax.sourceTextService.text(gcoreFile);
-        ISpoofaxInputUnit input = spoofax.unitService.inputUnit(
-                gcoreFile, gcoreContents, gcore, null);
+    /** Parses a G-CORE query. */
+    public IStrategoTerm parseQuery(String query) throws IOException, ParseException {
+        ISpoofaxInputUnit input = spoofax.unitService.inputUnit(query, gcore, null);
         ISpoofaxParseUnit output = spoofax.syntaxService.parse(input);
         if(!output.valid()) {
-            loggger.error("Could not parse {}", fileName);
+            loggger.error("Could not parse query\n{}", query);
             return null;
         }
         IStrategoTerm ast = output.ast();

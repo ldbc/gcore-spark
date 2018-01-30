@@ -1,4 +1,4 @@
-CONSTRUCT (n)-[:livesIn]->(c)
-    MATCH (n:Person) ON social_graph
-          (c:City) ON city_graph
-    WHERE n.city = c.name
+CONSTRUCT ()
+MATCH (n)->(m), (p) ON "social_graph" WHERE n.e = 1
+OPTIONAL (n:blah) WHERE n.e = 2
+OPTIONAL (m)
