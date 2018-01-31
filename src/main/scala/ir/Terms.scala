@@ -10,6 +10,22 @@ sealed trait Node {
   }
 }
 
+// A connection between two vertices.
+sealed trait VertexConn
+case class OutConn() extends Node with VertexConn {
+  name = "OutConn"
+}
+case class InConn() extends Node with VertexConn {
+  name = "InConn"
+}
+case class InOutConn() extends Node with VertexConn {
+  name = "InOutConn"
+}
+case class UndirectedConn() extends Node with VertexConn {
+  name = "UndirectedConn"
+}
+
+/** The empty node. */
 case class None() extends Node
 
 /**
@@ -57,6 +73,8 @@ case class FullGraphPatternCondition(patterns: Node, // FullGraphPattern
   *     FullGraphPattern = List(BasicGraphPatternLocation = Tuple(BasicGraphPattern, Location)),
   *     WhereClause
   *   )
+  *
+  * BasicGraphPattern.BasicGraphPattern = <<VertexMatchPattern> <EdgeVertexMatchPattern*>>
   */
 case class FullGraphPattern(patterns: Seq[Node]) extends Node { // Seq[BasicGraphPatternLocation]
   name = "FullGraphPattern"
@@ -66,8 +84,83 @@ case class BasicGraphPatternLocation(pattern: Node, location: Node) extends Node
   name = "BasicGraphPatternLocation"
   children = List(pattern, location)
 }
-case class BasicGraphPattern() extends Node {
+case class BasicGraphPattern(vPattern: Node, evPatterns: Seq[Node]) extends Node {
   name = "BasicGraphPattern"
+  children = vPattern +: evPatterns
+}
+case class VertexMatchPattern(varDef: Node, pattern: Node) extends Node {
+  name = "VertexMatchPattern"
+  children = List(varDef, pattern)
+
+  // TODO: Add interpreter check to verify that indeed we have chosen a random name for an unnamed
+  // variable.
+}
+case class EdgeMatchPattern(varDef: Node, pattern: Node) extends Node {
+  name = "EdgeMatchPattern"
+  children = List(varDef, pattern)
+
+  // TODO: Add interpreter check to verify that indeed we have chosen a random name for an unnamed
+  // variable.
+}
+case class PathMatchPattern() extends Node {
+  name = "PathMatchPattern"
+}
+case class EdgeVertexMatchPattern(conn: Node, epPattern: Node, vPattern: Node) extends Node {
+  // Connection, EdgeMatchPattern/PathMatchPattern + VertexMatchPattern
+  name = "EdgeVertexMatchPattern"
+  children = List(conn, epPattern, vPattern)
+}
+case class VarDef(identifier: Node) extends Node {
+  name = "VarDef"
+  children = List(identifier)
+
+  override def print(level: Int): Unit = {
+    println(" " * level + name + " [" + identifier.asInstanceOf[Identifier].value + "]")
+  }
+}
+case class ObjectMatchPattern(labelPreds: Node, propPreds: Node) extends Node {
+  name = "ObjectMatchPattern"
+  children = List(labelPreds, propPreds)
+}
+case class LabelPredicates(disjs: Seq[Node]) extends Node { // conjunct list of disjunctions
+  name = "LabelPredicates"
+  children = disjs
+
+  // TODO: Add semantic check here to verify we only allow one conjunction - since we only allow one
+  // single label per entity.
+}
+case class DisjunctLabels(labels: Seq[Node]) extends Node { // disjunct list of labels
+  name = "DisjunctLabels"
+  children = labels
+}
+case class Label(identifier: Node) extends Node {
+  name = "Label"
+  children = List(identifier)
+
+  override def print(level: Int): Unit = {
+    println(" " * level + name + " [" + identifier.asInstanceOf[Identifier].value + "]")
+  }
+}
+case class Identifier(value: String) extends Node { // terminal
+  name = "Identifier"
+
+  // TODO: Add semantic check here to be sure the identifier really exists.
+}
+case class PropertyPredicates(propPreds: Seq[Node]) extends Node { // list of Property
+  name = "PropertyPredicates"
+  children = propPreds
+}
+case class Property(identifier: Node, exp: Expression) extends Node {
+  name = "Property"
+  children = List(identifier, exp)
+
+  override def print(level: Int): Unit = {
+    println(" " * level + name + " [" + identifier.asInstanceOf[Identifier].value + "]")
+    children.tail.foreach(child => child.print(level + 2))
+  }
+}
+case class Expression() extends Node {
+  name = "Expression"
 }
 case class Location() extends Node {
   name = "Location"
