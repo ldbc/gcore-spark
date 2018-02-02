@@ -1,5 +1,6 @@
 package ir
 
+import ir.spoofax._
 import org.spoofax.interpreter.terms.IStrategoTerm._
 import org.spoofax.interpreter.terms.{IStrategoAppl, IStrategoString, IStrategoTerm}
 

@@ -1,5 +1,6 @@
 package ir
 
+import ir.spoofax._
 import org.scalatest.FunSuite
 import utils.Gcore
 

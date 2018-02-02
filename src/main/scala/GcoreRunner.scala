@@ -7,7 +7,7 @@ import utils.Gcore
 /** Main entry point of the interpreter. */
 object GcoreRunner extends App {
   val Query = "" +
-    "CONSTRUCT () MATCH (n {n.foo = bar}) ON social_graph"
+    "CONSTRUCT () MATCH (n)-/ALL p/-(m) ON social_graph"
   val Logger = LoggerFactory.getLogger(this.getClass.getName)
 
   val gcore: Gcore = new Gcore()
