@@ -1,4 +1,6 @@
-import ir.{IrException, SpoofaxToIrRewriter}
+import ir.IrException
+import ir.rewriters.SpoofaxCanonicalRewriter
+import ir.trees.{SpoofaxBaseTreeNode, SpoofaxTreeBuilder, SpoofaxTreeNode}
 import org.slf4j.LoggerFactory
 import org.spoofax.interpreter.terms.IStrategoTerm._
 import org.spoofax.interpreter.terms.{IStrategoAppl, IStrategoInt, IStrategoString, IStrategoTerm}
@@ -7,7 +9,7 @@ import utils.Gcore
 /** Main entry point of the interpreter. */
 object GcoreRunner extends App {
   val Query = "" +
-    "CONSTRUCT () MATCH (n)-/ALL p/-(m) ON social_graph"
+    "CONSTRUCT (x) MATCH ()-/@/-() ON social_graph"
   val Logger = LoggerFactory.getLogger(this.getClass.getName)
 
   val gcore: Gcore = new Gcore()
@@ -19,8 +21,13 @@ object GcoreRunner extends App {
   preOrder(ast)
 
   println("\n\nIR:")
-  val rewriter: SpoofaxToIrRewriter = new SpoofaxToIrRewriter()
-  rewriter.process(ast).print()
+  val irAst:SpoofaxBaseTreeNode = SpoofaxTreeBuilder.build(from = ast)
+  println("children count = " + irAst.children.length)
+  println(irAst.printTree)
+
+  println("\n\nNew IR:")
+  var newIr: SpoofaxBaseTreeNode = SpoofaxCanonicalRewriter.rewriteDown(irAst)
+  println(newIr.printTree)
 
   @throws(classOf[IrException])
   def preOrder(term: IStrategoTerm): Unit = {
