@@ -18,6 +18,7 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
 
   override def toString: String = name
 
+  /** Applies the rewrite rule from top (root) to bottom (leaves), creating a new tree. */
   def transformDown(rule: PartialFunction[T, T]): T = {
     // Apply rewrite rule over current node (root).
     val newSelf: T = if (rule.isDefinedAt(self)) rule(self) else self

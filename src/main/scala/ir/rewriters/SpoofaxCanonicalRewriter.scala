@@ -4,6 +4,10 @@ import ir.trees.{SpoofaxBaseTreeNode, SpoofaxTreeNode}
 import org.spoofax.interpreter.terms.IStrategoTerm
 import org.spoofax.terms.{StrategoAppl, StrategoConstructor, StrategoString}
 
+/**
+  * A canonical rewriter over a [[SpoofaxBaseTreeNode]] to fill in missing terms that we will need
+  * for future processing.
+  */
 object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
 
   override def rule: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] =
@@ -14,6 +18,10 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
   private val inOutEdgeConnections = List("InEdge", "OutEdge")
   private val otherConnections = List("UndirectedEdge", "InOutEdge")
 
+  /**
+    * If this Vertex's VarDef child is not present, we add it to the tree. The rewrite rule is:
+    * () => (v_xy)
+    */
   val varDefUnnamedNode: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] = {
     case vertex: SpoofaxTreeNode if vertex.name == "Vertex" => {
       val varDef = vertex.children.head
@@ -28,6 +36,24 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
     }
   }
 
+  /**
+    * Together with [[varDefUnnamedConn]] rewrites a connection with the following rules:
+    * ()-()      =>  ()-[e_xy]-()
+    * ()--()     =>  ()-[e_xy]-()
+    * ()-[]-()   =>  ()-[e_xy]-()
+    *
+    * ()->()     =>  ()-[e_xy]->()
+    * ()-->()    =>  ()-[e_xy]->()
+    * ()-[]->()  =>  ()-[e_xy]->()
+    *
+    * ()<-()     =>  ()<-[e_xy]-()
+    * ()<--()    =>  ()<-[e_xy]-()
+    * ()<-[]-()  =>  ()<-[e_xy]-()
+    *
+    * ()<->()    =>  ()<-[e_xy]->()
+    * ()<-->()   =>  ()<-[e_xy]->()
+    * ()<-[]->() =>  ()<-[e_xy]->()
+    */
   val varDefUnnamedEdge: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] = {
     case edgeMatchPattern: SpoofaxTreeNode if edgeMatchPattern.name == "EdgeMatchPattern" => {
       val varDef = edgeMatchPattern.children.head
@@ -42,6 +68,13 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
     }
   }
 
+  /**
+    * If this path's VarDef child is not present, we add it to the tree. The rewrite rule is:
+    * -/ /- => -/p_xy/-
+    * -/@/- => -/@p_xy/-
+    *
+    * The "@" leaf child of this connection is omitted from the new rewritten node's children.
+    */
   val varDefUnnamedPath: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] = {
     case pathType: SpoofaxTreeNode if pathType.name == "Virtual" => {
       val pathQuantifier = pathType.children.head
@@ -73,6 +106,9 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
     }
   }
 
+  /**
+    * @see [[varDefUnnamedEdge]]
+    */
   val varDefUnnamedConn: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] = {
     case conn: SpoofaxTreeNode if inOutConnections.contains(conn.name) => {
       val edgeMatchPattern = conn.children.head
@@ -128,6 +164,7 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
   }
 }
 
+/** Helper object for creating [[IStrategoTerm]] subtrees. */
 object Stratego {
   def objectMatchPattern(labelPreds: IStrategoTerm, propsPreds: IStrategoTerm): IStrategoTerm = {
     new StrategoAppl(

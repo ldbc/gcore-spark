@@ -3,6 +3,7 @@ package ir.trees
 import org.spoofax.interpreter.terms.IStrategoTerm.{APPL, INT, LIST, STRING}
 import org.spoofax.interpreter.terms.{IStrategoAppl, IStrategoInt, IStrategoString, IStrategoTerm}
 
+/** A node in a Spoofax parse tree. */
 abstract class SpoofaxBaseTreeNode(term: IStrategoTerm) extends TreeNode[SpoofaxBaseTreeNode] {
 
   // This assumes we have no nested lists, like for eg:
