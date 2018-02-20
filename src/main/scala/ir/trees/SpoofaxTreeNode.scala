@@ -32,14 +32,14 @@ case class SpoofaxTreeNode(term: IStrategoTerm) extends SpoofaxBaseTreeNode(term
   override def name: String = term.asInstanceOf[IStrategoAppl].getConstructor.getName
 }
 
-case class SpoofaxLeaf[ValueType](term: IStrategoTerm, leafValue: ValueType) extends SpoofaxBaseTreeNode(term) {
+case class SpoofaxLeaf[ValueType](term: IStrategoTerm, leafValue: ValueType)
+  extends SpoofaxBaseTreeNode(term) {
+
   override def isLeaf: Boolean = true
 
   children = List.empty
 
   def value: ValueType = leafValue
 
-  override def printTree(implicit depth: Int): String = {
-    s"${prefix(depth)}$name [$value]\n"
-  }
+  override def toString: String = s"$name [$value]"
 }

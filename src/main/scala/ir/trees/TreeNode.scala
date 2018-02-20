@@ -14,6 +14,7 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
   // changed or not during the rewrite.
   var children: Seq[T] = List.empty
 
+  // TODO: Remove this field, it is unnecessary, given that a leaf has children = List.empty
   def isLeaf: Boolean = false
 
   override def toString: String = name
