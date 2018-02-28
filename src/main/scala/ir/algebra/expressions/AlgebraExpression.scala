@@ -22,11 +22,23 @@ case class Literal[T](literalValue: T) extends AlgebraExpression {
   override def toString: String = s"$name [$literalValue]"
 }
 
+case class Label(value: String) extends AlgebraExpression {
+  children = List(Literal(value))
+
+  override def toString: String = s"$name [$value]"
+}
+
+case class PropertyKey(key: String) extends AlgebraExpression {
+  children = List(Literal(key))
+
+  override def toString: String = s"$name [$key]"
+}
+
 /**
   * A predicate that asserts that the graph entity has at least one of the given labels. It is a
   * disjunction of labels. The labels are expressed through their [[Literal]] value.
   */
-case class HasLabel(labels: Seq[Literal[String]]) extends AlgebraExpression {
+case class HasLabel(labels: Seq[Label]) extends AlgebraExpression {
   children = labels
 }
 
@@ -78,6 +90,22 @@ case class IsNotNull(expr: AlgebraExpression) extends PredicateExpression(expr)
 /**
   * A predicate that asserts that the graph entity has all the given labels. It is a conjunction of
   * (disjunctions of) labels.
+  *
+  * For example, the following labeling rule
+  *
+  * :foo|bar|baz:fred:qux
+  *
+  * would become:
+  *
+  * WithLabels(
+  *   And(
+  *     HasLabel(foo, bar, baz),
+  *     And(
+  *       HasLabel(fred)
+  *       And(HasLabel(qux), True)
+  *     )
+  *   )
+  * )
   */
 case class WithLabels(labels: AlgebraExpression) extends PredicateExpression(labels)
 

@@ -5,7 +5,7 @@ import ir.algebra.Query
 /** A graph that is being queried. */
 abstract class Graph extends AlgebraType
 
-/** The default graph in this schema. */
+/** The default graph in this ir.schema. */
 case class DefaultGraph() extends Graph {
   override def isLeaf: Boolean = true
 }

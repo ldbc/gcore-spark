@@ -380,7 +380,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
         And(
           HasLabel(
             dl.children.map(
-              label => Literal(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value))),
+              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value))),
           extractDisjunctLabels(other))
       case _ => new True
     }
@@ -405,7 +405,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
       case Seq(prop, other@_*) if prop.name == "Prop" =>
         And(
           Eq(
-            Literal(prop.children.head.asInstanceOf[SpoofaxLeaf[String]].value),
+            PropertyKey(prop.children.head.asInstanceOf[SpoofaxLeaf[String]].value),
             extractExpression(prop.children(1))),
           extractConjunctProps(other))
       case Seq() => new True

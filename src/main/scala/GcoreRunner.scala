@@ -1,59 +1,42 @@
-import ir.IrException
-import ir.rewriters.SpoofaxCanonicalRewriter
-import ir.trees._
-import org.slf4j.LoggerFactory
-import org.spoofax.interpreter.terms.IStrategoTerm._
-import org.spoofax.interpreter.terms.{IStrategoAppl, IStrategoInt, IStrategoString, IStrategoTerm}
-import utils.Gcore
+import java.nio.file.Paths
+
+import org.apache.spark.sql.SparkSession
+import org.slf4j.{Logger, LoggerFactory}
+import spark.examples.DummyGraph
+import spark.{GraphSource, JsonGraphSource, SparkGraph}
 
 /** Main entry point of the interpreter. */
-object GcoreRunner extends App {
-  val Query = "" +
-    "CONSTRUCT () " +
-    "MATCH (n), (m), (p)"
-  val Logger = LoggerFactory.getLogger(this.getClass.getName)
+object GcoreRunner {
 
-  val gcore: Gcore = new Gcore()
-  val ast: IStrategoTerm = gcore.parseQuery(Query)
+  val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
 
-  Logger.debug("{}", ast.toString())
+  def main(args: Array[String]): Unit = {
+    val spark = SparkSession
+      .builder()
+      .appName("G-CORE Runner")
+      .master("local[*]")
+      .getOrCreate()
 
-  println("Pretty printer:")
-  preOrder(ast)
+    manualGraph(spark)
+  }
 
-  println("\n\nIR:")
-  val irAst:SpoofaxBaseTreeNode = SpoofaxTreeBuilder.build(from = ast)
-  println("children count = " + irAst.children.length)
-  println(irAst.printTree)
+  def manualGraph(sparkSession: SparkSession): Unit = {
+    val graph: SparkGraph = DummyGraph(sparkSession)
+    logger.info(graph.toString)
+    logger.info(graph.sparkSchemaString)
+  }
 
-  println("\n\nNew IR:")
-  var newIr: SpoofaxBaseTreeNode = SpoofaxCanonicalRewriter.rewriteDown(irAst)
-  println(newIr.printTree)
+  def jsonExample1(sparkSession: SparkSession): Unit = {
+    val graph: SparkGraph =
+      GraphSource.json(sparkSession).loadGraph(Paths.get("/path/to/dummy_graph.json"))
+    logger.info(graph.toString)
+    logger.info(graph.sparkSchemaString)
+  }
 
-  println("\n\nAlgebra tree:")
-  println(AlgebraTreeBuilder.build(newIr).printTree)
-
-  @throws(classOf[IrException])
-  def preOrder(term: IStrategoTerm): Unit = {
-
-    @throws(classOf[IrException])
-    def withIndent(term: IStrategoTerm, level: Int): Unit = {
-      term.getTermType match {
-        case APPL =>
-          println(" " * level + term.asInstanceOf[IStrategoAppl].getConstructor.getName)
-          term.getAllSubterms.foreach(subTerm => withIndent(subTerm, level + 2))
-        case STRING =>
-          println(" " * level + term.asInstanceOf[IStrategoString].stringValue())
-        case INT =>
-          println(" " * level + term.asInstanceOf[IStrategoInt].intValue())
-        case IStrategoTerm.LIST =>
-          var name: String = if (term.getSubtermCount == 0) "EmptyList" else "List"
-          println(" " * level + name)
-          term.getAllSubterms.foreach(subTerm => withIndent(subTerm, level + 2))
-        case _ => throw new IrException("Don't understand term of type " + term.getTermType)
-      }
-    }
-
-    withIndent(term, 0)
+  def jsonExample2(sparkSession: SparkSession): Unit = {
+    val graph: SparkGraph =
+      JsonGraphSource(sparkSession).loadGraph(Paths.get("/path/to/dummy_graph.json"))
+    logger.info(graph.toString)
+    logger.info(graph.sparkSchemaString)
   }
 }
