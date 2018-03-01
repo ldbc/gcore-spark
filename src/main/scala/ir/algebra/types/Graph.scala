@@ -1,6 +1,6 @@
 package ir.algebra.types
 
-import ir.algebra.Query
+import ir.algebra.operators.Query
 
 /** A graph that is being queried. */
 abstract class Graph extends AlgebraType

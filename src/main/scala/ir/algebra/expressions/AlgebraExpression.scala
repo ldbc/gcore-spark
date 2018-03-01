@@ -1,6 +1,6 @@
 package ir.algebra.expressions
 
-import ir.algebra.Query
+import ir.algebra.operators.Query
 import ir.trees.AlgebraTreeNode
 
 /**

@@ -1,8 +1,9 @@
 package ir.trees
 
 import ir.IrException
-import ir.algebra._
+import ir.algebra.{operators, _}
 import ir.algebra.expressions._
+import ir.algebra.operators._
 import ir.algebra.types._
 
 object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] {
@@ -20,7 +21,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
 //        val constructClause = extractClause(from.children(1))
         val matchClause = extractClause(from.children(2)).asInstanceOf[MatchClause]
 
-        Query(matchClause)
+        operators.Query(matchClause)
       }
       case _ => throw IrException(s"Query type ${from.name} unsupported for the moment.")
     }
@@ -37,7 +38,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
         val optionalClause = from.children(1)
 
         MatchClause(
-          extractCondMatchClause(from = fullGraphPatternCondition, isOptional = false) +:
+          List(extractCondMatchClause(from = fullGraphPatternCondition)),
           extractOptionalMatches(from = optionalClause))
       }
       case _ => throw IrException(s"Cannot extract clause from node type ${from.name} ")
@@ -45,15 +46,14 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
   }
 
   /** Creates a [[CondMatchClause]] from a given FullGraphPatternCondition. */
-  private def extractCondMatchClause(from: SpoofaxBaseTreeNode,
-                                     isOptional: Boolean): CondMatchClause = {
+  private def extractCondMatchClause(from: SpoofaxBaseTreeNode): CondMatchClause = {
     from.name match {
       case "FullGraphPatternCondition" => {
         val fullGraphPattern = from.children.head
         val where = from.children(1)
 
         CondMatchClause(
-          extractSimpleMatches(fullGraphPattern, isOptional),
+          extractSimpleMatches(fullGraphPattern),
           extractWhere(where))
       }
       case _ => throw IrException(s"Cannot extract CondMatchClause from node type ${from.name}")
@@ -69,7 +69,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
       case "OptionalClause" => {
         // OptionalClause.children = Seq[Optional]
         from.children.map(optional => {
-          extractCondMatchClause(from = optional.children.head, isOptional = true)
+          extractCondMatchClause(from = optional.children.head)
         })
       }
       case _ => throw IrException(s"Cannot extract OptionalClause from node type ${from.name}")
@@ -77,8 +77,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
   }
 
   /** Extracts a [[SimpleMatchClause]] from a given FullGraphPattern node. */
-  private def extractSimpleMatches(from: SpoofaxBaseTreeNode,
-                                   isOptional: Boolean): Seq[SimpleMatchClause] = {
+  private def extractSimpleMatches(from: SpoofaxBaseTreeNode): Seq[SimpleMatchClause] = {
     from.name match {
       case "FullGraphPattern" => {
         // FullGraphPattern.children = Seq[BasicGraphPatternLocation]
@@ -88,8 +87,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
 
           SimpleMatchClause(
             extractPattern(basicGraphPattern),
-            extractLocation(location),
-            isOptional)
+            extractLocation(location))
         })
       }
       case _ => throw IrException(s"Cannot extract SimpleMatchClause from node type ${from.name}")
@@ -182,8 +180,12 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
           Query(
             MatchClause(
               List(CondMatchClause(
-                List(SimpleMatchClause(extractPattern(from), new DefaultGraph, isOptional = false)),
-                /*where = */ new True)))))
+                List(SimpleMatchClause(extractPattern(from), new DefaultGraph)),
+                /*where = */ new True)),
+              List.empty[CondMatchClause]
+            )
+          )
+        )
 
       /* Default case. */
       case _ => throw IrException(s"Unsupported expression ${from.name}")

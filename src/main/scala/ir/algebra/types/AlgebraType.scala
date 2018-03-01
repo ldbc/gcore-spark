@@ -1,6 +1,6 @@
 package ir.algebra.types
 
-import ir.algebra.AlgebraOperator
+import ir.algebra.operators.AlgebraOperator
 import ir.trees.AlgebraTreeNode
 
 /** A data type used by the [[AlgebraOperator]]s. */

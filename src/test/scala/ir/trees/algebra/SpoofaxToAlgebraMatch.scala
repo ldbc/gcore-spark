@@ -1,8 +1,8 @@
 package ir.trees.algebra
 
 import ir.algebra.expressions.{Exists, Reference}
+import ir.algebra.operators.{CondMatchClause, MatchClause, Query, SimpleMatchClause}
 import ir.algebra.types._
-import ir.algebra.{CondMatchClause, MatchClause, Query, SimpleMatchClause}
 import ir.trees.{AlgebraTreeBuilder, SpoofaxTreeBuilder}
 import org.scalatest.{FunSuite, Inside, Matchers}
 import utils.Gcore
@@ -20,7 +20,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val spoofaxTree = SpoofaxTreeBuilder build ast
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
-      algebraTree should matchPattern { case Query(MatchClause(_)) => }
+      algebraTree should matchPattern { case Query(MatchClause(_, _)) => }
     }
   }
 
@@ -35,9 +35,10 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       algebraTree should matchPattern {
-        case Query(MatchClause(List(
-        /*u =>*/ CondMatchClause(List(SimpleMatchClause(_, _, /*isOptional =*/ false)), _),
-        /*v =>*/ CondMatchClause(List(SimpleMatchClause(_, _, /*isOptional =*/ true)), _)))) =>
+        case Query(MatchClause(
+        /*u =>*/ List(CondMatchClause(List(SimpleMatchClause(_, _)), _)),
+        /*v =>*/ List(CondMatchClause(List(SimpleMatchClause(_, _)), _))
+        )) =>
       }
     }
   }
@@ -53,8 +54,9 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
 
       inside (algebraTree) {
         case Query(MatchClause(
-          List(CondMatchClause(
-            List(SimpleMatchClause(graphPattern, _, _)), _)))) => {
+          /* non optional */ List(CondMatchClause(List(SimpleMatchClause(graphPattern, _)), _)),
+          /* optional */ _
+          )) => {
 
           graphPattern should matchPattern {
             case GraphPattern(
@@ -72,12 +74,14 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(
-          List(CondMatchClause(
-            List(
-              /*u =>*/ SimpleMatchClause(graphPatternU, _, _),
-              /*v =>*/ SimpleMatchClause(graphPatternV, _, _)),
-            /*where =*/ _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(
+              List(
+                /*u =>*/ SimpleMatchClause(graphPatternU, _),
+                /*v =>*/ SimpleMatchClause(graphPatternV, _)),
+              /*where =*/ _)),
+            /* optional */ _)) => {
 
           graphPatternU should matchPattern {
             case GraphPattern(
@@ -100,11 +104,13 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(
-          List(CondMatchClause(
-            List(
-              /*u->v =>*/ SimpleMatchClause(graphPattern, _, _)),
-            /*where =*/ _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(
+              List(
+                /*u->v =>*/ SimpleMatchClause(graphPattern, _)),
+              /*where =*/ _)),
+            /* optional */ _)) => {
 
           graphPattern should matchPattern {
             case GraphPattern(
@@ -127,12 +133,15 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(
-          List(CondMatchClause(
-            List(
-              /*u->v =>*/ SimpleMatchClause(graphPattern1, _, _),
-              /*v->w =>*/ SimpleMatchClause(graphPattern2, _, _)),
-            /*where =*/ _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(
+              List(
+                /*u->v =>*/ SimpleMatchClause(graphPattern1, _),
+                /*v->w =>*/ SimpleMatchClause(graphPattern2, _)),
+              /*where =*/ _)),
+            /* optional */ _
+        )) => {
 
           graphPattern1 should matchPattern {
             case GraphPattern(
@@ -165,11 +174,13 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(
-          List(CondMatchClause(
-            List(
-              /*u->v->w =>*/ SimpleMatchClause(graphPattern, _, _)),
-            /*where =*/ _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(
+              List(
+                /*u->v->w =>*/ SimpleMatchClause(graphPattern, _)),
+              /*where =*/ _)),
+            /* optional */ _)) => {
 
           graphPattern should matchPattern { case GraphPattern(List(
           Edge(Reference("e1"), Vertex(Reference("u"), _), Vertex(Reference("v"), _), OutConn(), _),
@@ -187,9 +198,12 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(
-          List(CondMatchClause(List(/*u-/p/->v =>*/ SimpleMatchClause(graphPattern, _, _)),
-          /*where =*/ _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(
+              List(/*u-/p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _)),
+            /* optional */ _
+          )) => {
 
           graphPattern should matchPattern {
             case GraphPattern(List(Path(_, _, _, _, _, _, _, false))) => }
@@ -205,9 +219,11 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(
-          List(CondMatchClause(List(/*u-/@p/->v =>*/ SimpleMatchClause(graphPattern, _, _)),
-          /*where =*/ _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(
+              List(/*u-/@p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _)),
+            /* optional */ _)) => {
 
           graphPattern should matchPattern {
             case GraphPattern(List(Path(_, _, _, _, _, _, _, true))) => }
@@ -227,8 +243,11 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(
-          List(CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr)),
+            /* optional */ _
+          )) => {
 
           expr should matchPattern { case Exists(Query(_)) => }
         }
@@ -246,7 +265,11 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(List(CondMatchClause(List(SimpleMatchClause(_, graph, _)), _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(List(SimpleMatchClause(_, graph)), _)),
+            /* optional */ _
+          )) => {
 
           graph should matchPattern { case DefaultGraph() => }
         }
@@ -261,7 +284,11 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(List(CondMatchClause(List(SimpleMatchClause(_, graph, _)), _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(List(SimpleMatchClause(_, graph)), _)),
+            /* optional */_
+          )) => {
 
           graph should matchPattern { case NamedGraph("social_graph") => }
         }
@@ -276,7 +303,11 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
       inside (algebraTree) {
-        case Query(MatchClause(List(CondMatchClause(List(SimpleMatchClause(_, graph, _)), _)))) => {
+        case Query(
+          MatchClause(
+            /* non optional */ List(CondMatchClause(List(SimpleMatchClause(_, graph)), _)),
+            /* optional */ _
+          )) => {
 
           graph should matchPattern { case QueryGraph(_) => }
         }

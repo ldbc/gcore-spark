@@ -41,9 +41,40 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
     }
   }
 
-  def printTree(implicit depth:Int = 0): String = {
+  /** Applies the rewrite rule from bottom (leaves) to top (root), creating a new tree. */
+  def transformUp(rule: PartialFunction[T, T]): T = {
+    val childrenLength: Int = children.length
+    val newChildren: Array[T] = Array.ofDim[T](childrenLength)
+
+    // Apply rewrite rule recursively over current node's children.
+    if (childrenLength != 0) {
+      var i = 0
+      while (i < newChildren.length) {
+        newChildren(i) = children(i).transformUp(rule)
+        i += 1
+      }
+    }
+
+    // Change children first, in case rule depends on children.
+    children = newChildren
+    // Apply rewrite rule over current node (root).
+    if (rule.isDefinedAt(self)) rule(self) else self
+  }
+
+  def forEach(f: T => Unit): Unit = {
+    f(self)
+    children.foreach(_.forEach(f))
+  }
+
+  def inOrderMap[U](f: T => U): Seq[U] = {
+    val traversal = new collection.mutable.ArrayBuffer[U]()
+    forEach(traversal += f(_))
+    traversal
+  }
+
+  def treeString(implicit depth:Int = 0): String = {
     val subTrees = children.foldLeft(new StringBuilder) {
-      (agg, child) => agg.append(child.printTree(depth + 1))
+      (agg, child) => agg.append(child.treeString(depth + 1))
     }
 
     s"${prefix(depth)}$self\n$subTrees"

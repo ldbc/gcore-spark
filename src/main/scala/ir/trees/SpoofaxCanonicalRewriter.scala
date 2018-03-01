@@ -1,15 +1,14 @@
-package ir.rewriters
+package ir.trees
 
-import ir.trees.{SpoofaxBaseTreeNode, SpoofaxTreeNode}
 import ir.utils.{Stratego, VarBinder}
 
 /**
   * A canonical rewriter over a [[SpoofaxBaseTreeNode]] to fill in missing terms that we will need
   * for future processing.
   */
-object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
+object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
 
-  override def rule: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] =
+  override def rule: RewriteFuncType =
     varDefUnnamedNode orElse varDefUnnamedEdge orElse varDefUnnamedConn
 
   private val inOutConnections = List("InConn", "OutConn")
@@ -20,7 +19,7 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
     * If this Vertex's VarDef child is not present, we add it to the tree. The rewrite rule is:
     * () => (v_xy)
     */
-  private val varDefUnnamedNode: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] = {
+  private val varDefUnnamedNode: RewriteFuncType = {
     case vertex: SpoofaxTreeNode if vertex.name == "Vertex" => {
       val varDef = vertex.children.head
       val objMatchPattern = vertex.children(1)
@@ -52,7 +51,7 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
     * ()<-->()   =>  ()<-[e_xy]->()
     * ()<-[]->() =>  ()<-[e_xy]->()
     */
-  private val varDefUnnamedEdge: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] = {
+  private val varDefUnnamedEdge: RewriteFuncType = {
     case edgeMatchPattern: SpoofaxTreeNode if edgeMatchPattern.name == "EdgeMatchPattern" => {
       val varDef = edgeMatchPattern.children.head
       val objMatchPattern = edgeMatchPattern.children(1)
@@ -70,7 +69,7 @@ object SpoofaxCanonicalRewriter extends Rewriter[SpoofaxBaseTreeNode] {
   /**
     * @see [[varDefUnnamedEdge]]
     */
-  private val varDefUnnamedConn: PartialFunction[SpoofaxBaseTreeNode, SpoofaxBaseTreeNode] = {
+  private val varDefUnnamedConn: RewriteFuncType = {
     case conn: SpoofaxTreeNode if inOutConnections.contains(conn.name) => {
       val edgeMatchPattern = conn.children.head
       if (edgeMatchPattern.name == "Some")
