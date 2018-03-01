@@ -2,11 +2,9 @@ package spark
 
 import ir.algebra.expressions.{Label, PropertyKey}
 import ir.algebra.types.{TypeArray, TypeBoolean, TypeInteger, TypeString}
-import ir.schema.{EntitySchema, GraphSchema, SchemaMap}
 import org.apache.spark.sql.DataFrame
 import org.scalatest.FunSuite
-import schema.GraphData
-import schema.Table
+import schema._
 
 /** Verifies that the [[GraphSchema]] is inferred correctly from the [[GraphData]]. */
 class SparkGraphTest extends FunSuite

@@ -1,5 +1,7 @@
 package ir.trees
 
+import api.compiler.RewriteStage
+import api.trees.BottomUpRewriter
 import ir.algebra.operators._
 
 /**
@@ -16,11 +18,16 @@ import ir.algebra.operators._
   * this rewriter.
   *
   * TODO: These transformation rules depend on the order of the children. Can we simplify the rules?
+  *
+  * TODO: There will possibly be multiple rewrite stages, so this [[AlgebraRewriter]] shoule be
+  * split into individual BottomUpRewriters, which can then be composed.
   */
-object AlgebraRewriter extends BottomUpRewriter[AlgebraTreeNode] {
+object AlgebraRewriter extends BottomUpRewriter[AlgebraTreeNode] with RewriteStage {
 
   override def rule: RewriteFuncType =
     lojMatchesWithOptionalMatches orElse filterCondMatches
+
+  override def rewrite(tree: AlgebraTreeNode): AlgebraTreeNode = rewriteTree(tree)
 
   private val lojMatchesWithOptionalMatches: RewriteFuncType = {
     case m @ MatchClause(_, _) => LeftOuterJoin(m.children.map(_.asInstanceOf[AlgebraOperator]))

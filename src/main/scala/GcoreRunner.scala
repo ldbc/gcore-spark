@@ -1,12 +1,14 @@
-import java.nio.file.Paths
-
+import api.compiler.{Compiler, ParseStage, RewriteStage}
+import com.google.inject.{AbstractModule, Guice, Injector}
+import ir.trees.AlgebraRewriter
 import org.apache.spark.sql.SparkSession
 import org.slf4j.{Logger, LoggerFactory}
-import spark.examples.DummyGraph
-import spark.{GraphSource, JsonGraphSource, SparkGraph}
+import parser.SpoofaxParser
+import schema.GraphDb
+import spark.SparkGraphDb
 
 /** Main entry point of the interpreter. */
-object GcoreRunner {
+object GcoreRunner extends AbstractModule {
 
   val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
 
@@ -17,26 +19,15 @@ object GcoreRunner {
       .master("local[*]")
       .getOrCreate()
 
-    manualGraph(spark)
+    val injector: Injector = Guice.createInjector(GcoreRunner)
+    injector.getInstance(classOf[Compiler]).compile("" +
+      "CONSTRUCT () MATCH ()")
   }
 
-  def manualGraph(sparkSession: SparkSession): Unit = {
-    val graph: SparkGraph = DummyGraph(sparkSession)
-    logger.info(graph.toString)
-    logger.info(graph.sparkSchemaString)
-  }
-
-  def jsonExample1(sparkSession: SparkSession): Unit = {
-    val graph: SparkGraph =
-      GraphSource.json(sparkSession).loadGraph(Paths.get("/path/to/dummy_graph.json"))
-    logger.info(graph.toString)
-    logger.info(graph.sparkSchemaString)
-  }
-
-  def jsonExample2(sparkSession: SparkSession): Unit = {
-    val graph: SparkGraph =
-      JsonGraphSource(sparkSession).loadGraph(Paths.get("/path/to/dummy_graph.json"))
-    logger.info(graph.toString)
-    logger.info(graph.sparkSchemaString)
+  override def configure(): Unit = {
+    bind(classOf[Compiler]).toInstance(GcoreCompiler)
+    bind(classOf[ParseStage]).toInstance(SpoofaxParser)
+    bind(classOf[RewriteStage]).toInstance(AlgebraRewriter)
+    bind(classOf[GraphDb[_]]).toInstance(SparkGraphDb)
   }
 }

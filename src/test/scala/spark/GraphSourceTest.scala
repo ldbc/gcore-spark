@@ -5,9 +5,7 @@ import java.nio.file.{Files, Paths}
 
 import org.apache.spark.sql.DataFrame
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-
-import ir.schema.GraphSchema
-import schema.GraphData
+import schema.{GraphData, GraphSchema}
 
 /**
   * Tests that a [[GraphSource]] successfully loads a [[SparkGraph]] from any available format and

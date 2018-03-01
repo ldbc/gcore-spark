@@ -20,7 +20,7 @@ class AlgebraRewriterTest extends FunSuite {
   test("CondMatchClause rewritten to FILTER(CART_PROD(matches), where)") {
     val tree = CondMatchClause(Seq(simpleMatch.asInstanceOf[SimpleMatchClause]), expr)
     val expected = Filter(CartesianProduct(Seq(simpleMatch)), expr)
-    val actual = AlgebraRewriter.rewrite(tree)
+    val actual = AlgebraRewriter.rewriteTree(tree)
     assert(actual == expected)
   }
 
@@ -33,7 +33,7 @@ class AlgebraRewriterTest extends FunSuite {
         Filter(CartesianProduct(Seq(simpleMatch)), expr),
         Filter(CartesianProduct(Seq(optionalMatch)), expr)
       ))
-    val actual = AlgebraRewriter.rewrite(tree)
+    val actual = AlgebraRewriter.rewriteTree(tree)
     assert(actual == expected)
   }
 }

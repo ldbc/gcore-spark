@@ -1,12 +1,11 @@
 package spark
 
-import ir.IrException
 import ir.algebra.expressions.{Label, PropertyKey}
 import ir.algebra.types._
-import ir.schema._
+import ir.exceptions.IrException
 import org.apache.spark.sql
 import org.apache.spark.sql.DataFrame
-import schema.{PathPropertyGraph, Table}
+import schema._
 
 /**
   * A [[PathPropertyGraph]] that uses Spark's [[DataFrame]]s to store graph data. Each table in the

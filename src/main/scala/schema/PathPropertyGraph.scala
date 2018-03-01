@@ -1,6 +1,5 @@
 package schema
 
-import ir.schema.GraphSchema
 import org.apache.spark.sql.DataFrame
 
 /**
