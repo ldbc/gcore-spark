@@ -16,6 +16,10 @@ abstract class PathPropertyGraph[T] extends GraphSchema with GraphData[T] {
 
   def graphName: String
 
+  def isEmpty: Boolean = false
+
+  def nonEmpty: Boolean = !isEmpty
+
   override def toString: String = schemaString
 
   def schemaString: String =
@@ -29,4 +33,19 @@ abstract class PathPropertyGraph[T] extends GraphSchema with GraphData[T] {
       s"[*] Vertex schema:\n$vertexData\n" +
       s"[*] Edge schema:\n$edgeData\n" +
       s"[*] Path schema:\n$pathData"
+}
+
+object PathPropertyGraph {
+
+  def empty[T] = new PathPropertyGraph[T] {
+    override def isEmpty: Boolean = true
+
+    override def graphName: String = "PathPropertyGraph.empty"
+    override def vertexData: Seq[Table[T]] = Seq.empty
+    override def edgeData: Seq[Table[T]] = Seq.empty
+    override def pathData: Seq[Table[T]] = Seq.empty
+    override def vertexSchema: EntitySchema = EntitySchema.empty
+    override def pathSchema: EntitySchema = EntitySchema.empty
+    override def edgeSchema: EntitySchema = EntitySchema.empty
+  }
 }

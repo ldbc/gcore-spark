@@ -1,6 +1,6 @@
 package parser.trees
 
-import api.trees.TreeNode
+import common.trees.TreeNode
 import org.spoofax.interpreter.terms.IStrategoTerm.{APPL, INT, LIST, STRING}
 import org.spoofax.interpreter.terms.{IStrategoAppl, IStrategoInt, IStrategoString, IStrategoTerm}
 
@@ -35,8 +35,6 @@ case class SpoofaxTreeNode(term: IStrategoTerm) extends SpoofaxBaseTreeNode(term
 
 case class SpoofaxLeaf[ValueType](term: IStrategoTerm, leafValue: ValueType)
   extends SpoofaxBaseTreeNode(term) {
-
-  override def isLeaf: Boolean = true
 
   children = List.empty
 

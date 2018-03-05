@@ -1,8 +1,7 @@
 package spark
 
-import ir.algebra.expressions.{Label, PropertyKey}
-import ir.algebra.types._
-import ir.exceptions.IrException
+import algebra.expressions.{Label, PropertyKey}
+import algebra.types._
 import org.apache.spark.sql
 import org.apache.spark.sql.DataFrame
 import schema._
@@ -16,7 +15,6 @@ import schema._
   */
 abstract class SparkGraph extends PathPropertyGraph[DataFrame] {
 
-  // TODO: Should we make these lazy vals?
   override def vertexSchema: EntitySchema = buildSchema(vertexData)
 
   override def edgeSchema: EntitySchema = buildSchema(edgeData)
@@ -51,7 +49,7 @@ abstract class SparkGraph extends PathPropertyGraph[DataFrame] {
       case "float" => TypeDecimal()
       case "boolean" => TypeBoolean()
       case "array" => TypeArray()
-      case other => throw IrException(s"Unsupported type $other")
+      case other => throw SparkException(s"Unsupported type $other")
     }
   }
 }

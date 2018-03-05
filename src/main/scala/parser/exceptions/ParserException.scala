@@ -1,6 +1,6 @@
 package parser.exceptions
 
-import api.exceptions.GcoreException
+import common.exceptions.GcoreException
 
 abstract class ParserException(message: String) extends GcoreException(message)
 

@@ -1,33 +1,34 @@
-import api.compiler.{Compiler, ParseStage, RewriteStage}
-import com.google.inject.{AbstractModule, Guice, Injector}
-import ir.trees.AlgebraRewriter
+import java.nio.file.Paths
+
+import compiler.{CompileContext, Compiler, GcoreCompiler}
 import org.apache.spark.sql.SparkSession
 import org.slf4j.{Logger, LoggerFactory}
-import parser.SpoofaxParser
-import schema.GraphDb
 import spark.SparkGraphDb
 
 /** Main entry point of the interpreter. */
-object GcoreRunner extends AbstractModule {
+object GcoreRunner {
 
-  val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
+  val logger: Logger = LoggerFactory.getLogger(getClass.getName)
+
+  val spark: SparkSession = SparkSession
+    .builder()
+    .appName("G-CORE Runner")
+    .master("local[*]")
+    .getOrCreate()
 
   def main(args: Array[String]): Unit = {
-    val spark = SparkSession
-      .builder()
-      .appName("G-CORE Runner")
-      .master("local[*]")
-      .getOrCreate()
+    val graphDb: SparkGraphDb = SparkGraphDb(spark)
 
-    val injector: Injector = Guice.createInjector(GcoreRunner)
-    injector.getInstance(classOf[Compiler]).compile("" +
-      "CONSTRUCT () MATCH ()")
-  }
+    graphDb.registerGraph(
+      graphDb.jsonSource,
+      Paths.get("/export/scratch1/georgian/repos/gcore-interpreter/src/main/scala/spark/examples/dummy_graph.json"))
 
-  override def configure(): Unit = {
-    bind(classOf[Compiler]).toInstance(GcoreCompiler)
-    bind(classOf[ParseStage]).toInstance(SpoofaxParser)
-    bind(classOf[RewriteStage]).toInstance(AlgebraRewriter)
-    bind(classOf[GraphDb[_]]).toInstance(SparkGraphDb)
+    println(graphDb.graph("dummy_graph"))
+
+    val compiler: Compiler = GcoreCompiler(CompileContext(graphDb))
+    compiler.compile(
+      """
+        | CONSTRUCT () MATCH (:Cat {onDiet = true})->(:Food) ON dummy_graph")
+      """.stripMargin)
   }
 }

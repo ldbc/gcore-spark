@@ -1,21 +1,20 @@
 package parser.trees
 
-import api.trees.Builder
-import ir.algebra.expressions._
-import ir.algebra.operators
-import ir.algebra.operators._
-import ir.algebra.types._
-import ir.exceptions.IrException
-import ir.trees.AlgebraTreeNode
+import algebra.expressions._
+import algebra.operators._
+import algebra.types._
+import algebra.trees.AlgebraTreeNode
+import common.trees.Builder
+import parser.exceptions.QueryParseException
 
+/**
+  * Creates the algebraic tree from the lexical tree generated with Spoofax.
+  *
+  * The root of the algebra tree is a [[Query]] clause, whose children are the optional path clause
+  * and the mandatory construct clause and [[MatchClause]].
+  */
 object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] {
 
-  /**
-    * Creates the algebraic tree from the lexical tree generated with Spoofax.
-    *
-    * The root of the algebra tree is a [[Query]] clause, whose children are the optional path
-    * clause and the mandatory construct clause and [[MatchClause]].
-    */
   override def build(from: SpoofaxBaseTreeNode): AlgebraTreeNode = {
     from.name match {
       case "BasicQuery" => {
@@ -23,9 +22,9 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
 //        val constructClause = extractClause(from.children(1))
         val matchClause = extractClause(from.children(2)).asInstanceOf[MatchClause]
 
-        operators.Query(matchClause)
+        Query(matchClause)
       }
-      case _ => throw IrException(s"Query type ${from.name} unsupported for the moment.")
+      case _ => throw QueryParseException(s"Query type ${from.name} unsupported for the moment.")
     }
   }
 
@@ -43,11 +42,11 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
           List(extractCondMatchClause(from = fullGraphPatternCondition)),
           extractOptionalMatches(from = optionalClause))
       }
-      case _ => throw IrException(s"Cannot extract clause from node type ${from.name} ")
+      case _ => throw QueryParseException(s"Cannot extract clause from node type ${from.name} ")
     }
   }
 
-  /** Creates a [[CondMatchClause]] from a given FullGraphPatternCondition. */
+  /** Creates a [[algebra.operators.CondMatchClause]] from a given FullGraphPatternCondition. */
   private def extractCondMatchClause(from: SpoofaxBaseTreeNode): CondMatchClause = {
     from.name match {
       case "FullGraphPatternCondition" => {
@@ -58,7 +57,8 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
           extractSimpleMatches(fullGraphPattern),
           extractWhere(where))
       }
-      case _ => throw IrException(s"Cannot extract CondMatchClause from node type ${from.name}")
+      case _ =>
+        throw QueryParseException(s"Cannot extract CondMatchClause from node type ${from.name}")
     }
   }
 
@@ -74,7 +74,8 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
           extractCondMatchClause(from = optional.children.head)
         })
       }
-      case _ => throw IrException(s"Cannot extract OptionalClause from node type ${from.name}")
+      case _ =>
+        throw QueryParseException(s"Cannot extract OptionalClause from node type ${from.name}")
     }
   }
 
@@ -92,7 +93,8 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
             extractLocation(location))
         })
       }
-      case _ => throw IrException(s"Cannot extract SimpleMatchClause from node type ${from.name}")
+      case _ =>
+        throw QueryParseException(s"Cannot extract SimpleMatchClause from node type ${from.name}")
     }
   }
 
@@ -117,7 +119,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
       // Some(Where(...)
       case "Some" => extractWhere(from.children.head)
       case "Where" => extractExpression(from.children.head)
-      case _ => throw IrException(s"Cannot extract Expression from node type ${from.name}")
+      case _ => throw QueryParseException(s"Cannot extract Expression from node type ${from.name}")
     }
   }
 
@@ -128,54 +130,17 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
       case "Not" => Not(extractExpression(from.children.head))
       case "UMin" => Minus(extractExpression(from.children.head))
 
-      /* Binary expressions. */
-      case "Or" =>
-        Or(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "And" =>
-        And(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Pow" =>
-        Power(
-          lhs = extractExpression(from.children.head),
-          rhs = extractExpression(from.children(1)))
-      case "Mul" =>
-        Mul(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Div" =>
-        Div(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Mod" =>
-        Mod(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Add" =>
-        Add(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Sub" =>
-        Sub(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Eq" =>
-        Eq(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Gt" =>
-        Gt(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Lt" =>
-        Lt(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Gte" =>
-        Gt(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Lte" =>
-        Lt(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Neq1" =>
-        Neq(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "Neq2" =>
-        Neq(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
-      case "In" =>
-        In(lhs = extractExpression(from.children.head), rhs = extractExpression(from.children(1)))
+      /* TODO: Binary expressions. */
 
-      /* Predicate expressions. */
-      case "IsNull" => IsNull(extractExpression(from.children.head))
-      case "IsNotNull" => IsNotNull(extractExpression(from.children.head))
+      /* TODO: Predicate expressions. */
 
       /* Other algebra expressions. */
       case "VarRef" => Reference(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
       case "Integer" =>
         Literal[Integer](from.children.head.asInstanceOf[SpoofaxLeaf[String]].value.toInt)
-      case "Boolean" =>
-        Literal[Boolean](from.children.head.asInstanceOf[SpoofaxLeaf[String]].value.toBoolean)
-      case "String" =>
-        Literal[String](from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
+      case "True" => True()
+      case "False" => False()
+      case "String" => Literal[String](from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
       case "BasicGraphPattern" =>
         // TODO: The Query operator should also take an empty ConstructClause in this case.
         Exists(
@@ -190,7 +155,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
         )
 
       /* Default case. */
-      case _ => throw IrException(s"Unsupported expression ${from.name}")
+      case _ => throw QueryParseException(s"Unsupported expression ${from.name}")
     }
   }
 
@@ -204,7 +169,8 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
       case "BasicGraphPattern" =>
         // TODO: The empty Vertex should not be expressed with a null.
         GraphPattern(extractPatternTopology(from.children, null))
-      case _ => throw IrException(s"Cannot extract GraphPattern from node type ${from.name}")
+      case _ =>
+        throw QueryParseException(s"Cannot extract GraphPattern from node type ${from.name}")
     }
   }
 
@@ -360,16 +326,17 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
     from.name match {
       case "ObjectMatchPattern" =>
         And(extractLabels(from.children.head), extractProps(from.children(1)))
-      case _ => throw IrException(s"Cannot extract ObjectMatchPattern from node type ${from.name}")
+      case _ =>
+        throw QueryParseException(s"Cannot extract ObjectMatchPattern from node type ${from.name}")
     }
   }
 
   private def extractLabels(from: SpoofaxBaseTreeNode): AlgebraExpression = {
     from.name match {
-      case "None" => new True
+      case "None" => True()
       case "Some" => WithLabels(extractLabels(from.children.head))
       case "ConjunctLabels" => extractDisjunctLabels(from.children)
-      case _ => throw IrException(s"Cannot extract labels from node type ${from.name}")
+      case _ => throw QueryParseException(s"Cannot extract labels from node type ${from.name}")
     }
   }
 
@@ -395,7 +362,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
       case "None" => new True
       case "Some" => extractProps(from.children.head)
       case "Props" => WithProps(extractConjunctProps(from.children))
-      case _ => throw IrException(s"Cannot extract properties from node type ${from.name}")
+      case _ => throw QueryParseException(s"Cannot extract properties from node type ${from.name}")
     }
   }
 

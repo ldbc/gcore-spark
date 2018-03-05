@@ -1,10 +1,11 @@
 package parser
 
-import api.compiler.ParseStage
-import ir.trees.AlgebraTreeNode
+import compiler.ParseStage
+import algebra.operators.Query
+import algebra.trees.{AlgebraTreeNode, QueryContext}
 import org.metaborg.spoofax.core.Spoofax
 import org.spoofax.interpreter.terms.IStrategoTerm
-import parser.trees.{AlgebraTreeBuilder, SpoofaxBaseTreeNode, SpoofaxCanonicalRewriter, SpoofaxTreeBuilder}
+import parser.trees._
 import parser.utils.GcoreLang
 
 /**
@@ -12,18 +13,19 @@ import parser.utils.GcoreLang
   * parser are:
   *
   * <ul>
-  *   <li> Generate the tree of [[IStrategoTerm]]s created by [[Spoofax]]; </li>
+  *   <li> Generate the tree of [[IStrategoTerm]]s created by [[Spoofax]] </li>
   *   <li> Rewrite this tree to name all unbounded variables. </li>
   *   <li> Build the algebraic tree from the canonicalized parse tree. </li>
   * </ul>
   */
-object SpoofaxParser extends ParseStage {
+case class SpoofaxParser(context: ParseContext) extends ParseStage {
 
   override def parse(query: String): AlgebraTreeNode = {
     val ast: IStrategoTerm = GcoreLang.parseQuery(query)
     val parseTree: SpoofaxBaseTreeNode = SpoofaxTreeBuilder build ast
     val rewriteParseTree: SpoofaxBaseTreeNode = SpoofaxCanonicalRewriter rewriteTree parseTree
     val algebraTree: AlgebraTreeNode = AlgebraTreeBuilder build rewriteParseTree
+    algebraTree.asInstanceOf[Query].checkWithContext(QueryContext(context.graphDb))
     algebraTree
   }
 }

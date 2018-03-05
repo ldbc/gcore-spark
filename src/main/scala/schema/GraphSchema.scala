@@ -1,8 +1,7 @@
 package schema
 
-import ir.algebra.expressions.{Label, PropertyKey}
-import ir.algebra.types.DataType
-import ir.exceptions.IrException
+import algebra.expressions.{Label, PropertyKey}
+import algebra.types.DataType
 
 /** The schema of a [[PathPropertyGraph]]. */
 trait GraphSchema {
@@ -21,6 +20,18 @@ trait GraphSchema {
   */
 case class EntitySchema(labelSchema: SchemaMap[Label, SchemaMap[PropertyKey, DataType[_]]]) {
 
+  def labels: Seq[Label] = labelSchema.keys
+
+  def properties(label: Label): Seq[PropertyKey] = {
+    val propertyMap = labelSchema.get(label)
+    if (propertyMap.isDefined)
+      propertyMap.get.keys
+    else
+      Seq.empty
+  }
+
+  def properties: Seq[PropertyKey] = labelSchema.values.flatMap(_.keys)
+
   def union(other: EntitySchema): EntitySchema =
     copy(labelSchema union other.labelSchema)
 
@@ -37,11 +48,17 @@ object EntitySchema {
 /** A general-purpose [[Map]] with richer union semantics. */
 case class SchemaMap[K, V](map: Map[K, V]) {
 
+  def get(key: K): Option[V] = map.get(key)
+
+  def keys: Seq[K] = map.keys.toSeq
+
+  def values: Seq[V] = map.values.toSeq
+
   def union(other: SchemaMap[K, V]): SchemaMap[K, V] = {
     val newMap = other.map.foldLeft(map) {
       case (currMap, (k, v)) =>
         if (currMap.contains(k))
-          throw IrException(s"Key $k with value $v is already present in this SchemaMap.")
+          throw SchemaException(s"Key $k with value $v is already present in this SchemaMap.")
         else
           currMap + (k -> v)
     }

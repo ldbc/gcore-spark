@@ -1,8 +1,12 @@
 package parser.trees
 
 import org.scalatest.FunSuite
-import parser.trees.algebra.SpoofaxToAlgebraMatch
 
+/**
+  * Tests that the [[AlgebraTreeBuilder]] constructs a semantically correct algebraic tree from a
+  * canonical parse tree. Does not test exception behavior, we are only interested in the tree
+  * structure.
+  */
 class AlgebraTreeBuilderTest extends FunSuite with SpoofaxToAlgebraMatch {
 
   testsFor(build())

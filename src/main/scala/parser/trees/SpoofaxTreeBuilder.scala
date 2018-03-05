@@ -1,6 +1,6 @@
 package parser.trees
 
-import api.trees.Builder
+import common.trees.Builder
 import org.spoofax.interpreter.terms.IStrategoTerm
 
 /** Creates a [[SpoofaxBaseTreeNode]] tree from an AST of type [[IStrategoTerm]]. */

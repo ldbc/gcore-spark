@@ -1,7 +1,7 @@
 package spark
 
-import ir.algebra.expressions.{Label, PropertyKey}
-import ir.algebra.types.{TypeArray, TypeBoolean, TypeInteger, TypeString}
+import algebra.expressions.{Label, PropertyKey}
+import algebra.types.{TypeArray, TypeBoolean, TypeInteger, TypeString}
 import org.apache.spark.sql.DataFrame
 import org.scalatest.FunSuite
 import schema._

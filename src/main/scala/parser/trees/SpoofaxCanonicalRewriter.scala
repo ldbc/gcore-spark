@@ -1,6 +1,6 @@
 package parser.trees
 
-import api.trees.TopDownRewriter
+import common.trees.TopDownRewriter
 import parser.utils.{Stratego, VarBinder}
 
 /**
