@@ -1,6 +1,6 @@
 package compiler
 
-import algebra.trees.AlgebraRewriter
+import algebra.AlgebraRewriter
 import parser.SpoofaxParser
 import parser.trees.ParseContext
 

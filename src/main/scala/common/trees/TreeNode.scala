@@ -107,5 +107,7 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
     s"${prefix(depth)}$self\n$subTrees"
   }
 
+  def printTree(): Unit = println(treeString())
+
   protected def prefix(depth: Int): String = "· " * depth
 }

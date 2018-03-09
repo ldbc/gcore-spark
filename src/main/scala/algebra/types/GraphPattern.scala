@@ -72,7 +72,7 @@ case class AllPaths() extends PathQuantifier
 
 
 /** Abstract connections in graph. */
-abstract class Connection(expr: AlgebraExpression) extends AlgebraType
+abstract class Connection(expr: ObjectPattern) extends AlgebraType
   with SemanticCheckWithContext {
 
   def schemaOfEntityType(context: GraphPatternContext): EntitySchema
@@ -80,16 +80,16 @@ abstract class Connection(expr: AlgebraExpression) extends AlgebraType
   override def checkWithContext(context: Context): Unit = {
     val schema = schemaOfEntityType(context.asInstanceOf[GraphPatternContext])
     expr.forEachUp {
-      case expr @ And(WithLabels(_), WithProps(_)) =>
-        expr.rhs.asInstanceOf[WithProps]
+      case expr @ ObjectPattern(WithLabels(_), WithProps(_)) =>
+        expr.propsPred.asInstanceOf[WithProps]
           .checkWithContext(
             PropertyContext(
               graphName = context.asInstanceOf[GraphPatternContext].graphName,
-              labelsExpr = Some(expr.lhs.asInstanceOf[WithLabels]),
+              labelsExpr = Some(expr.labelsPred.asInstanceOf[WithLabels]),
               schema = schema))
 
-      case expr @ And(True(), WithProps(_)) =>
-        expr.rhs.asInstanceOf[WithProps]
+      case expr @ ObjectPattern(True(), WithProps(_)) =>
+        expr.propsPred.asInstanceOf[WithProps]
           .checkWithContext(
             PropertyContext(
               graphName = context.asInstanceOf[GraphPatternContext].graphName,
@@ -106,11 +106,11 @@ abstract class Connection(expr: AlgebraExpression) extends AlgebraType
   }
 }
 
-abstract class SingleEndpointConn(ref: Reference, expr: AlgebraExpression) extends Connection(expr)
+abstract class SingleEndpointConn(ref: Reference, expr: ObjectPattern) extends Connection(expr)
 abstract class DoubleEndpointConn(connType: ConnectionType,
                                   leftEndpoint: SingleEndpointConn,
                                   rightEndpoint: SingleEndpointConn,
-                                  expr: AlgebraExpression) extends Connection(expr) {
+                                  expr: ObjectPattern) extends Connection(expr) {
 
   def getRightEndpoint: SingleEndpointConn = rightEndpoint
 
@@ -123,7 +123,7 @@ abstract class DoubleEndpointConn(connType: ConnectionType,
 
 
 /** Concrete connections in graph. */
-case class Vertex(vertexRef: Reference, expr: AlgebraExpression)
+case class Vertex(vertexRef: Reference, expr: ObjectPattern)
   extends SingleEndpointConn(vertexRef, expr) {
 
   children = List(vertexRef, expr)
@@ -135,8 +135,8 @@ case class Vertex(vertexRef: Reference, expr: AlgebraExpression)
 case class Edge(connName: Reference,
                 leftEndpoint: SingleEndpointConn,
                 rightEndpoint: SingleEndpointConn,
-                connType: ConnectionType, // ObjectMatchPattern
-                expr: AlgebraExpression)
+                connType: ConnectionType,
+                expr: ObjectPattern)
   extends DoubleEndpointConn(connType, leftEndpoint, rightEndpoint, expr) {
 
   children = List(connName, leftEndpoint, rightEndpoint, connType, expr)
@@ -151,7 +151,7 @@ case class Path(connName: Option[Reference], // If binding is not provided, we s
                 leftEndpoint: SingleEndpointConn,
                 rightEndpoint: SingleEndpointConn,
                 connType: ConnectionType,
-                expr: AlgebraExpression, // ObjectMatchPattern
+                expr: ObjectPattern,
                 quantifier: Option[PathQuantifier],
                 costVarDef: Option[Literal[String]], // If COST is not mentioned, we are not
                                                      // interested in computing it by default.

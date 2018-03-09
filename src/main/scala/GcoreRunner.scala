@@ -1,9 +1,8 @@
-import java.nio.file.Paths
-
 import compiler.{CompileContext, Compiler, GcoreCompiler}
 import org.apache.spark.sql.SparkSession
 import org.slf4j.{Logger, LoggerFactory}
 import spark.SparkGraphDb
+import spark.examples.DummyGraph
 
 /** Main entry point of the interpreter. */
 object GcoreRunner {
@@ -19,16 +18,19 @@ object GcoreRunner {
   def main(args: Array[String]): Unit = {
     val graphDb: SparkGraphDb = SparkGraphDb(spark)
 
-    graphDb.registerGraph(
-      graphDb.jsonSource,
-      Paths.get("/export/scratch1/georgian/repos/gcore-interpreter/src/main/scala/spark/examples/dummy_graph.json"))
+    graphDb.registerGraph(DummyGraph(spark))
+    graphDb.setDefaultGraph("dummy_graph")
 
     println(graphDb.graph("dummy_graph"))
 
     val compiler: Compiler = GcoreCompiler(CompileContext(graphDb))
     compiler.compile(
       """
-        | CONSTRUCT () MATCH (:Cat {onDiet = true})->(:Food) ON dummy_graph")
+        | CONSTRUCT () MATCH (c:Cat)->(f:Food), (f: Food)<-(c:Cat)
       """.stripMargin)
+//    compiler.compile(
+//      """
+//        | CONSTRUCT () MATCH (c:Cat), (f: Food)
+//      """.stripMargin)
   }
 }

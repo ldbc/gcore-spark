@@ -39,7 +39,7 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
         val optionalClause = from.children(1)
 
         MatchClause(
-          List(extractCondMatchClause(from = fullGraphPatternCondition)),
+          extractCondMatchClause(from = fullGraphPatternCondition),
           extractOptionalMatches(from = optionalClause))
       }
       case _ => throw QueryParseException(s"Cannot extract clause from node type ${from.name} ")
@@ -146,9 +146,9 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
         Exists(
           Query(
             MatchClause(
-              List(CondMatchClause(
+              CondMatchClause(
                 List(SimpleMatchClause(extractPattern(from), new DefaultGraph)),
-                /*where = */ new True)),
+                /*where = */ True()),
               List.empty[CondMatchClause]
             )
           )
@@ -233,10 +233,10 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
     val connName = Reference(refName.value)
 
     val connType = from.children.head.name match {
-      case "InConn" => new InConn
-      case "OutConn" => new OutConn
-      case "UndirectedEdge" => new UndirectedConn
-      case "InOutEdge" => new InOutConn
+      case "InConn" => InConn()
+      case "OutConn" => OutConn()
+      case "UndirectedEdge" => UndirectedConn()
+      case "InOutEdge" => InOutConn()
     }
 
     val expr = extractMatchPattern(connElement.children.head.children(1))
@@ -269,14 +269,14 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
     }
 
     val connType = from.children.head.name match {
-      case "InConn" => new InConn
-      case "OutConn" => new OutConn
-      case "UndirectedEdge" => new UndirectedConn
-      case "InOutEdge" => new InOutConn
+      case "InConn" => InConn()
+      case "OutConn" => OutConn()
+      case "UndirectedEdge" => UndirectedConn()
+      case "InOutEdge" => InOutConn()
     }
 
     val expr = connElement.children.head.name match {
-      case "Virtual" => new True // A Virtual path has no ObjectMatchPattern
+      case "Virtual" => ObjectPattern(True(), True()) // A Virtual path has no ObjectMatchPattern
       case "Objectified" => extractMatchPattern(connElement.children.head.children(3))
     }
 
@@ -322,10 +322,10 @@ object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] 
     *
     * @see [[GraphPattern]]
     */
-  private def extractMatchPattern(from: SpoofaxBaseTreeNode): AlgebraExpression = {
+  private def extractMatchPattern(from: SpoofaxBaseTreeNode): ObjectPattern = {
     from.name match {
       case "ObjectMatchPattern" =>
-        And(extractLabels(from.children.head), extractProps(from.children(1)))
+        ObjectPattern(extractLabels(from.children.head), extractProps(from.children(1)))
       case _ =>
         throw QueryParseException(s"Cannot extract ObjectMatchPattern from node type ${from.name}")
     }

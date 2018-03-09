@@ -33,7 +33,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
 
       algebraTree should matchPattern {
         case Query(MatchClause(
-        /*u =>*/ List(CondMatchClause(List(SimpleMatchClause(_, _)), _)),
+        /*u =>*/ CondMatchClause(List(SimpleMatchClause(_, _)), _),
         /*v =>*/ List(CondMatchClause(List(SimpleMatchClause(_, _)), _))
         )) =>
       }
@@ -51,7 +51,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
 
       inside (algebraTree) {
         case Query(MatchClause(
-          /* non optional */ List(CondMatchClause(List(SimpleMatchClause(graphPattern, _)), _)),
+          /* non optional */ CondMatchClause(List(SimpleMatchClause(graphPattern, _)), _),
           /* optional */ _
           )) => {
 
@@ -73,11 +73,11 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(
+            /* non optional */ CondMatchClause(
               List(
                 /*u =>*/ SimpleMatchClause(graphPatternU, _),
                 /*v =>*/ SimpleMatchClause(graphPatternV, _)),
-              /*where =*/ _)),
+              /*where =*/ _),
             /* optional */ _)) => {
 
           graphPatternU should matchPattern {
@@ -103,10 +103,10 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(
+            /* non optional */ CondMatchClause(
               List(
                 /*u->v =>*/ SimpleMatchClause(graphPattern, _)),
-              /*where =*/ _)),
+              /*where =*/ _),
             /* optional */ _)) => {
 
           graphPattern should matchPattern {
@@ -132,11 +132,11 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(
+            /* non optional */ CondMatchClause(
               List(
                 /*u->v =>*/ SimpleMatchClause(graphPattern1, _),
                 /*v->w =>*/ SimpleMatchClause(graphPattern2, _)),
-              /*where =*/ _)),
+              /*where =*/ _),
             /* optional */ _
         )) => {
 
@@ -173,10 +173,10 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(
+            /* non optional */ CondMatchClause(
               List(
                 /*u->v->w =>*/ SimpleMatchClause(graphPattern, _)),
-              /*where =*/ _)),
+              /*where =*/ _),
             /* optional */ _)) => {
 
           graphPattern should matchPattern { case GraphPattern(List(
@@ -197,8 +197,8 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(
-              List(/*u-/p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _)),
+            /* non optional */ CondMatchClause(
+              List(/*u-/p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
             /* optional */ _
           )) => {
 
@@ -218,8 +218,8 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(
-              List(/*u-/@p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _)),
+            /* non optional */ CondMatchClause(
+              List(/*u-/@p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
             /* optional */ _)) => {
 
           graphPattern should matchPattern {
@@ -242,7 +242,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr)),
+            /* non optional */ CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr),
             /* optional */ _
           )) => {
 
@@ -264,7 +264,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(List(SimpleMatchClause(_, graph)), _)),
+            /* non optional */ CondMatchClause(List(SimpleMatchClause(_, graph)), _),
             /* optional */ _
           )) => {
 
@@ -283,7 +283,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(List(SimpleMatchClause(_, graph)), _)),
+            /* non optional */ CondMatchClause(List(SimpleMatchClause(_, graph)), _),
             /* optional */_
           )) => {
 
@@ -302,7 +302,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       inside (algebraTree) {
         case Query(
           MatchClause(
-            /* non optional */ List(CondMatchClause(List(SimpleMatchClause(_, graph)), _)),
+            /* non optional */ CondMatchClause(List(SimpleMatchClause(_, graph)), _),
             /* optional */ _
           )) => {
 

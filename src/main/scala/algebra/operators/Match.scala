@@ -1,20 +1,31 @@
 package algebra.operators
 
-import common.compiler.Context
+import algebra.exceptions.{DefaultGraphNotAvailableException, NamedGraphNotAvailableException, UnsupportedOperation}
 import algebra.expressions.AlgebraExpression
+import algebra.trees.{GraphPatternContext, QueryContext}
 import algebra.types._
-import algebra.exceptions.{DefaultGraphNotAvailableException, NamedGraphNotAvailableException, SemanticException, UnsupportedOperation}
-import algebra.trees.{GraphPatternContext, QueryContext, SemanticCheckWithContext}
+import common.compiler.Context
 
-abstract class GcorePrimitive extends AlgebraOperator with SemanticCheckWithContext
 abstract class MatchLike extends GcorePrimitive
 
-case class Query(matchClause: MatchClause) extends GcorePrimitive {
+case class MatchClause(nonOptMatches: CondMatchClause, optMatches: Seq[CondMatchClause])
+  extends MatchLike {
 
-  children = List(matchClause)
+  children = List(nonOptMatches) ++ optMatches
+
+  override def checkWithContext(context: Context): Unit = {
+    nonOptMatches.checkWithContext(context)
+    optMatches.foreach(_.checkWithContext(context))
+  }
+}
+
+case class CondMatchClause(simpleMatches: Seq[SimpleMatchClause], where: AlgebraExpression)
+  extends MatchLike {
+
+  children = simpleMatches :+ where
 
   override def checkWithContext(context: Context): Unit =
-    matchClause.checkWithContext(context)
+    simpleMatches.foreach(_.checkWithContext(context))
 }
 
 case class SimpleMatchClause(graphPattern: GraphPattern, graph: Graph) extends MatchLike {
@@ -44,24 +55,5 @@ case class SimpleMatchClause(graphPattern: GraphPattern, graph: Graph) extends M
     }
 
     graphPattern.topology.foreach(_.checkWithContext(graphPatternContext))
-  }
-}
-
-case class CondMatchClause(simpleMatches: Seq[SimpleMatchClause], where: AlgebraExpression)
-  extends MatchLike {
-
-  children = simpleMatches :+ where
-
-  override def checkWithContext(context: Context): Unit =
-    simpleMatches.foreach(_.checkWithContext(context))
-}
-
-case class MatchClause(nonOptMatches: Seq[CondMatchClause], optMatches: Seq[CondMatchClause])
-  extends MatchLike {
-
-  children = nonOptMatches ++ optMatches
-
-  override def checkWithContext(context: Context): Unit = {
-    nonOptMatches.foreach(_.checkWithContext(context))
   }
 }
