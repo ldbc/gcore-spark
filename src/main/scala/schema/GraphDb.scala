@@ -1,24 +1,22 @@
 package schema
 
-import org.apache.spark.sql.DataFrame
+object GraphDb {
+  val empty: GraphDb = new GraphDb { override type T = Nothing }
+}
 
-/**
-  * Keeps track of all the [[PathPropertyGraph]]s available for querying.
-  *
-  * @tparam T The type of the collection that backs the actual data. Depending on the system used
-  *           as a backend, this type may differ. For example, for a Spark solution, we could
-  *           represent a table as a [[DataFrame]].
-  */
-abstract class GraphDb[T] {
+/** Keeps track of all the [[PathPropertyGraph]]s available for querying. */
+abstract class GraphDb {
 
-  private var registeredGraphs: Map[String, PathPropertyGraph[T]] = Map.empty
-  private var registeredDefaultGraph: PathPropertyGraph[T] = PathPropertyGraph.empty[T]
+  type T
+
+  private var registeredGraphs: Map[String, PathPropertyGraph] = Map.empty
+  private var registeredDefaultGraph: PathPropertyGraph = PathPropertyGraph.empty
 
   /**
     * All available [[PathPropertyGraph]]s in this database (the default graph is by default
     * included in the result).
     */
-  def allGraphs: Seq[PathPropertyGraph[T]] = registeredGraphs.values.toSeq
+  def allGraphs: Seq[PathPropertyGraph] = registeredGraphs.values.toSeq
 
   /** Checks whether a graph given by its name has been registered in this database. */
   def hasGraph(graphName: String): Boolean = registeredGraphs.contains(graphName)
@@ -27,14 +25,14 @@ abstract class GraphDb[T] {
     * Returns the [[PathPropertyGraph]] given by its name if it has been registered in the database,
     * or else the empty [[PathPropertyGraph]].
     */
-  def graph(graphName: String): PathPropertyGraph[T] =
-    registeredGraphs.getOrElse(graphName, PathPropertyGraph.empty[T])
+  def graph(graphName: String): PathPropertyGraph =
+    registeredGraphs.getOrElse(graphName, PathPropertyGraph.empty)
 
   /**
     * Registers a [[PathPropertyGraph]] with this database. This means that the graph can be then
     * queried.
     */
-  def registerGraph(graph: PathPropertyGraph[T]): Unit =
+  def registerGraph(graph: PathPropertyGraph): Unit =
     registeredGraphs += (graph.graphName -> graph)
 
   /**
@@ -48,20 +46,20 @@ abstract class GraphDb[T] {
     registeredGraphs -= graphName
 
     if (graphName == registeredDefaultGraph.graphName)
-      registeredDefaultGraph = PathPropertyGraph.empty[T]
+      registeredDefaultGraph = PathPropertyGraph.empty
   }
 
   /**
     * @see [[unregisterGraph(graphName: String)]]
     */
-  def unregisterGraph(graph: PathPropertyGraph[T]): Unit =
+  def unregisterGraph(graph: PathPropertyGraph): Unit =
     unregisterGraph(graph.graphName)
 
   /** Checks whether a default graph has been defined for this database. */
   def hasDefaultGraph: Boolean = registeredDefaultGraph.nonEmpty
 
   /** Returns the default [[PathPropertyGraph]] in this database. */
-  def defaultGraph(): PathPropertyGraph[T] = registeredDefaultGraph
+  def defaultGraph(): PathPropertyGraph = registeredDefaultGraph
 
   /**
     * Sets the default [[PathPropertyGraph]] of this database. The graph needs to have been
@@ -78,8 +76,7 @@ abstract class GraphDb[T] {
     * Resets the default graph of this database to the empty [[PathPropertyGraph]]. It does not
     * deregister the graph from the database.
     */
-  def resetDefaultGraph(): Unit =
-    registeredDefaultGraph = PathPropertyGraph.empty[T]
+  def resetDefaultGraph(): Unit = registeredDefaultGraph = PathPropertyGraph.empty
 
 
   override def toString: String = {

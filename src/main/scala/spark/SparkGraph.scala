@@ -13,7 +13,9 @@ import schema._
   * particular way) the [[schema.GraphData.vertexData]], [[schema.GraphData.edgeData]] and
   * [[schema.GraphData.pathData]].
   */
-abstract class SparkGraph extends PathPropertyGraph[DataFrame] {
+abstract class SparkGraph extends PathPropertyGraph {
+
+  override type T = DataFrame
 
   override def vertexSchema: EntitySchema = buildSchema(vertexData)
 

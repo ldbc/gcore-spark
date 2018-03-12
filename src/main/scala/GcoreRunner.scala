@@ -25,12 +25,11 @@ object GcoreRunner {
 
     val compiler: Compiler = GcoreCompiler(CompileContext(graphDb))
     compiler.compile(
-      """
-        | CONSTRUCT () MATCH (c:Cat)->(f:Food), (f: Food)<-(c:Cat)
-      """.stripMargin)
-//    compiler.compile(
 //      """
-//        | CONSTRUCT () MATCH (c:Cat), (f: Food)
+//        | CONSTRUCT () MATCH (c:Cat)->(f:Food), (f: Food)<-(c:Cat)
 //      """.stripMargin)
+      """
+        | CONSTRUCT () MATCH (c:Cat|Food), (f: Food)
+      """.stripMargin)
   }
 }

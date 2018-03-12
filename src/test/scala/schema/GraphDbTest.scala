@@ -13,14 +13,14 @@ class GraphDbTest extends FunSuite {
   }
 
   test("allGraphs") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     graphDb.registerGraph(graph1)
     graphDb.registerGraph(graph2)
     assert(graphDb.allGraphs == Seq(graph1, graph2))
   }
 
   test("hasGraph") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     graphDb.registerGraph(graph1)
     graphDb.registerGraph(graph2)
     assert(graphDb.hasGraph("graph1"))
@@ -28,7 +28,7 @@ class GraphDbTest extends FunSuite {
   }
 
   test("graph") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     graphDb.registerGraph(graph1)
     graphDb.registerGraph(graph2)
     assert(graphDb.graph("graph1") == graph1)
@@ -36,14 +36,14 @@ class GraphDbTest extends FunSuite {
   }
 
   test("unregisterGraph(graphName: String) for non-default graph") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     graphDb.registerGraph(graph1)
     graphDb.unregisterGraph("graph1")
     assert(graphDb.allGraphs == Seq.empty)
   }
 
   test("unregisterGraph(graphName: String) for default graph") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     graphDb.registerGraph(graph1)
     graphDb.setDefaultGraph("graph1")
     graphDb.unregisterGraph("graph1")
@@ -51,7 +51,7 @@ class GraphDbTest extends FunSuite {
   }
 
   test("hasDefaultGraph and defaultGraph") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     graphDb.registerGraph(graph1)
     assert(!graphDb.hasDefaultGraph)
     assert(graphDb.defaultGraph().isEmpty)
@@ -66,7 +66,7 @@ class GraphDbTest extends FunSuite {
   }
 
   test("setDefaultGraph throws exception if graph is not registered") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     assert(graphDb.allGraphs.isEmpty)
 
     assertThrows[SchemaException] {
@@ -75,7 +75,7 @@ class GraphDbTest extends FunSuite {
   }
 
   test("resetDefaultGraph") {
-    val graphDb: GraphDb[Seq[Int]] = new GraphDb[Seq[Int]] {}
+    val graphDb: AGraphDb = new AGraphDb {}
     graphDb.registerGraph(graph1)
     graphDb.setDefaultGraph("graph1")
     graphDb.resetDefaultGraph()
@@ -83,16 +83,22 @@ class GraphDbTest extends FunSuite {
     assert(!graphDb.hasDefaultGraph)
   }
 
+  sealed abstract class AGraphDb extends GraphDb {
+    override type T = Nothing
+  }
+
   /**
     * Graphs used in this test suite. We are not interested in schema or data, but it is not the
     * empty graph either.
     */
-  sealed abstract class PartialGraph extends PathPropertyGraph[Seq[Int]] {
+  sealed abstract class PartialGraph extends PathPropertyGraph {
+    override type T = Nothing
+
     override def vertexSchema: EntitySchema = EntitySchema.empty
     override def pathSchema: EntitySchema = EntitySchema.empty
     override def edgeSchema: EntitySchema = EntitySchema.empty
-    override def vertexData: Seq[Table[Seq[Int]]] = Seq.empty
-    override def edgeData: Seq[Table[Seq[Int]]] = Seq.empty
-    override def pathData: Seq[Table[Seq[Int]]] = Seq.empty
+    override def vertexData: Seq[Table[Nothing]] = Seq.empty
+    override def edgeData: Seq[Table[Nothing]] = Seq.empty
+    override def pathData: Seq[Table[Nothing]] = Seq.empty
   }
 }

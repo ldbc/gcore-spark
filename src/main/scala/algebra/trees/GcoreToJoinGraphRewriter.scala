@@ -1,5 +1,7 @@
 package algebra.trees
 
+import algebra.BindingTable
+import algebra.exceptions.UnsupportedOperation
 import algebra.expressions._
 import algebra.operators.BinaryPrimitive.reduceLeft
 import algebra.operators._
@@ -12,7 +14,8 @@ import scala.collection.mutable
   * Transforms the [[GcorePrimitive]]s within the algebraic tree into a mix of common
   * [[AlgebraPrimitive]]s.
   */
-object GcoreToJoinGraphRewriter extends BottomUpRewriter[AlgebraTreeNode] {
+case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
+  extends BottomUpRewriter[AlgebraTreeNode] {
 
   override def rule: RewriteFuncType =
     matchClause orElse
@@ -20,7 +23,8 @@ object GcoreToJoinGraphRewriter extends BottomUpRewriter[AlgebraTreeNode] {
       simpleMatchClause orElse
       graphPattern orElse
       edge orElse
-      vertex
+      vertex orElse
+      withLabels
 
   /**
     * A [[MatchClause]] is expressed between a [[CondMatchClause]] and zero or more optional
@@ -106,10 +110,9 @@ object GcoreToJoinGraphRewriter extends BottomUpRewriter[AlgebraTreeNode] {
     * Note: At this step, we create a [[BindingContext]] to hold the [[Reference]] of this entity.
     */
   private val vertex: RewriteFuncType = {
-    case v @ Vertex(ref, _) =>
-      EntityRelation(
-        ref = ref,
-        objPattern = v.children(1).asInstanceOf[ObjectPattern])
+    case Vertex(ref, objPattern) =>
+      addBinding(ref, objPattern)
+      VertexRelation(ref)
   }
 
   /**
@@ -135,28 +138,59 @@ object GcoreToJoinGraphRewriter extends BottomUpRewriter[AlgebraTreeNode] {
   *   </ul>
     */
   private val edge: RewriteFuncType = {
-    case e @ Edge(_, _, _, connType, _) =>
+    case e @ Edge(ref, _, _, connType, objPattern) =>
+      val leftEndpointRel: EntityRelation = e.children(1).asInstanceOf[EntityRelation]
+      val rightEndpointRel: EntityRelation = e.children(2).asInstanceOf[EntityRelation]
+      val edgeRel: RelationLike = EdgeRelation(ref)
+
+      addBinding(ref, objPattern)
+
       if (connType == InConn() || connType == OutConn()) {
-        bindingsForInOrOutConn(e, connType)
+        bindingsForInOrOutConn(leftEndpointRel, rightEndpointRel, edgeRel, connType)
       } else {
-        val leftEdgeRightBindings: RelationLike = bindingsForInOrOutConn(e, OutConn())
-        val rightEdgeLeftBindings: RelationLike = bindingsForInOrOutConn(e, InConn())
+        val leftEdgeRightBindings: RelationLike =
+          bindingsForInOrOutConn(leftEndpointRel, rightEndpointRel, edgeRel, OutConn())
+        val rightEdgeLeftBindings: RelationLike =
+          bindingsForInOrOutConn(leftEndpointRel, rightEndpointRel, edgeRel, InConn())
+
         UnionAll(
           lhs = leftEdgeRightBindings,
           rhs = rightEdgeLeftBindings)
       }
   }
 
-  private def bindingsForInOrOutConn(edge: AlgebraTreeNode,
-                                     connType: ConnectionType): RelationLike = {
-    val leftEndpointRel: EntityRelation = edge.children(1).asInstanceOf[EntityRelation]
-    val rightEndpointRel: EntityRelation = edge.children(2).asInstanceOf[EntityRelation]
-    val edgeRef: Reference = edge.children.head.asInstanceOf[Reference]
-    val edgeRel: RelationLike =
-      EntityRelation(
-        ref = edgeRef,
-        objPattern = edge.children.last.asInstanceOf[ObjectPattern])
+  /**
+    * [[WithLabels]] is a conjunction of disjunctions ([[HasLabel]]s) of [[Label]]s. Label
+    * conjunction is not supported at the moment in queries.
+    */
+  private val withLabels: RewriteFuncType = {
+    case WithLabels(And(HasLabel(_), HasLabel(_))) =>
+      throw UnsupportedOperation("Label conjunction is not supported. An entity must have " +
+        "only one label associated with it.")
+    case WithLabels(And(hl @ HasLabel(_), True())) => hl
+    case WithLabels(And(True(), hl @ HasLabel(_))) => hl
+  }
 
+  private def addBinding(ref: Reference, objPattern: ObjectPattern): Unit = {
+    val propsPred: AlgebraExpression = objPattern.children.last.asInstanceOf[AlgebraExpression]
+    objPattern match {
+      case omp @ ObjectPattern(True(), _) =>
+        bindingTable.addBinding(
+          key = ref,
+          value = Select(relation = AllRelations(), expr = propsPred))
+      case _ =>
+        val labelsPred: HasLabel = objPattern.children.head.asInstanceOf[HasLabel]
+        labelsPred.children.foreach(label =>
+          bindingTable.addBinding(
+            key = ref,
+            value = Select(relation = Relation(label.asInstanceOf[Label]), expr = propsPred)))
+    }
+  }
+
+  private def bindingsForInOrOutConn(leftEndpointRel: RelationLike,
+                                     rightEndpointRel: RelationLike,
+                                     edgeRel: RelationLike,
+                                     connType: ConnectionType): RelationLike = {
     val edgeRelJoinedOnFrom: RelationLike =
       EquiJoin(
         lhs = edgeRel,
@@ -180,9 +214,8 @@ object GcoreToJoinGraphRewriter extends BottomUpRewriter[AlgebraTreeNode] {
     edgeRelJoinedOnFromAndTo
   }
 
-  private type BindingToRelationMmap =
-    mutable.HashMap[Reference, mutable.Set[RelationLike]]
-      with mutable.MultiMap[Reference, RelationLike]
+  private type BindingToRelationMmap = mutable.HashMap[Reference, mutable.Set[RelationLike]]
+    with mutable.MultiMap[Reference, RelationLike]
 
   private def joinSimpleMatchRelations(relations: Seq[SimpleMatchRelation]): RelationLike = {
     val bindingToRelationMmap: BindingToRelationMmap =
@@ -241,5 +274,4 @@ object GcoreToJoinGraphRewriter extends BottomUpRewriter[AlgebraTreeNode] {
         binaryOp = CartesianProduct)
     }
   }
-
 }

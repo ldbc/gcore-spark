@@ -1,18 +1,12 @@
 package schema
 
-import org.apache.spark.sql.DataFrame
-
 /**
   * The path property graph is the queryable unit of G-CORE. The graph retains information about
   * vertices, edges and also paths. The stored information refers to labels and key-value
   * attributes of an entity. A graph has a [[GraphSchema]] that describes the structure and
   * properties the stored [[GraphData]].
-  *
-  * @tparam T The type of the collection that backs the actual data. Depending on the system used
-  *           as a backend, this type may differ. For example, for a Spark solution, we could
-  *           represent a table as a [[DataFrame]].
   */
-abstract class PathPropertyGraph[T] extends GraphSchema with GraphData[T] {
+abstract class PathPropertyGraph extends GraphSchema with GraphData {
 
   def graphName: String
 
@@ -37,7 +31,7 @@ abstract class PathPropertyGraph[T] extends GraphSchema with GraphData[T] {
 
 object PathPropertyGraph {
 
-  def empty[T] = new PathPropertyGraph[T] {
+  val empty: PathPropertyGraph = new PathPropertyGraph {
     override def isEmpty: Boolean = true
 
     override def graphName: String = "PathPropertyGraph.empty"

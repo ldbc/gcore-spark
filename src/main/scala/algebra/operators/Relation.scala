@@ -1,6 +1,6 @@
 package algebra.operators
 
-import algebra.expressions.{ObjectPattern, Reference}
+import algebra.expressions.{Label, ObjectPattern, Reference}
 import algebra.types.Graph
 import common.compiler.Context
 
@@ -20,11 +20,19 @@ object RelationLike {
   }
 }
 
-case class EntityRelation(ref: Reference, objPattern: ObjectPattern)
-  extends RelationLike(new BindingContext(ref)) {
-
-  children = List(ref, objPattern)
+case class Relation(label: Label) extends RelationLike(BindingContext.empty) {
+  children = List(label)
 }
+
+case class AllRelations() extends RelationLike(BindingContext.empty)
+
+abstract class EntityRelation(ref: Reference) extends RelationLike(new BindingContext(ref)) {
+  children = List(ref)
+}
+
+case class VertexRelation(ref: Reference) extends EntityRelation(ref)
+
+case class EdgeRelation(ref: Reference) extends EntityRelation(ref)
 
 case class SimpleMatchRelationContext(graph: Graph) extends Context {
 

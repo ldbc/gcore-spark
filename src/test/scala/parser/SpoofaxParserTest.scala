@@ -18,8 +18,6 @@ class SpoofaxParserTest extends FunSuite
   with BeforeAndAfter
   with Matchers {
 
-  type GraphType = Nothing
-
   val peopleVertexSchema: EntitySchema =
     EntitySchema(SchemaMap(Map(
       Label("person") -> SchemaMap(Map(
@@ -46,19 +44,21 @@ class SpoofaxParserTest extends FunSuite
     ))
 
   /** Graph to test on. All the checks are at schema level, so we do not define data. */
-  val peopleGraph: PathPropertyGraph[GraphType] = new PathPropertyGraph[GraphType] {
+  val peopleGraph: PathPropertyGraph = new PathPropertyGraph {
+    override type T = Nothing
+
     override def graphName: String = "people"
 
     override def vertexSchema: EntitySchema = peopleVertexSchema
     override def edgeSchema: EntitySchema = peopleEdgeSchema
     override def pathSchema: EntitySchema = EntitySchema.empty
 
-    override def pathData: Seq[Table[GraphType]] = Seq.empty
-    override def vertexData: Seq[Table[GraphType]] = Seq.empty
-    override def edgeData: Seq[Table[GraphType]] = Seq.empty
+    override def pathData: Seq[Table[T]] = Seq.empty
+    override def vertexData: Seq[Table[T]] = Seq.empty
+    override def edgeData: Seq[Table[T]] = Seq.empty
   }
 
-  val graphDb: GraphDb[GraphType] = new GraphDb[GraphType] {}
+  val graphDb: GraphDb = new GraphDb { override type T = Nothing }
   val parseContext: ParseContext = ParseContext(graphDb = graphDb)
   val parser: SpoofaxParser = SpoofaxParser(parseContext)
 

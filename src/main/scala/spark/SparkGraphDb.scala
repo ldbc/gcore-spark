@@ -6,7 +6,9 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import schema.{GraphDb, PathPropertyGraph}
 
 /** A [[GraphDb]] for [[PathPropertyGraph]]s backed by [[DataFrame]]s. */
-case class SparkGraphDb(sparkSession: SparkSession) extends GraphDb[DataFrame] {
+case class SparkGraphDb(sparkSession: SparkSession) extends GraphDb {
+
+  override type T = DataFrame
 
   val jsonSource: JsonGraphSource = GraphSource.json(sparkSession)
   val parquetSource: ParquetGraphSource = GraphSource.parquet(sparkSession)

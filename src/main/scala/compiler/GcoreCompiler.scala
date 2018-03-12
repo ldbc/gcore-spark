@@ -1,6 +1,7 @@
 package compiler
 
 import algebra.AlgebraRewriter
+import algebra.trees.AlgebraContext
 import parser.SpoofaxParser
 import parser.trees.ParseContext
 
@@ -8,7 +9,8 @@ import parser.trees.ParseContext
 case class GcoreCompiler(compileContext: CompileContext) extends Compiler {
 
   val parser: ParseStage = SpoofaxParser(ParseContext(compileContext.graphDb))
-  val rewriter: RewriteStage = AlgebraRewriter
+  val rewriter: RewriteStage =
+    AlgebraRewriter(AlgebraContext(compileContext.graphDb, algebra.newBindingTable))
 
   override def compile(query: String): Unit = (parser andThen rewriter)(query)
 }

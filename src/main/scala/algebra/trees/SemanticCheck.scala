@@ -16,7 +16,7 @@ trait SemanticCheckWithContext {
   def checkWithContext(context: Context)
 }
 
-case class QueryContext(graphDb: GraphDb[_]) extends Context
+case class QueryContext(graphDb: GraphDb) extends Context
 case class GraphPatternContext(schema: GraphSchema, graphName: String) extends Context
 case class DisjunctLabelsContext(graphName: String, schema: EntitySchema) extends Context
 case class PropertyContext(graphName: String, labelsExpr: Option[WithLabels], schema: EntitySchema)
