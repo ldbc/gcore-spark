@@ -1,6 +1,5 @@
 package algebra.trees
 
-import algebra.exceptions.UnsupportedOperation
 import algebra.expressions._
 import algebra.operators.BinaryPrimitive.reduceLeft
 import algebra.operators._
@@ -13,7 +12,7 @@ import scala.collection.mutable
   * Transforms the [[GcorePrimitive]]s within the algebraic tree into a mix of common
   * [[AlgebraPrimitive]]s.
   */
-object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
+object GcoreToJoinGraphRewriter extends BottomUpRewriter[AlgebraTreeNode] {
 
   override def rule: RewriteFuncType =
     matchClause orElse
@@ -21,10 +20,7 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
       simpleMatchClause orElse
       graphPattern orElse
       edge orElse
-      vertex orElse
-      objectPattern orElse
-      withLabels orElse
-      hasLabel
+      vertex
 
   /**
     * A [[MatchClause]] is expressed between a [[CondMatchClause]] and zero or more optional
@@ -41,7 +37,7 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
     * under the predicate of an [[AlgebraExpression]]. The [[SimpleMatchClause]]s may or may not
     * share bindings between them. If no bindings are shared, then this node is translated into a
     * [[CartesianProduct]] of the [[RelationLike]]s wrapping the [[SimpleMatchClause]]s. Otherwise,
-    * the clauses that share bindings are [[NaturalJoin]]ed and then the [[CartesianProduct]]
+    * the clauses that share bindings are [[InnerJoin]]ed and then the [[CartesianProduct]]
     * operator is applied over the join and the remaining clauses that have not participated in the
     * join. Finally, the results are filtered under the given predicate, with a [[Select]] clause.
     */
@@ -74,7 +70,7 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
     * A [[GraphPattern]] is either only a [[Vertex]] pattern or a sequence of one or more [[Edge]]
     * patterns. In case it is only a [[Vertex]] pattern, it translates to the [[RelationLike]]
     * wrapping the [[Vertex]] on top of which we add a [[Rename]] operation, to change the name of
-    * the "id" attribute into that of the binding. In the second case, we [[NaturalJoin]] all the
+    * the "id" attribute into that of the binding. In the second case, we [[InnerJoin]] all the
     * [[RelationLike]]s wrapping the [[Edge]]s. The final binding table of the resulting
     * [[RelationLike]] is the union of all binding tables participating in the join.
     *
@@ -95,19 +91,9 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
     */
   private val graphPattern: RewriteFuncType = {
     case gp @ GraphPattern(_) =>
-      gp.children.head match {
-        case vertex @ Projection(_, _, contextOption) =>
-          Rename (
-            relation = vertex,
-            renameOperator = RenameAttribute (
-              from = new Attribute ("id"),
-              to = Attribute(contextOption.get.getOnlyBinding)
-            ))
-        case _ =>
-          reduceLeft(
-            relations = gp.children.map(_.asInstanceOf[RelationLike]),
-             binaryOp = NaturalJoin)
-      }
+      reduceLeft(
+        relations = gp.children.map(_.asInstanceOf[RelationLike]),
+        binaryOp = InnerJoin)
   }
 
   /**
@@ -121,10 +107,9 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
     */
   private val vertex: RewriteFuncType = {
     case v @ Vertex(ref, _) =>
-      Projection(
-        attrSet = AttributeSet(new Attribute("id")),
-        relation = v.children.last.asInstanceOf[RelationLike],
-        bindingContext= Some(new BindingContext(ref)))
+      EntityRelation(
+        ref = ref,
+        objPattern = v.children(1).asInstanceOf[ObjectPattern])
   }
 
   /**
@@ -136,9 +121,9 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
     * The [[Edge]] node then becomes:
     *
     * <ul>
-    *   <li> If the [[ConnectionType]] is either [[InConn]] or [[OutConn]], a [[SemiJoin]] between
+    *   <li> If the [[ConnectionType]] is either [[InConn]] or [[OutConn]], an [[EquiJoin]] between
     *   the binding table of the [[Edge]] and sequentially that of the source [[Vertex]]'s and of
-    *   the destination [[Vertex]]'s. The resulting [[BindingContext]] of the [[SemiJoin]] will then
+    *   the destination [[Vertex]]'s. The resulting [[BindingContext]] of the [[EquiJoin]] will then
     *   be the binding table of the join.
     *
     *   <li> If the [[ConnectionType]] is either [[InOutConn]] or [[UndirectedConn]] (meaning that
@@ -146,7 +131,7 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
     *   [[UnionAll]] of the [[RelationLike]]s resulting from solving this [[Edge]] with a
     *   [[ConnectionType]] first as the [[InConn]], then as the [[OutConn]]. The resulting
     *   [[BindingContext]] of the [[UnionAll]] (which will be the [[BindingContext]] of the two
-    *   [[SemiJoin]] operands of the union) will then be the binding table of the result.
+    *   [[EquiJoin]] operands of the union) will then be the binding table of the result.
   *   </ul>
     */
   private val edge: RewriteFuncType = {
@@ -162,200 +147,37 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
       }
   }
 
-  /**
-    * An [[ObjectPattern]] is a predicate over a graph entity, being a logical and between a
-    * [[WithLabels]] and a [[WithProps]] predicate. This is translated into a [[Select]]ion over
-    * the binding table returned by [[WithLabels]] with the predicate expressed in [[WithProps]].
-    *
-    * Note: If no labels have been specified for the entity, the [[Select]] is applied over the
-    * union of labels available in the graph ([[UnionAllRelations]]).
-    *
-    * Note: No [[BindingContext]] is available yet. This is because only at the entity-level we
-    * have access to the name of the binding.
-    */
-  private val objectPattern: RewriteFuncType = {
-    case omp @ ObjectPattern(WithLabels(_), _) =>
-      val withLabels: WithLabels = omp.children.head.asInstanceOf[WithLabels]
-      val withProps: AlgebraExpression = omp.children.last.asInstanceOf[AlgebraExpression]
-      Select(
-        relation = withLabels.children.head.asInstanceOf[RelationLike],
-        expr = withProps)
-
-    case omp @ ObjectPattern(True(), _) =>
-      val withProps: AlgebraExpression = omp.children.last.asInstanceOf[AlgebraExpression]
-      Select(
-        relation = UnionAllRelations(),
-        expr = withProps)
-  }
-
-  /**
-    * [[WithLabels]] is a conjunction of disjunctions ([[HasLabel]]s) of [[Label]]s. Label
-    * conjunction is not supported at the moment in queries.
-    */
-  private val withLabels: RewriteFuncType = {
-    case And(HasLabel(_), HasLabel(_)) =>
-      throw UnsupportedOperation("Label conjunction is not supported. An entity must have " +
-        "only one label associated with it.")
-    case wl @ And(HasLabel(_), True()) => wl.children.head
-    case wl @ And(True(), HasLabel(_)) => wl.children.last
-  }
-
-  /**
-    * [[HasLabel]] is a disjunction of [[Label]]s, meaning that any vertex that has either of the
-    * [[Label]]s present in the predicate satisfies the matching pattern. Each [[Label]] corresponds
-    * to a [[NamedGraph]] in the database. Given the disjunction of [[Label]]s, this rewrite
-    * function returns the [[UnionAll]] operator over the [[Label]]s in the disjunction.
-    *
-    * Note: at this stage, the [[Relation]]s involved in the [[UnionAll]] need not have compatible
-    * headers.
-    *
-    * Note: the [[UnionAll]] operator is a [[BinaryPrimitive]], therefore the [[Relation]]s are
-    * left-reduced under the [[UnionAll]] operator.
-    */
-  private val hasLabel: RewriteFuncType = {
-    case HasLabel(labels) =>
-      val relations: Seq[Relation] = labels.map(label => Relation(label))
-      reduceLeft(
-        relations = relations,
-        binaryOp = UnionAll)
-  }
-
   private def bindingsForInOrOutConn(edge: AlgebraTreeNode,
                                      connType: ConnectionType): RelationLike = {
-    /**
-      * leftEndpointRel => +-----+  rightEndpointRel => +-----+
-      *                    |  id |                      |  id |
-      *                    +-----+                      +-----+
-      *                    | ... |                      | ... |
-      *
-      * The vertex projections will carry the bindings of the endpoints. We will use these to rename
-      * the attributes of the edge relation after the joins.
-      */
-    val leftEndpointRel: Projection = edge.children(1).asInstanceOf[Projection]
-    val rightEndpointRel: Projection = edge.children(2).asInstanceOf[Projection]
-    val edgeRel: Select = edge.children.last.asInstanceOf[Select]
+    val leftEndpointRel: EntityRelation = edge.children(1).asInstanceOf[EntityRelation]
+    val rightEndpointRel: EntityRelation = edge.children(2).asInstanceOf[EntityRelation]
     val edgeRef: Reference = edge.children.head.asInstanceOf[Reference]
-
-    /**
-      * fromRel => +---------+
-      *            |  fromId |
-      *            +---------+
-      *            |   ...   |
-      */
-    val fromRel: RelationLike = {
-      Rename(
-        relation = {
-          connType match {
-            case InConn() => rightEndpointRel
-            case OutConn() => leftEndpointRel
-          }
-        },
-        renameOperator = RenameAttribute(
-          from = new Attribute("id"),
-          to = new Attribute("fromId"))
-      )
-    }
-
-    /**
-      * toRel => +-------+
-      *          |  toId |
-      *          +-------+
-      *          |  ...  |
-      */
-    val toRel: RelationLike =
-      Rename(
-        relation = {
-          connType match {
-            case InConn() => leftEndpointRel
-            case OutConn() => rightEndpointRel
-          }
-        },
-        renameOperator = RenameAttribute(
-          from = new Attribute("id"),
-          to = new Attribute("toId"))
-      )
+    val edgeRel: RelationLike =
+      EntityRelation(
+        ref = edgeRef,
+        objPattern = edge.children.last.asInstanceOf[ObjectPattern])
 
     val edgeRelJoinedOnFrom: RelationLike =
-      SemiJoin(
+      EquiJoin(
         lhs = edgeRel,
-        rhs = fromRel)
+        rhs = connType match {
+          case InConn() => rightEndpointRel
+          case OutConn() => leftEndpointRel
+        },
+        lhsAttribute = Reference("fromId"),
+        rhsAttribute = Reference("id"))
 
     val edgeRelJoinedOnFromAndTo: RelationLike =
-      SemiJoin(
+      EquiJoin(
         lhs = edgeRelJoinedOnFrom,
-        rhs = toRel)
+        rhs = connType match {
+          case InConn() => leftEndpointRel
+          case OutConn() => rightEndpointRel
+        },
+        lhsAttribute = Reference("toId"),
+        rhsAttribute = Reference("id"))
 
-    val resProjection: RelationLike =
-      Projection(
-        relation = edgeRelJoinedOnFromAndTo,
-        attrSet =
-          AttributeSet(new Attribute("id"), new Attribute("fromId"), new Attribute("toId"))
-      )
-
-    /**
-      * (v) -[e]-> (u)
-      *
-      * v = fromRel
-      * u = toRel
-      *
-      * fromRel => +---------+  toRel => +-------+  e => +-----+--------+------+---
-      *            |  fromId |           |  toId |       |  id | fromId | toId | ...
-      *            +---------+           +-------+       +-----+--------+------+---
-      *            |   ...   |           |  ...  |       | ... |  ....  | .... |
-      *                                                  .     .        .      .
-      *                             =>                   .     .        .      .
-      *                                                  .     .        .      .
-      *                                      bindings => +-----+--------+------+--
-      *                                                  |  e  |    u   |   v  | ..
-      *                                                  +-----+--------+------+--
-      *                                                  | ... |  ....  | .... |
-      *
-      */
-    val fromBinding: Rename =
-      Rename(
-        relation = resProjection,
-        renameOperator =
-          RenameAttribute(
-            from = Attribute(Reference("fromId")),
-            to = {
-              connType match {
-                case InConn() => Attribute(rightEndpointRel.bindingContext.get.getOnlyBinding)
-                case OutConn() => Attribute(leftEndpointRel.bindingContext.get.getOnlyBinding)
-              }
-            }
-          ))
-
-    val fromAndToBinding: Rename =
-      Rename(
-        relation = fromBinding,
-        renameOperator =
-          RenameAttribute(
-            from = Attribute(Reference("toId")),
-            to = {
-              connType match {
-                case InConn() => Attribute(leftEndpointRel.bindingContext.get.getOnlyBinding)
-                case OutConn() => Attribute(rightEndpointRel.bindingContext.get.getOnlyBinding)
-              }
-            }
-          ))
-
-    val allBindings: RelationLike =
-      Rename(
-        relation =  fromAndToBinding,
-        renameOperator =
-          RenameAttribute(
-            from = new Attribute("id"),
-            to = Attribute(edgeRef)
-        ),
-        bindingContext =
-          Some(new BindingContext(
-            fromBinding.renameOperator.asInstanceOf[RenameAttribute].to.reference,
-            fromAndToBinding.renameOperator.asInstanceOf[RenameAttribute].to.reference,
-            edgeRef
-          ))
-      )
-
-    allBindings
+    edgeRelJoinedOnFromAndTo
   }
 
   private type BindingToRelationMmap =
@@ -389,7 +211,7 @@ object GcoreToAlgebraTranslation extends BottomUpRewriter[AlgebraTreeNode] {
 
       // Do a natural join over relations that share the variable.
       val joinedRelations = multiBinding._2.toSeq
-      val join: RelationLike = reduceLeft(joinedRelations, NaturalJoin)
+      val join: RelationLike = reduceLeft(joinedRelations, InnerJoin)
 
       // For each binding in the join, remove previous relations it appeared in and are now part of
       // the joined relations, and add the join result to its mmap set.

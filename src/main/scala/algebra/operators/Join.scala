@@ -1,5 +1,7 @@
 package algebra.operators
 
+import algebra.expressions.Reference
+
 abstract class JoinLike(lhs: RelationLike,
                         rhs: RelationLike,
                         bindingContext: Option[BindingContext])
@@ -9,11 +11,11 @@ abstract class JoinLike(lhs: RelationLike,
     * Returns all the bindings that appear in at least two binding sets that have been seen so far
     * by this [[JoinLike]].
     */
-  def commonInSeenBindingSets: BindingSet = BindingSet.intersect(seenBindingSets.toSeq)
+  def commonInSeenBindingSets: BindingSet = BindingSet.intersect(seenBindingSets)
 
   /** The set of [[BindingSet]]s that have been seen so far by in this [[JoinLike]] subtree. */
-  private val seenBindingSets: Set[BindingSet] = {
-    var union: Set[BindingSet] = Set()
+  val seenBindingSets: Seq[BindingSet] = {
+    var union: Seq[BindingSet] = Seq.empty
 
     lhs match {
       case joinLike: JoinLike => union = union ++ joinLike.seenBindingSets
@@ -29,14 +31,16 @@ abstract class JoinLike(lhs: RelationLike,
   }
 }
 
-case class SemiJoin(lhs: RelationLike,
-                    rhs: RelationLike,
-                    bindingContext: Option[BindingContext] = None)
+case class InnerJoin(lhs: RelationLike,
+                     rhs: RelationLike,
+                     bindingContext: Option[BindingContext] = None)
   extends JoinLike(lhs, rhs, bindingContext)
 
-case class NaturalJoin(lhs: RelationLike,
-                       rhs: RelationLike,
-                       bindingContext: Option[BindingContext] = None)
+case class EquiJoin(lhs: RelationLike,
+                    rhs: RelationLike,
+                    lhsAttribute: Reference,
+                    rhsAttribute: Reference,
+                    bindingContext: Option[BindingContext] = None)
   extends JoinLike(lhs, rhs, bindingContext)
 
 case class LeftOuterJoin(lhs: RelationLike,

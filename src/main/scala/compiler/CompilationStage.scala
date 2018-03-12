@@ -39,5 +39,3 @@ trait RewriteStage extends CompilationStage[AlgebraTreeNode, AlgebraTreeNode] {
 
   override def runStage(input: AlgebraTreeNode): AlgebraTreeNode = rewrite(input)
 }
-
-// TODO: Add Optimizer and TargetCodeGenerator

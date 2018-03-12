@@ -5,77 +5,19 @@ import algebra.operators._
 import algebra.types._
 import org.scalatest.{FunSuite, Inside, Matchers}
 
-class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
-
-  test("HasLabel one Label") {
-    val hasLabel = HasLabel(Seq(Label("foo")))
-    val expected = Relation(Label("foo"))
-    val actual = GcoreToAlgebraTranslation rewriteTree hasLabel
-    assert(actual == expected)
-  }
-
-  test("HasLabel multiple Labels") {
-    val hasLabel = HasLabel(Seq(Label("foo"), Label("bar"), Label("baz")))
-    val expected =
-      UnionAll(
-        UnionAll(Relation(Label("foo")), Relation(Label("bar"))),
-        Relation(Label("baz"))
-      )
-    val actual = GcoreToAlgebraTranslation rewriteTree hasLabel
-    assert(actual == expected)
-  }
-
-  test("ObjectPattern WithLabels") {
-    val objectPattern =
-      ObjectPattern(
-        labelsPred = WithLabels(And(HasLabel(Seq(Label("foo"))), True())),
-        propsPred = True()
-      )
-    val expected =
-      Select(
-        relation = Relation(Label("foo")),
-        expr = True(),
-        bindingContext = None // No bindings at this level in the tree.
-      )
-    val actual = GcoreToAlgebraTranslation rewriteTree objectPattern
-    assert(actual == expected)
-  }
-
-  test("ObjectPattern no WithLabels") {
-    val objectPattern =
-      ObjectPattern(
-        labelsPred = True(),
-        propsPred = True()
-      )
-    val expected =
-      Select(
-        relation = UnionAllRelations(),
-        expr = True(),
-        bindingContext = None // No bindings at this level in the tree.
-      )
-    val actual = GcoreToAlgebraTranslation rewriteTree objectPattern
-    assert(actual == expected)
-  }
+class GcoreToJoinGraphRewriterTest extends FunSuite with Matchers with Inside {
 
   test("Vertex") {
     val vertex =
       Vertex(
         vertexRef = Reference("v"),
-        expr =
-          ObjectPattern(
-            labelsPred = WithLabels(And(HasLabel(Seq(Label("foo"))), True())),
-            propsPred = True())
+        expr = ObjectPattern(labelsPred = True(), propsPred = True())
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree vertex
+    val actual = GcoreToJoinGraphRewriter rewriteTree vertex
 
     inside (actual) {
-      case
-        Projection(
-          AttributeSet(Attribute(Reference("id"))),
-          Select(_, _, _),
-          Some(BindingContext(bset))) =>
-
-        assert(bset.bindings == Set(Reference("v")))
+      case vr @ EntityRelation(Reference("v"), _) =>
+        assert(vr.getBindings.bindings == Set(Reference("v")))
     }
   }
 
@@ -86,85 +28,40 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         leftEndpoint =
           Vertex(
             vertexRef = Reference("v"),
-            expr =
-              ObjectPattern(
-                labelsPred = WithLabels(And(HasLabel(Seq(Label("v_label"))), True())),
-                propsPred = True())),
+            expr = ObjectPattern(labelsPred = True(), propsPred = True())),
         rightEndpoint =
           Vertex(
             vertexRef = Reference("w"),
-            expr =
-              ObjectPattern(
-                labelsPred = WithLabels(And(HasLabel(Seq(Label("w_label"))), True())),
-                propsPred = True())),
+            expr = ObjectPattern(labelsPred = True(), propsPred = True())),
         connType = OutConn(),
         expr =
           ObjectPattern(
             labelsPred = WithLabels(And(HasLabel(Seq(Label("e_label"))), True())),
             propsPred = True())
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree edge
+    val actual = GcoreToJoinGraphRewriter rewriteTree edge
 
     inside (actual) {
       case
-        Rename(
-          Rename(
-            Rename(
-              edgeProjection,
-              RenameAttribute(
-                Attribute(Reference("fromId")),
-                Attribute(Reference("v"))),
-              _),
-            RenameAttribute(
-              Attribute(Reference("toId")),
-              Attribute(Reference("w"))),
-            _),
-          RenameAttribute(
-            Attribute(Reference("id")),
-            Attribute(Reference("e"))),
-          Some(BindingContext(bset))) =>
+        ej @ EquiJoin(
+          EquiJoin(edgeRelation, fromRelation, Reference("fromId"), Reference("id"), _),
+          toRelation,
+          Reference("toId"),
+          Reference("id"),
+          _) =>
 
-        assert(bset.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
+        assert(ej.getBindings.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
 
-        inside (edgeProjection) {
-          case
-            Projection(
-              AttributeSet(
-                Attribute(Reference("id")),
-                Attribute(Reference("fromId")),
-                Attribute(Reference("toId"))),
-              semiJoin,
-              _) =>
+        edgeRelation should matchPattern {
+          case EntityRelation(_, _) =>
+        }
 
-            inside (semiJoin) {
-              case SemiJoin(SemiJoin(edgeRelation, fromRelation, _), toRelation, _) => {
-                edgeRelation should matchPattern {
-                  case Select(Relation(Label("e_label"), _), _, _) =>
-                }
+        fromRelation should matchPattern {
+          case EntityRelation(_, _) =>
+        }
 
-                fromRelation should matchPattern {
-                  case
-                    Rename(
-                      Projection(
-                        AttributeSet(Attribute(Reference("id"))),
-                        Select(Relation(Label("v_label"), _), _, _),
-                        _),
-                      RenameAttribute(Attribute(Reference("id")), Attribute(Reference("fromId"))),
-                      _) =>
-                }
-
-                toRelation should matchPattern {
-                  case
-                    Rename(
-                      Projection(
-                        AttributeSet(Attribute(Reference("id"))),
-                        Select(Relation(Label("w_label"), _), _, _),
-                        _),
-                      RenameAttribute(Attribute(Reference("id")), Attribute(Reference("toId"))),
-                      _) =>
-                }
-              }
-            }
+        toRelation should matchPattern {
+          case EntityRelation(_, _) =>
         }
     }
   }
@@ -184,22 +81,30 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         connType = InConn(),
         expr = ObjectPattern(labelsPred = True(), propsPred = True())
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree edge
+    val actual = GcoreToJoinGraphRewriter rewriteTree edge
 
     inside(actual) {
       case
-        Rename(
-          Rename(
-            Rename(
-              _,
-              RenameAttribute(Attribute(Reference("fromId")), Attribute(Reference("w"))),
-              _),
-            RenameAttribute(Attribute(Reference("toId")), Attribute(Reference("v"))),
-            _),
-          RenameAttribute(Attribute(Reference("id")), Attribute(Reference("e"))),
-          Some(BindingContext(bset))) =>
+        ej @ EquiJoin(
+          EquiJoin(edgeRelation, fromRelation, Reference("fromId"), Reference("id"), _),
+          toRelation,
+          Reference("toId"),
+          Reference("id"),
+          _) =>
 
-        assert(bset.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
+        assert(ej.getBindings.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
+
+        edgeRelation should matchPattern {
+          case EntityRelation(Reference("e"), _) =>
+        }
+
+        fromRelation should matchPattern {
+          case EntityRelation(Reference("w"), _) =>
+        }
+
+        toRelation should matchPattern {
+          case EntityRelation(Reference("v"), _) =>
+        }
     }
   }
 
@@ -218,40 +123,11 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         connType = InOutConn(),
         expr = ObjectPattern(labelsPred = True(), propsPred = True())
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree edge
+    val actual = GcoreToJoinGraphRewriter rewriteTree edge
 
-    inside(actual) {
-      case u @ UnionAll(vToW, wToV, _) => {
+    inside (actual) {
+      case u@UnionAll(_, _, _) =>
         assert(u.getBindings.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
-
-        vToW should matchPattern {
-          case
-            Rename(
-              Rename(
-                Rename(
-                  _,
-                  RenameAttribute(Attribute(Reference("fromId")), Attribute(Reference("v"))),
-                  _),
-                RenameAttribute(Attribute(Reference("toId")), Attribute(Reference("w"))),
-                _),
-              RenameAttribute(Attribute(Reference("id")), Attribute(Reference("e"))),
-              _) =>
-        }
-
-        wToV should matchPattern {
-          case
-            Rename(
-              Rename(
-                Rename(
-                  _,
-                  RenameAttribute(Attribute(Reference("fromId")), Attribute(Reference("w"))),
-                  _),
-                RenameAttribute(Attribute(Reference("toId")), Attribute(Reference("v"))),
-                _),
-              RenameAttribute(Attribute(Reference("id")), Attribute(Reference("e"))),
-              _) =>
-        }
-      }
     }
   }
 
@@ -270,40 +146,11 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         connType = UndirectedConn(),
         expr = ObjectPattern(labelsPred = True(), propsPred = True())
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree edge
+    val actual = GcoreToJoinGraphRewriter rewriteTree edge
 
     inside(actual) {
-      case u @ UnionAll(vToW, wToV, _) => {
+      case u @ UnionAll(_, _, _) =>
         assert(u.getBindings.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
-
-        vToW should matchPattern {
-          case
-            Rename(
-              Rename(
-                Rename(
-                  _,
-                  RenameAttribute(Attribute(Reference("fromId")), Attribute(Reference("v"))),
-                  _),
-                RenameAttribute(Attribute(Reference("toId")), Attribute(Reference("w"))),
-                _),
-              RenameAttribute(Attribute(Reference("id")), Attribute(Reference("e"))),
-              _) =>
-        }
-
-        wToV should matchPattern {
-          case
-            Rename(
-              Rename(
-                Rename(
-                  _,
-                  RenameAttribute(Attribute(Reference("fromId")), Attribute(Reference("w"))),
-                  _),
-                RenameAttribute(Attribute(Reference("toId")), Attribute(Reference("v"))),
-                _),
-              RenameAttribute(Attribute(Reference("id")), Attribute(Reference("e"))),
-              _) =>
-        }
-      }
     }
   }
 
@@ -316,10 +163,10 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
             expr = ObjectPattern(labelsPred = True(), propsPred = True()))
         )
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree graphPattern
+    val actual = GcoreToJoinGraphRewriter rewriteTree graphPattern
 
     inside (actual) {
-      case r @ Rename(_, _, _) =>
+      case r @ EntityRelation(_, _) =>
         assert(r.getBindings.bindings == Set(Reference("v")))
     }
   }
@@ -356,10 +203,10 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
           )
         )
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree graphPattern
+    val actual = GcoreToJoinGraphRewriter rewriteTree graphPattern
 
     inside (actual) {
-      case nj @ NaturalJoin(_, _, _) =>
+      case nj @ InnerJoin(_, _, _) =>
         assert(nj.getBindings.bindings ==
           Set(Reference("v"), Reference("w"), Reference("t"), Reference("e1"), Reference("e2")))
         assert(nj.commonInSeenBindingSets.bindings == Set(Reference("w")))
@@ -376,7 +223,7 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
                 vertexRef = Reference("v"),
                 expr = ObjectPattern(labelsPred = True(), propsPred = True())))),
         graph = NamedGraph("some_graph"))
-    val actual = GcoreToAlgebraTranslation rewriteTree simpleMatchClause
+    val actual = GcoreToJoinGraphRewriter rewriteTree simpleMatchClause
 
     actual should matchPattern {
       case SimpleMatchRelation(_, SimpleMatchRelationContext(NamedGraph("some_graph")), _) =>
@@ -406,7 +253,7 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         ),
         where = True()
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree condMatchClause
+    val actual = GcoreToJoinGraphRewriter rewriteTree condMatchClause
 
     inside (actual) {
       case s @ Select(CartesianProduct(_, _, _), True(), _) =>
@@ -447,10 +294,10 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         ),
         where = True()
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree condMatchClause
+    val actual = GcoreToJoinGraphRewriter rewriteTree condMatchClause
 
     inside (actual) {
-      case s @ Select(NaturalJoin(_, _, _), True(), _) =>
+      case s @ Select(InnerJoin(_, _, _), True(), _) =>
         assert(s.getBindings.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
     }
   }
@@ -496,10 +343,10 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         ),
         where = True()
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree condMatchClause
+    val actual = GcoreToJoinGraphRewriter rewriteTree condMatchClause
 
     inside (actual) {
-      case s @ Select(NaturalJoin(_, _, _), True(), _) =>
+      case s @ Select(InnerJoin(_, _, _), True(), _) =>
         assert(s.getBindings.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
     }
   }
@@ -545,13 +392,13 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
         ),
         where = True()
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree condMatchClause
+    val actual = GcoreToJoinGraphRewriter rewriteTree condMatchClause
 
     // Given that we use a Set to keep track of the relations we should join, it is infeasible to
     // test exact order of the relations in the join. We test the composition of the binding set to
     // substitute for this inconvenience.
     inside (actual) {
-      case s @ Select(CartesianProduct(nj @ NaturalJoin(_, _, _), _, _), True(), _) =>
+      case s @ Select(CartesianProduct(nj @ InnerJoin(_, _, _), _, _), True(), _) =>
         assert(nj.getBindings.bindings == Set(Reference("v"), Reference("w"), Reference("e")))
         assert(s.getBindings.bindings ==
           Set(Reference("v"), Reference("w"), Reference("e"), Reference("t")))
@@ -589,7 +436,7 @@ class GcoreToAlgebraTranslationTest extends FunSuite with Matchers with Inside {
             where = True()
           ))
       )
-    val actual = GcoreToAlgebraTranslation rewriteTree matchClause
+    val actual = GcoreToJoinGraphRewriter rewriteTree matchClause
 
     inside (actual) {
       case loj @ LeftOuterJoin(_, _, _) =>

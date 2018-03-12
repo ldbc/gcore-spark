@@ -1,6 +1,6 @@
 package algebra.operators
 
-import algebra.expressions.Label
+import algebra.expressions.{ObjectPattern, Reference}
 import algebra.types.Graph
 import common.compiler.Context
 
@@ -20,10 +20,10 @@ object RelationLike {
   }
 }
 
-case class Relation(rel: Label, bindingContext: Option[BindingContext] = None)
-  extends RelationLike(bindingContext.getOrElse(BindingContext.empty)) {
+case class EntityRelation(ref: Reference, objPattern: ObjectPattern)
+  extends RelationLike(new BindingContext(ref)) {
 
-  children = List(rel)
+  children = List(ref, objPattern)
 }
 
 case class SimpleMatchRelationContext(graph: Graph) extends Context {
