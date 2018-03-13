@@ -1,7 +1,6 @@
 package algebra.exceptions
 
-import algebra.expressions.{Label, PropertyKey}
-import algebra.operators.BindingSet
+import algebra.expressions.{Label, PropertyKey, Reference}
 import schema.EntitySchema
 
 abstract class SemanticException(reason: String) extends IrException(reason)
@@ -28,12 +27,12 @@ case class PropKeysException(graphName: String,
       s"${unavailableProps.map(_.key).mkString(", ")}.\n " +
       s"Entity schema is:\n$schema")
 
-case class JoinException(lhsBset: BindingSet, rhsBset: BindingSet)
+case class JoinException(lhsBset: Set[Reference], rhsBset: Set[Reference])
   extends SemanticException(
     s"Cannot join relations with no common attributes. Left attributes are: $lhsBset, right " +
       s"attributes are $rhsBset")
 
-case class CrossJoinException(lhsBset: BindingSet, rhsBset: BindingSet)
+case class CrossJoinException(lhsBset: Set[Reference], rhsBset: Set[Reference])
   extends SemanticException(
     s"Cannot cross-join relations with common attributes. Left attributes are: $lhsBset, right " +
       s"attributes are $rhsBset")

@@ -1,38 +1,44 @@
 package algebra.operators
 
-import algebra.expressions.{Label, ObjectPattern, Reference}
+import algebra.expressions.{Label, Reference}
 import algebra.types.Graph
 import common.compiler.Context
 
-abstract class RelationLike(bindingContext: BindingContext)
-  extends AlgebraPrimitive {
+abstract class RelationLike(bindingTable: BindingTable) extends AlgebraPrimitive {
 
-  def getBindingContext: BindingContext = bindingContext
+  def getBindingTable: BindingTable = bindingTable
 
-  def getBindings: BindingSet = bindingContext.bset
-
-  override def name: String = s"${super.name} [bindingSet = $bindingContext]"
+  override def name: String =
+    s"${super.name} [bindingSet = ${bindingTable.bindingSet.mkString(", ")}]"
 }
 
 object RelationLike {
-  val empty: RelationLike = new RelationLike(BindingContext.empty) {
+  val empty: RelationLike = new RelationLike(BindingTable.empty) {
     override def name: String = "EmptyRelation"
   }
 }
 
-case class Relation(label: Label) extends RelationLike(BindingContext.empty) {
+case class Relation(label: Label) extends RelationLike(BindingTable.empty) {
   children = List(label)
 }
 
-case class AllRelations() extends RelationLike(BindingContext.empty)
+case class AllRelations() extends RelationLike(BindingTable.empty)
 
-abstract class EntityRelation(ref: Reference) extends RelationLike(new BindingContext(ref)) {
-  children = List(ref)
+abstract class EntityRelation(ref: Reference,
+                              relation: RelationLike,
+                              bindingTable: BindingTable) extends RelationLike(bindingTable) {
+  children = List(ref, relation)
 }
 
-case class VertexRelation(ref: Reference) extends EntityRelation(ref)
+case class VertexRelation(ref: Reference,
+                          relation: RelationLike,
+                          bindingTable: BindingTable)
+  extends EntityRelation(ref, relation, bindingTable)
 
-case class EdgeRelation(ref: Reference) extends EntityRelation(ref)
+case class EdgeRelation(ref: Reference,
+                        relation: RelationLike,
+                        bindingTable: BindingTable)
+  extends EntityRelation(ref, relation, bindingTable)
 
 case class SimpleMatchRelationContext(graph: Graph) extends Context {
 
@@ -41,8 +47,8 @@ case class SimpleMatchRelationContext(graph: Graph) extends Context {
 
 case class SimpleMatchRelation(relation: RelationLike,
                                context: SimpleMatchRelationContext,
-                               bindingContext: Option[BindingContext] = None)
-  extends UnaryPrimitive(relation, bindingContext) {
+                               bindingTable: Option[BindingTable] = None)
+  extends UnaryPrimitive(relation, bindingTable) {
 
   override def name: String = s"${super.name} [graph = ${context.graph}]"
 }

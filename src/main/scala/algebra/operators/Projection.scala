@@ -14,8 +14,8 @@ case class AttributeSet(attrs: Attribute*) extends AlgebraPrimitive {
 
 case class Projection(attrSet: AttributeSet,
                       relation: RelationLike,
-                      bindingContext: Option[BindingContext] = None)
-  extends UnaryPrimitive(relation, bindingContext) {
+                      bindingTable: Option[BindingTable] = None)
+  extends UnaryPrimitive(relation, bindingTable) {
 
   children = List(attrSet, relation)
 }

@@ -4,8 +4,8 @@ import algebra.expressions.AlgebraExpression
 
 case class Select(relation: RelationLike,
                   expr: AlgebraExpression,
-                  bindingContext: Option[BindingContext] = None)
-  extends UnaryPrimitive(relation, bindingContext) {
+                  bindingTable: Option[BindingTable] = None)
+  extends UnaryPrimitive(relation, bindingTable) {
 
   children = List(relation, expr)
 }

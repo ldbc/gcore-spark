@@ -31,10 +31,10 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
         lhs should matchPattern { case SimpleRel(Reference("a")) => }
         rhs should matchPattern { case SimpleRel(Reference("b")) => }
 
-        val bcontext = reduced.getBindingContext
+        val btable = reduced.getBindingTable
 
-        assert(bcontext.nonEmpty)
-        assert(bcontext.bset.bindings == Set(Reference("a"), Reference("b")))
+        assert(btable.btable.nonEmpty)
+        assert(btable.bindingSet == Set(Reference("a"), Reference("b")))
       }
     }
   }
@@ -49,10 +49,10 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
         }
         rhs should matchPattern { case SimpleRel(Reference("c")) => }
 
-        val bcontext = reduced.getBindingContext
+        val btable = reduced.getBindingTable
 
-        assert(bcontext.nonEmpty)
-        assert(bcontext.bset.bindings == Set(Reference("a"), Reference("b"), Reference("c")))
+        assert(btable.btable.nonEmpty)
+        assert(btable.bindingSet == Set(Reference("a"), Reference("b"), Reference("c")))
       }
     }
   }
@@ -69,11 +69,11 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
         }
         rhs should matchPattern { case SimpleRel(Reference("d")) => }
 
-        val bcontext = reduced.getBindingContext
+        val btable = reduced.getBindingTable
 
-        assert(bcontext.nonEmpty)
+        assert(btable.btable.nonEmpty)
         assert(
-          bcontext.bset.bindings ==
+          btable.bindingSet ==
             Set(Reference("a"), Reference("b"), Reference("c"), Reference("d")))
       }
     }
@@ -81,8 +81,8 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
 
   sealed case class BinOp(lhs: RelationLike,
                           rhs: RelationLike,
-                          bindingContext: Option[BindingContext])
-    extends BinaryPrimitive(lhs, rhs, bindingContext)
+                          bindingTable: Option[BindingTable])
+    extends BinaryPrimitive(lhs, rhs, bindingTable)
 
-  sealed case class SimpleRel(refs: Reference*) extends RelationLike(new BindingContext(refs: _*))
+  sealed case class SimpleRel(refs: Reference*) extends RelationLike(new BindingTable(refs: _*))
 }

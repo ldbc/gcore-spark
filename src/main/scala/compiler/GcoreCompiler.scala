@@ -9,8 +9,7 @@ import parser.trees.ParseContext
 case class GcoreCompiler(compileContext: CompileContext) extends Compiler {
 
   val parser: ParseStage = SpoofaxParser(ParseContext(compileContext.graphDb))
-  val rewriter: RewriteStage =
-    AlgebraRewriter(AlgebraContext(compileContext.graphDb, algebra.newBindingTable))
+  val rewriter: RewriteStage = AlgebraRewriter(AlgebraContext(compileContext.graphDb))
 
   override def compile(query: String): Unit = (parser andThen rewriter)(query)
 }

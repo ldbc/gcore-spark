@@ -1,15 +1,17 @@
 package algebra
 
-import algebra.trees.{AlgebraContext, AlgebraTreeNode, GcoreToJoinGraphRewriter}
+import algebra.trees.{AlgebraContext, AlgebraTreeNode, ExpandDoubleEndpRelation, GcoreToJoinGraph}
 import compiler.RewriteStage
 
 case class AlgebraRewriter(context: AlgebraContext) extends RewriteStage {
 
   override def rewrite(tree: AlgebraTreeNode): AlgebraTreeNode = {
-    val joinGraph = GcoreToJoinGraphRewriter(context.bindingTable) rewriteTree tree
+    val joinGraph = GcoreToJoinGraph rewriteTree tree
     joinGraph printTree()
-    println(context.bindingTable)
 
-    joinGraph
+    val expandedGraph = ExpandDoubleEndpRelation rewriteTree joinGraph
+    expandedGraph printTree()
+
+    expandedGraph
   }
 }

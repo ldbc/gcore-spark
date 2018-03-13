@@ -2,7 +2,7 @@ package algebra.operators
 
 case class UnionAll(lhs: RelationLike,
                     rhs: RelationLike,
-                    bindingContext: Option[BindingContext] = None)
-  extends BinaryPrimitive(lhs, rhs, bindingContext)
+                    bindingTable: Option[BindingTable] = None)
+  extends BinaryPrimitive(lhs, rhs, bindingTable)
 
-case class UnionAllRelations() extends RelationLike(BindingContext.empty)
+case class UnionAllRelations() extends RelationLike(BindingTable.empty)

@@ -1,6 +1,5 @@
 package algebra.trees
 
-import algebra.BindingTable
 import algebra.exceptions.UnsupportedOperation
 import algebra.expressions._
 import algebra.operators.BinaryPrimitive.reduceLeft
@@ -14,8 +13,11 @@ import scala.collection.mutable
   * Transforms the [[GcorePrimitive]]s within the algebraic tree into a mix of common
   * [[AlgebraPrimitive]]s.
   */
-case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
-  extends BottomUpRewriter[AlgebraTreeNode] {
+object GcoreToJoinGraph extends BottomUpRewriter[AlgebraTreeNode] {
+
+  val idAttr: Attribute = Attribute(Reference("id"))
+  val fromIdAttr: Attribute = Attribute(Reference("fromId"))
+  val toIdAttr: Attribute = Attribute(Reference("toId"))
 
   override def rule: RewriteFuncType =
     matchClause orElse
@@ -74,7 +76,7 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
     * A [[GraphPattern]] is either only a [[Vertex]] pattern or a sequence of one or more [[Edge]]
     * patterns. In case it is only a [[Vertex]] pattern, it translates to the [[RelationLike]]
     * wrapping the [[Vertex]] on top of which we add a [[Rename]] operation, to change the name of
-    * the "id" attribute into that of the binding. In the second case, we [[InnerJoin]] all the
+    * the "id" attribute into that of the binding. In the second case, we [[FullOuterJoin]] all the
     * [[RelationLike]]s wrapping the [[Edge]]s. The final binding table of the resulting
     * [[RelationLike]] is the union of all binding tables participating in the join.
     *
@@ -84,8 +86,8 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
     *     MATCH (v1)->(v2)->(v3) ..., where the connections between the vertices can be of any type.
     *
     * Alongside a [[Graph]], this will form a [[SimpleMatchClause]]. The syntax of a
-    * [[GraphPattern]] is fundamentally different from that of a [[CondMatchClause]], where the
-    * patterns are separated by a comma and need not necessarily contain common bindings:
+    * [[GraphPattern]] is different from that of a [[CondMatchClause]], where the patterns are
+    * separated by a comma and need not necessarily contain common bindings:
     *
     *     MATCH (v1)->(v2), (v3) ..., where the connections between the vertices can be of any type.
     *
@@ -97,7 +99,7 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
     case gp @ GraphPattern(_) =>
       reduceLeft(
         relations = gp.children.map(_.asInstanceOf[RelationLike]),
-        binaryOp = InnerJoin)
+        binaryOp = FullOuterJoin)
   }
 
   /**
@@ -107,18 +109,23 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
     * [[Vertex]] node we are only interested in the unique identity of this entity, thus this node
     * is translated to a [[Projection]] of the "id" [[Attribute]] in this [[RelationLike]].
     *
-    * Note: At this step, we create a [[BindingContext]] to hold the [[Reference]] of this entity.
+    * Note: At this step, we create a [[BindingTable]] to hold the [[Reference]] of this entity.
     */
   private val vertex: RewriteFuncType = {
     case Vertex(ref, objPattern) =>
-      addBinding(ref, objPattern)
-      VertexRelation(ref)
+      VertexRelation(
+        ref,
+        RelationLike.empty,
+        newBtable(
+          ref,
+          objPattern,
+          rel => VertexRelation(ref, rel, new BindingTable(Map(ref -> rel)))))
   }
 
   /**
     * The [[Edge]] represents connection between two [[Vertex]] nodes. At this level in the tree,
     * each [[Vertex]] has been translated into its specific [[RelationLike]], having its own
-    * [[BindingContext]]. The [[Edge]] itself has an [[ObjectPattern]] and a binding through its
+    * [[BindingTable]]. The [[Edge]] itself has an [[ObjectPattern]] and a binding through its
     * [[Reference]]. We call this the binding table of the [[Edge]].
     *
     * The [[Edge]] node then becomes:
@@ -126,14 +133,14 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
     * <ul>
     *   <li> If the [[ConnectionType]] is either [[InConn]] or [[OutConn]], an [[EquiJoin]] between
     *   the binding table of the [[Edge]] and sequentially that of the source [[Vertex]]'s and of
-    *   the destination [[Vertex]]'s. The resulting [[BindingContext]] of the [[EquiJoin]] will then
+    *   the destination [[Vertex]]'s. The resulting [[BindingTable]] of the [[EquiJoin]] will then
     *   be the binding table of the join.
     *
     *   <li> If the [[ConnectionType]] is either [[InOutConn]] or [[UndirectedConn]] (meaning that
     *   we can traverse this connection either from left to right or from right to left), the
     *   [[UnionAll]] of the [[RelationLike]]s resulting from solving this [[Edge]] with a
     *   [[ConnectionType]] first as the [[InConn]], then as the [[OutConn]]. The resulting
-    *   [[BindingContext]] of the [[UnionAll]] (which will be the [[BindingContext]] of the two
+    *   [[BindingTable]] of the [[UnionAll]] (which will be the [[BindingTable]] of the two
     *   [[EquiJoin]] operands of the union) will then be the binding table of the result.
   *   </ul>
     */
@@ -141,9 +148,14 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
     case e @ Edge(ref, _, _, connType, objPattern) =>
       val leftEndpointRel: EntityRelation = e.children(1).asInstanceOf[EntityRelation]
       val rightEndpointRel: EntityRelation = e.children(2).asInstanceOf[EntityRelation]
-      val edgeRel: RelationLike = EdgeRelation(ref)
-
-      addBinding(ref, objPattern)
+      val edgeRel: RelationLike =
+        EdgeRelation(
+          ref,
+          RelationLike.empty,
+          newBtable(
+            ref,
+            objPattern,
+            rel => EdgeRelation(ref, rel, new BindingTable(Map(ref -> rel)))))
 
       if (connType == InConn() || connType == OutConn()) {
         bindingsForInOrOutConn(leftEndpointRel, rightEndpointRel, edgeRel, connType)
@@ -171,19 +183,32 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
     case WithLabels(And(True(), hl @ HasLabel(_))) => hl
   }
 
-  private def addBinding(ref: Reference, objPattern: ObjectPattern): Unit = {
+  private def newBtable(ref: Reference,
+                        objPattern: ObjectPattern,
+                        makeRel: RelationLike => EntityRelation): BindingTable = {
     val propsPred: AlgebraExpression = objPattern.children.last.asInstanceOf[AlgebraExpression]
+    val btable: BindingTable = new BindingTable(ref)
+
     objPattern match {
       case omp @ ObjectPattern(True(), _) =>
-        bindingTable.addBinding(
+        val bindingTable: BindingTable = BindingTable.newEmpty
+        bindingTable.btable.addBinding(
           key = ref,
-          value = Select(relation = AllRelations(), expr = propsPred))
+          value =
+            makeRel(
+              Select(relation = AllRelations(), expr = propsPred, bindingTable = Some(btable))))
+        bindingTable
       case _ =>
+        val bindingTable: BindingTable = BindingTable.newEmpty
         val labelsPred: HasLabel = objPattern.children.head.asInstanceOf[HasLabel]
-        labelsPred.children.foreach(label =>
-          bindingTable.addBinding(
+        labelsPred.children.foreach(label => {
+          val labelRel: RelationLike = Relation(label.asInstanceOf[Label])
+          bindingTable.btable.addBinding(
             key = ref,
-            value = Select(relation = Relation(label.asInstanceOf[Label]), expr = propsPred)))
+            value =
+              makeRel(Select(relation = labelRel, expr = propsPred, bindingTable = Some(btable))))
+        })
+        bindingTable
     }
   }
 
@@ -198,8 +223,8 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
           case InConn() => rightEndpointRel
           case OutConn() => leftEndpointRel
         },
-        lhsAttribute = Reference("fromId"),
-        rhsAttribute = Reference("id"))
+        lhsAttribute = idAttr,
+        rhsAttribute = fromIdAttr)
 
     val edgeRelJoinedOnFromAndTo: RelationLike =
       EquiJoin(
@@ -208,29 +233,29 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
           case InConn() => leftEndpointRel
           case OutConn() => rightEndpointRel
         },
-        lhsAttribute = Reference("toId"),
-        rhsAttribute = Reference("id"))
+        lhsAttribute = idAttr,
+        rhsAttribute = toIdAttr)
 
     edgeRelJoinedOnFromAndTo
   }
 
-  private type BindingToRelationMmap = mutable.HashMap[Reference, mutable.Set[RelationLike]]
+  private type BindingToRelations = mutable.HashMap[Reference, mutable.Set[RelationLike]]
     with mutable.MultiMap[Reference, RelationLike]
 
   private def joinSimpleMatchRelations(relations: Seq[SimpleMatchRelation]): RelationLike = {
-    val bindingToRelationMmap: BindingToRelationMmap =
+    val bindingToRelationMmap: BindingToRelations =
       new mutable.HashMap[Reference, mutable.Set[RelationLike]]
         with mutable.MultiMap[Reference, RelationLike]
 
     relations.foreach(relation => {
-      val bset: BindingSet = relation.getBindingContext.bset
+      val bset: Set[Reference] = relation.getBindingTable.bindingSet
       bset.foreach(ref => bindingToRelationMmap.addBinding(ref, relation))
     })
 
     joinSimpleMatchRelations(bindingToRelationMmap)
   }
 
-  private def joinSimpleMatchRelations(bindingToRelationMmap: BindingToRelationMmap)
+  private def joinSimpleMatchRelations(bindingToRelationMmap: BindingToRelations)
   : RelationLike = {
     // The first binding that appears in more than one relation.
     val commonBindingOption: Option[(Reference, mutable.Set[RelationLike])] =
@@ -244,11 +269,11 @@ case class GcoreToJoinGraphRewriter(bindingTable: BindingTable)
 
       // Do a natural join over relations that share the variable.
       val joinedRelations = multiBinding._2.toSeq
-      val join: RelationLike = reduceLeft(joinedRelations, InnerJoin)
+      val join: RelationLike = reduceLeft(joinedRelations, FullOuterJoin)
 
       // For each binding in the join, remove previous relations it appeared in and are now part of
       // the joined relations, and add the join result to its mmap set.
-      join.asInstanceOf[JoinLike].getBindings.foreach(
+      join.asInstanceOf[JoinLike].getBindingTable.bindingSet.foreach(
         ref => {
           joinedRelations.foreach(
             // If this binding appeared in this relation, remove the relation from the mmap.

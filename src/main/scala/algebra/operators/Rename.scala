@@ -2,8 +2,8 @@ package algebra.operators
 
 case class Rename(relation: RelationLike,
                   renameOperator: RenameOperator,
-                  bindingContext: Option[BindingContext] = None)
-  extends UnaryPrimitive(relation, bindingContext) {
+                  bindingTable: Option[BindingTable] = None)
+  extends UnaryPrimitive(relation, bindingTable) {
 
   children = List(relation, renameOperator)
 }
