@@ -1,6 +1,6 @@
 package algebra.operators
 
-import algebra.expressions.{Label, Reference}
+import algebra.expressions.{AlgebraExpression, Label, Reference}
 import algebra.types.Graph
 import common.compiler.Context
 
@@ -24,21 +24,21 @@ case class Relation(label: Label) extends RelationLike(BindingTable.empty) {
 
 case class AllRelations() extends RelationLike(BindingTable.empty)
 
-abstract class EntityRelation(ref: Reference,
-                              relation: RelationLike,
-                              bindingTable: BindingTable) extends RelationLike(bindingTable) {
-  children = List(ref, relation)
+case class VertexRelation(ref: Reference,
+                          labelRelation: RelationLike,
+                          expr: AlgebraExpression) extends RelationLike(new BindingTable(ref)) {
+  children = List(ref, labelRelation, expr)
 }
 
-case class VertexRelation(ref: Reference,
-                          relation: RelationLike,
-                          bindingTable: BindingTable)
-  extends EntityRelation(ref, relation, bindingTable)
-
 case class EdgeRelation(ref: Reference,
-                        relation: RelationLike,
-                        bindingTable: BindingTable)
-  extends EntityRelation(ref, relation, bindingTable)
+                        labelRelation: RelationLike,
+                        expr: AlgebraExpression,
+                        fromRel: VertexRelation,
+                        toRel: VertexRelation)
+  extends RelationLike(new BindingTable(ref) ++ fromRel.getBindingTable ++ toRel.getBindingTable) {
+
+  children = List(ref, labelRelation, expr, fromRel, toRel)
+}
 
 case class SimpleMatchRelationContext(graph: Graph) extends Context {
 

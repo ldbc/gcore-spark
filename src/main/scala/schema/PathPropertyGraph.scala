@@ -1,4 +1,5 @@
 package schema
+import algebra.expressions.Label
 
 /**
   * The path property graph is the queryable unit of G-CORE. The graph retains information about
@@ -41,5 +42,7 @@ object PathPropertyGraph {
     override def vertexSchema: EntitySchema = EntitySchema.empty
     override def pathSchema: EntitySchema = EntitySchema.empty
     override def edgeSchema: EntitySchema = EntitySchema.empty
+
+    override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
   }
 }

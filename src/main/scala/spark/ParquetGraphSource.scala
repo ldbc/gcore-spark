@@ -2,8 +2,9 @@ package spark
 
 import java.nio.file.Path
 
+import algebra.expressions.Label
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import schema.Table
+import schema.{SchemaMap, Table}
 
 case class ParquetGraphSource(spark: SparkSession) extends GraphSource(spark) {
 
@@ -23,6 +24,9 @@ case class ParquetGraphSource(spark: SparkSession) extends GraphSource(spark) {
           Table(
             name = filePath.getFileName.toString,
             data = spark.read.parquet(filePath.toString)))
+
+      // TODO: Add a valid restriction here.
+      override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     }
   }
 }

@@ -10,6 +10,8 @@ case class PropertyKey(key: String) extends AlgebraExpression {
   children = List(Literal(key))
 
   def this(literal: Literal[String]) = this(literal.literalValue)
+
+  override def name: String = key
 }
 
 /** A predicate that asserts that the graph entity satisfies all the given property conditions. */

@@ -35,6 +35,7 @@ class SparkGraphTest extends FunSuite
       override def pathData: Seq[Table[DataFrame]] = Seq(travelRouteTable)
       override def vertexData: Seq[Table[DataFrame]] = Seq(peopleTable, cityTable)
       override def edgeData: Seq[Table[DataFrame]] = Seq(bornInTable, roadTable)
+      override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     }
 
     val expectedVertexSchema = EntitySchema(SchemaMap(Map(

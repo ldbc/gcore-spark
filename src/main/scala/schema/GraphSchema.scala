@@ -11,6 +11,8 @@ trait GraphSchema {
   def pathSchema: EntitySchema
 
   def edgeSchema: EntitySchema
+
+  def edgeRestrictions: SchemaMap[Label, (Label, Label)]
 }
 
 /**

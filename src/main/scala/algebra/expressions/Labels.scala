@@ -8,6 +8,8 @@ case class Label(value: String) extends AlgebraExpression {
   children = List(Literal(value))
 
   def this(literal: Literal[String]) = this(literal.literalValue)
+
+  override def name: String = value
 }
 
 /**

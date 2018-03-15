@@ -33,8 +33,7 @@ object BindingTable {
   type BtableMmap = mutable.HashMap[Reference, mutable.Set[RelationLike]]
     with mutable.MultiMap[Reference, RelationLike]
 
-  val empty: BindingTable = BindingTable(new mutable.HashMap[Reference, mutable.Set[RelationLike]]
-    with mutable.MultiMap[Reference, RelationLike])
+  val empty: BindingTable = newEmpty
 
   def newEmpty: BindingTable =
     BindingTable(new mutable.HashMap[Reference, mutable.Set[RelationLike]]
