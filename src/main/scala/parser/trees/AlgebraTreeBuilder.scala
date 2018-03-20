@@ -4,7 +4,7 @@ import algebra.expressions._
 import algebra.operators._
 import algebra.types._
 import algebra.trees.AlgebraTreeNode
-import common.trees.Builder
+import common.trees.TreeBuilder
 import parser.exceptions.QueryParseException
 
 /**
@@ -13,7 +13,7 @@ import parser.exceptions.QueryParseException
   * The root of the algebra tree is a [[Query]] clause, whose children are the optional path clause
   * and the mandatory construct clause and [[MatchClause]].
   */
-object AlgebraTreeBuilder extends Builder[SpoofaxBaseTreeNode, AlgebraTreeNode] {
+object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNode] {
 
   override def build(from: SpoofaxBaseTreeNode): AlgebraTreeNode = {
     from.name match {

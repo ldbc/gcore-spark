@@ -1,6 +1,7 @@
 package compiler
 
 import algebra.trees.AlgebraTreeNode
+import planner.trees.PlannerTreeNode
 
 /**
   * A step in the compilation process of a G-CORE query. Extending [[Function1]] makes any
@@ -30,7 +31,7 @@ trait ParseStage extends CompilationStage[String, AlgebraTreeNode] {
 
 /**
   * The step in the compilation pipeline that applies rewriting rules over the algebraic tree of
-  * the received query. The key idea is to bring the algebraic tree to a state from which target
+  * the received query. The key idea is to bring the algebraic tree to a state from which planner
   * code can be seamlessly generated.
   */
 trait RewriteStage extends CompilationStage[AlgebraTreeNode, AlgebraTreeNode] {
@@ -38,4 +39,16 @@ trait RewriteStage extends CompilationStage[AlgebraTreeNode, AlgebraTreeNode] {
   def rewrite(tree: AlgebraTreeNode): AlgebraTreeNode
 
   override def runStage(input: AlgebraTreeNode): AlgebraTreeNode = rewrite(input)
+}
+
+trait PlanningStage extends CompilationStage[AlgebraTreeNode, PlannerTreeNode] {
+
+  def plan(tree: AlgebraTreeNode): PlannerTreeNode
+
+  override def runStage(input: AlgebraTreeNode): PlannerTreeNode = plan(input)
+}
+
+trait RunTargetCodeStage extends CompilationStage[PlannerTreeNode, Unit] {
+
+  override def runStage(input: PlannerTreeNode): Unit
 }

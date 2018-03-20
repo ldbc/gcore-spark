@@ -36,9 +36,9 @@ object PathPropertyGraph {
     override def isEmpty: Boolean = true
 
     override def graphName: String = "PathPropertyGraph.empty"
-    override def vertexData: Seq[Table[T]] = Seq.empty
-    override def edgeData: Seq[Table[T]] = Seq.empty
-    override def pathData: Seq[Table[T]] = Seq.empty
+    override def vertexData: Seq[Table[StorageType]] = Seq.empty
+    override def edgeData: Seq[Table[StorageType]] = Seq.empty
+    override def pathData: Seq[Table[StorageType]] = Seq.empty
     override def vertexSchema: EntitySchema = EntitySchema.empty
     override def pathSchema: EntitySchema = EntitySchema.empty
     override def edgeSchema: EntitySchema = EntitySchema.empty

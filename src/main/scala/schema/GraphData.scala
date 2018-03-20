@@ -1,27 +1,28 @@
 package schema
 
+import algebra.expressions.Label
+
 /** Data contained by a graph. */
 trait GraphData {
 
-  type T
+  type StorageType
 
-  def vertexData: Seq[Table[T]]
+  def vertexData: Seq[Table[StorageType]]
 
-  def edgeData: Seq[Table[T]]
+  def edgeData: Seq[Table[StorageType]]
 
-  def pathData: Seq[Table[T]]
+  def pathData: Seq[Table[StorageType]]
 
-  def tableMap: Map[String, Table[T]] =
+  def tableMap: Map[Label, Table[StorageType]] =
     (vertexData map {table => table.name -> table}).toMap ++
       (edgeData map {table => table.name -> table}).toMap ++
       (pathData map {table => table.name -> table}).toMap
 }
 
 /**
-  * A logical table backing the data.
-  * @tparam T The type of the collection that stores the physical data.
+  * A physical tableName backing the data.
+  * @tparam StorageType The type of the collection that stores the physical data.
   */
-case class Table[T](name: String, data: T) {
-
+case class Table[StorageType](name: Label, data: StorageType) {
   override def toString: String = s"Table $name: $data"
 }

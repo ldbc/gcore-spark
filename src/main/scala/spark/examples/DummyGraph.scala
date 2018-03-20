@@ -77,23 +77,24 @@ final case class DummyGraph(spark: SparkSession) extends SparkGraph {
 
   override def vertexData: Seq[Table[DataFrame]] =
     Seq(
-      Table("Cat", Seq(coby, hosico, kittler, meowseph).toDF()),
-      Table("Food", Seq(purina, whiskas, gourmand).toDF()),
-      Table("Country", Seq(germany, france).toDF()))
+      Table(Label("Cat"), Seq(coby, hosico, kittler, meowseph).toDF()),
+      Table(Label("Food"), Seq(purina, whiskas, gourmand).toDF()),
+      Table(Label("Country"), Seq(germany, france).toDF()))
 
   override def edgeData: Seq[Table[DataFrame]] =
     Seq(
       Table(
-        "Eats",
+        Label("Eats"),
         Seq(cobyEatsPurina, hosicoEatsGourmand, kittlerEatsWhiskas, meowsephEatsGourmand).toDF()),
-      Table("Friend", Seq(cobyFriendWithHosico, hosicoFriendWithCobby).toDF()),
-      Table("Enemy", Seq(kittlerEnemyMeowseph, meowsephEnemyKittler).toDF()),
-      Table("MadeIn", Seq(purinaMadeInGermany, whiskasMadeInGermany, gourmandMadeInFrance).toDF())
+      Table(Label("Friend"), Seq(cobyFriendWithHosico, hosicoFriendWithCobby).toDF()),
+      Table(Label("Enemy"), Seq(kittlerEnemyMeowseph, meowsephEnemyKittler).toDF()),
+      Table(
+        Label("MadeIn"),
+        Seq(purinaMadeInGermany, whiskasMadeInGermany, gourmandMadeInFrance).toDF())
     )
 
   override def pathData: Seq[Table[DataFrame]] =
-    Seq(
-      Table("ToGourmand", Seq(fromCoby, fromHosico, fromKittler, fromMeowseph).toDF()))
+    Seq(Table(Label("ToGourmand"), Seq(fromCoby, fromHosico, fromKittler, fromMeowseph).toDF()))
 
   override def edgeRestrictions: SchemaMap[Label, (Label, Label)] =
     SchemaMap(Map(

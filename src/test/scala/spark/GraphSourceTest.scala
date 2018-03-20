@@ -3,6 +3,7 @@ package spark
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Paths}
 
+import algebra.expressions.Label
 import org.apache.spark.sql.DataFrame
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import schema.{GraphData, GraphSchema}
@@ -83,14 +84,14 @@ class GraphSourceTest extends FunSuite
 
   private def runTestOn(graph: SparkGraph): Unit = {
     // It would be nicer to just call compareDfs here, but upon reading from file, Spark sometimes
-    // changes the order in which the columns of the table have been written (also by Spark) in that
+    // changes the order in which the columns of the tableName have been written (also by Spark) in that
     // file, making intersect and except calls to fail. We impose a column order on the DataFrame by
     // selecting the columns as we wish.
-    comparePerson(graph.tableMap("person").data)
-    compareCity(graph.tableMap("city").data)
-    compareBornIn(graph.tableMap("bornIn").data)
-    compareRoad(graph.tableMap("road").data)
-    compareTravelRoute(graph.tableMap("travelRoute").data)
+    comparePerson(graph.tableMap(Label("person")).data)
+    compareCity(graph.tableMap(Label("city")).data)
+    compareBornIn(graph.tableMap(Label("bornIn")).data)
+    compareRoad(graph.tableMap(Label("road")).data)
+    compareTravelRoute(graph.tableMap(Label("travelRoute")).data)
   }
 
   private def comparePerson(actual: DataFrame): Unit = {

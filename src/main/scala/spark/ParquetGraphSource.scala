@@ -22,7 +22,7 @@ case class ParquetGraphSource(spark: SparkSession) extends GraphSource(spark) {
       private def loadData(dataFiles: Seq[Path]): Seq[Table[DataFrame]] =
         dataFiles.map(filePath =>
           Table(
-            name = filePath.getFileName.toString,
+            name = Label(filePath.getFileName.toString),
             data = spark.read.parquet(filePath.toString)))
 
       // TODO: Add a valid restriction here.

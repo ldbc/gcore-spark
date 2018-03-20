@@ -9,8 +9,6 @@ import scala.collection.mutable
 
 object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
 
-  override def rule: RewriteFuncType = matchClause orElse condMatchClause
-
   private val matchClause: RewriteFuncType = {
     case m @ MatchClause(_, _) =>
       reduceLeft(m.children.map(_.asInstanceOf[RelationLike]), LeftOuterJoin)
@@ -23,7 +21,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
       val where: AlgebraExpression = cm.children.last.asInstanceOf[AlgebraExpression]
       val matchesAfterUnion: Seq[RelationLike] = unionSimpleMatchRelations(simpleMatches)
       val joinedMatches: RelationLike = joinSimpleMatchRelations(matchesAfterUnion)
-      Select(
+      CondMatchRelation(
         relation = joinedMatches,
         expr = where)
   }
@@ -41,7 +39,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
     // Find those SimpleMatches that share the binding set - this will be either the binding of a
     // vertex, or the three-set for an edge (from, edge, to).
     relations.foreach(relation => {
-      val bset: Set[Reference] = relation.getBindingTable.bindingSet
+      val bset: Set[Reference] = relation.getBindingTable.refSet
       relationToBindingMmap.addBinding(bset, relation)
     })
 
@@ -72,7 +70,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
         with mutable.MultiMap[Reference, RelationLike]
 
     relations.foreach(relation => {
-      val bset: Set[Reference] = relation.getBindingTable.bindingSet
+      val bset: Set[Reference] = relation.getBindingTable.refSet
       bset.foreach(ref => bindingToRelationMmap.addBinding(ref, relation))
     })
 
@@ -97,7 +95,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
 
       // For each binding in the join, remove previous relations it appeared in and are now part of
       // the joined relations, and add the join result to its mmap set.
-      join.asInstanceOf[JoinLike].getBindingTable.bindingSet.foreach(
+      join.asInstanceOf[JoinLike].getBindingTable.refSet.foreach(
         ref => {
           joinedRelations.foreach(
             // If this binding appeared in this relation, remove the relation from the mmap.
@@ -123,4 +121,6 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
         binaryOp = CartesianProduct)
     }
   }
+
+  override val rule: RewriteFuncType = matchClause orElse condMatchClause
 }

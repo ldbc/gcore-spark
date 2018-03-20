@@ -22,7 +22,9 @@ case class JsonGraphSource(spark: SparkSession) extends GraphSource(spark) {
       private def loadData(dataFiles: Seq[Path]): Seq[Table[DataFrame]] =
         dataFiles.map(
           filePath =>
-            Table(name = filePath.getFileName.toString, data = spark.read.json(filePath.toString)))
+            Table(
+              name = Label(filePath.getFileName.toString),
+              data = spark.read.json(filePath.toString)))
 
       // TODO: Add a valid restriction here.
       override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty

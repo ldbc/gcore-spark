@@ -23,16 +23,19 @@ object GcoreRunner {
 
     println(graphDb.graph("dummy_graph"))
 
-    val compiler: Compiler = GcoreCompiler(CompileContext(graphDb))
+    val compiler: Compiler = GcoreCompiler(CompileContext(graphDb, spark.newSession()))
     compiler.compile(
+      """
+        | CONSTRUCT () MATCH (f:Food)->(c)
+      """.stripMargin)
 //      """
 //        | CONSTRUCT () MATCH (c1:Cat)->(f:Food), (f: Food), (c2: Cat)
 //      """.stripMargin)
 //      """
 //        | CONSTRUCT () MATCH (c1)->(c2:Cat), (f:Food), (c1)->(f), (f)->(c3)
 //      """.stripMargin)
-          """
-            | CONSTRUCT () MATCH (c1)->(f), (c1:Cat)->(c2)->(f:Food), (f)->(c3)
-          """.stripMargin)
+//          """
+//            | CONSTRUCT () MATCH (c1)->(f), (c1:Cat)->(c2)->(f:Food), (f)->(c3)
+//          """.stripMargin)
   }
 }

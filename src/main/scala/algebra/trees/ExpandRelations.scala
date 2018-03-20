@@ -30,7 +30,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
     new mutable.HashMap[SimpleMatchRelation, mutable.Set[EntityTuple]]
       with mutable.MultiMap[SimpleMatchRelation, EntityTuple]
 
-  override def rule: RewriteFuncType = {
+  override val rule: RewriteFuncType = {
     case condMatchClause @ CondMatchClause(_, matchPred) =>
       val graphDb: GraphDb = context.graphDb
       val simpleMatches: Seq[SimpleMatchRelation] =

@@ -8,8 +8,6 @@ import common.trees.BottomUpRewriter
 
 object PatternsToRelations extends BottomUpRewriter[AlgebraTreeNode] {
 
-  override def rule: RewriteFuncType = edge orElse vertex orElse withLabels
-
   private val vertex: RewriteFuncType = {
     case Vertex(ref, objPattern) => objPattern match {
       case omp @ ObjectPattern(True(), _) =>
@@ -61,4 +59,6 @@ object PatternsToRelations extends BottomUpRewriter[AlgebraTreeNode] {
     case WithLabels(And(hl @ HasLabel(_), True())) => hl
     case WithLabels(And(True(), hl @ HasLabel(_))) => hl
   }
+
+  override val rule: RewriteFuncType = edge orElse vertex orElse withLabels
 }

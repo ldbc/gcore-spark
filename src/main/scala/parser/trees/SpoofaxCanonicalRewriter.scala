@@ -9,9 +9,6 @@ import parser.utils.{Stratego, VarBinder}
   */
 object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
 
-  override def rule: RewriteFuncType =
-    varDefUnnamedNode orElse varDefUnnamedEdge orElse varDefUnnamedConn
-
   private val inOutConnections = List("InConn", "OutConn")
   private val inOutEdgeConnections = List("InEdge", "OutEdge")
   private val otherConnections = List("UndirectedEdge", "InOutEdge")
@@ -121,4 +118,7 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
               Stratego.none,
               Stratego.objectMatchPattern(Stratego.none, Stratego.none))))))
   }
+
+  override val rule: RewriteFuncType =
+    varDefUnnamedNode orElse varDefUnnamedEdge orElse varDefUnnamedConn
 }

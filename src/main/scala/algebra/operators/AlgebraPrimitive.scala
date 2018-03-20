@@ -4,10 +4,10 @@ abstract class AlgebraPrimitive extends AlgebraOperator
 
 /**
   * An [[AlgebraPrimitive]] that can be applied on one [[RelationLike]]. By default, the
-  * [[BindingTable]] of the [[RelationLike]] becomes the [[BindingTable]] of the resulting
+  * [[BindingSet]] of the [[RelationLike]] becomes the [[BindingSet]] of the resulting
   * [[RelationLike]].
   */
-abstract class UnaryPrimitive(relation: RelationLike, bindingTable: Option[BindingTable] = None)
+abstract class UnaryPrimitive(relation: RelationLike, bindingTable: Option[BindingSet] = None)
   extends RelationLike(bindingTable.getOrElse(relation.getBindingTable)) {
 
   children = List(relation)
@@ -16,12 +16,12 @@ abstract class UnaryPrimitive(relation: RelationLike, bindingTable: Option[Bindi
 
 /**
   * An [[AlgebraPrimitive]] that can be applied on two [[RelationLike]]s. By default, the
-  * [[BindingTable]] of the resulting [[RelationLike]] becomes the union of the
-  * [[BindingTable]]s of the two operands.
+  * [[BindingSet]] of the resulting [[RelationLike]] becomes the union of the
+  * [[BindingSet]]s of the two operands.
   */
 abstract class BinaryPrimitive(lhs: RelationLike,
                                rhs: RelationLike,
-                               bindingTable: Option[BindingTable] = None)
+                               bindingTable: Option[BindingSet] = None)
   extends RelationLike(bindingTable.getOrElse(lhs.getBindingTable ++ rhs.getBindingTable)) {
 
   children = List(lhs, rhs)
@@ -38,7 +38,7 @@ object BinaryPrimitive {
     *     reduce([R3, R4, ... Rn], binaryOp) = ...
     */
   def reduceLeft(relations: Seq[RelationLike],
-                 binaryOp: (RelationLike, RelationLike, Option[BindingTable]) => RelationLike)
+                 binaryOp: (RelationLike, RelationLike, Option[BindingSet]) => RelationLike)
   : RelationLike = {
 
     relations match {

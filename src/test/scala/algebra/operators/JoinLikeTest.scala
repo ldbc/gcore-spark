@@ -43,8 +43,8 @@ class JoinLikeTest extends FunSuite {
 
   sealed case class AJoin(lhs: RelationLike,
                           rhs: RelationLike,
-                          bindingTable: Option[BindingTable] = None)
+                          bindingTable: Option[BindingSet] = None)
     extends JoinLike(lhs, rhs, bindingTable)
 
-  sealed case class SimpleRel(refs: Reference*) extends RelationLike(new BindingTable(refs: _*))
+  sealed case class SimpleRel(refs: Reference*) extends RelationLike(new BindingSet(refs: _*))
 }

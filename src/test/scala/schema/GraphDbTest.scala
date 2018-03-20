@@ -97,7 +97,7 @@ class GraphDbTest extends FunSuite {
     * empty graph either.
     */
   sealed abstract class PartialGraph extends PathPropertyGraph {
-    override type T = Nothing
+    override type StorageType = Nothing
 
     override def vertexSchema: EntitySchema = EntitySchema.empty
     override def pathSchema: EntitySchema = EntitySchema.empty

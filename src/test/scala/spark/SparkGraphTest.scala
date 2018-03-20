@@ -16,19 +16,19 @@ class SparkGraphTest extends FunSuite
   test("Schema is correctly inferred from graph data") {
 
     val peopleDf = peopleList.toDF
-    val peopleTable = Table(name = "people", data = peopleDf)
+    val peopleTable = Table(name = Label("people"), data = peopleDf)
 
     val cityDf = cityList.toDF
-    val cityTable = Table(name = "city", data = cityDf)
+    val cityTable = Table(name = Label("city"), data = cityDf)
 
     val bornInDf = bornInList.toDF
-    val bornInTable = Table(name = "bornIn", data = bornInDf)
+    val bornInTable = Table(name = Label("bornIn"), data = bornInDf)
 
     val roadDf = roadList.toDF
-    val roadTable = Table(name = "road", data = roadDf)
+    val roadTable = Table(name = Label("road"), data = roadDf)
 
     val travelRouteDf = travelRouteList.toDF
-    val travelRouteTable = Table(name = "travelRoute", data = travelRouteDf)
+    val travelRouteTable = Table(name = Label("travelRoute"), data = travelRouteDf)
 
     val graph = new SparkGraph {
       override def graphName: String = "test_graph"

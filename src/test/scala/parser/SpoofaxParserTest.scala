@@ -45,7 +45,7 @@ class SpoofaxParserTest extends FunSuite
 
   /** Graph to test on. All the checks are at schema level, so we do not define data. */
   val peopleGraph: PathPropertyGraph = new PathPropertyGraph {
-    override type T = Nothing
+    override type StorageType = Nothing
 
     override def graphName: String = "people"
 
@@ -53,9 +53,9 @@ class SpoofaxParserTest extends FunSuite
     override def edgeSchema: EntitySchema = peopleEdgeSchema
     override def pathSchema: EntitySchema = EntitySchema.empty
 
-    override def pathData: Seq[Table[T]] = Seq.empty
-    override def vertexData: Seq[Table[T]] = Seq.empty
-    override def edgeData: Seq[Table[T]] = Seq.empty
+    override def pathData: Seq[Table[StorageType]] = Seq.empty
+    override def vertexData: Seq[Table[StorageType]] = Seq.empty
+    override def edgeData: Seq[Table[StorageType]] = Seq.empty
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
   }

@@ -33,8 +33,8 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
 
         val btable = reduced.getBindingTable
 
-        assert(btable.btable.nonEmpty)
-        assert(btable.bindingSet == Set(Reference("a"), Reference("b")))
+        assert(btable.refSet.nonEmpty)
+        assert(btable.refSet == Set(Reference("a"), Reference("b")))
       }
     }
   }
@@ -51,8 +51,8 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
 
         val btable = reduced.getBindingTable
 
-        assert(btable.btable.nonEmpty)
-        assert(btable.bindingSet == Set(Reference("a"), Reference("b"), Reference("c")))
+        assert(btable.refSet.nonEmpty)
+        assert(btable.refSet == Set(Reference("a"), Reference("b"), Reference("c")))
       }
     }
   }
@@ -71,9 +71,9 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
 
         val btable = reduced.getBindingTable
 
-        assert(btable.btable.nonEmpty)
+        assert(btable.refSet.nonEmpty)
         assert(
-          btable.bindingSet ==
+          btable.refSet ==
             Set(Reference("a"), Reference("b"), Reference("c"), Reference("d")))
       }
     }
@@ -81,8 +81,8 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
 
   sealed case class BinOp(lhs: RelationLike,
                           rhs: RelationLike,
-                          bindingTable: Option[BindingTable])
+                          bindingTable: Option[BindingSet])
     extends BinaryPrimitive(lhs, rhs, bindingTable)
 
-  sealed case class SimpleRel(refs: Reference*) extends RelationLike(new BindingTable(refs: _*))
+  sealed case class SimpleRel(refs: Reference*) extends RelationLike(new BindingSet(refs: _*))
 }

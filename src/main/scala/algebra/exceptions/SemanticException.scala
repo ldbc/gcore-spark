@@ -3,7 +3,7 @@ package algebra.exceptions
 import algebra.expressions.{Label, PropertyKey, Reference}
 import schema.EntitySchema
 
-abstract class SemanticException(reason: String) extends IrException(reason)
+abstract class SemanticException(reason: String) extends AlgebraException(reason)
 
 case class NamedGraphNotAvailableException(graphName: String)
   extends SemanticException(s"Graph $graphName is not available.")

@@ -19,8 +19,8 @@ class PatternsToRelationsTest extends FunSuite with Matchers with Inside {
 //
 //    assert(actual.getBindingTable.bindingSet == Set(Reference("v")))
 //    inside (actual.getBindingTable.relations(Reference("v")).head) {
-//      case VertexRelation(Reference("v"), Select(AllRelations(), True(), _), btable) =>
-//        val vBinding: RelationLike = btable.relations(Reference("v")).head
+//      case VertexRelation(Reference("v"), Select(AllRelations(), True(), _), refSet) =>
+//        val vBinding: RelationLike = refSet.relations(Reference("v")).head
 //        vBinding should matchPattern {
 //          case Select(AllRelations(), True(), _) =>
 //        }
