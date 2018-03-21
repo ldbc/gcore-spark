@@ -7,5 +7,6 @@ abstract class BindingTable() {
   type QueryOperand
 
   val schemaMap: Map[Reference, SchemaType]
-  val btableOp: QueryOperand
+  val btableSchema: SchemaType
+  val btable: QueryOperand
 }

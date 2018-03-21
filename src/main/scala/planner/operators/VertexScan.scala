@@ -9,11 +9,9 @@ case class VertexScan(vertexRelation: VertexRelation, graph: Graph, context: Pla
   extends EntityScan(graph, context) {
 
   val tableName: Label = vertexRelation.labelRelation.asInstanceOf[Relation].label
-  private val columnConditions: AlgebraExpression = vertexRelation.expr
+  val columnConditions: AlgebraExpression = vertexRelation.expr
 
   val binding: Reference = vertexRelation.ref
 
-//  val scanOperation: TableOperator = Select(tableName, columnConditions)
-
-  children = List(binding) //, scanOperation)
+  children = List(binding, tableName, columnConditions)
 }

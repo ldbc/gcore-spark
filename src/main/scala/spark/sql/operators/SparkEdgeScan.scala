@@ -3,6 +3,7 @@ package spark.sql.operators
 import algebra.expressions.{Label, Reference}
 import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.StructType
 import planner.operators.Column.{fromIdColumn, idColumn, tableLabelColumn, toIdColumn}
 import planner.operators.{BindingTable, EdgeScan, PhysEdgeScan}
 import planner.target_api.TargetPlanner
@@ -13,8 +14,7 @@ case class SparkEdgeScan(edgeScan: EdgeScan,
                          graph: Graph,
                          plannerContext: PlannerContext,
                          targetPlanner: TargetPlanner)
-  extends PhysEdgeScan[SqlQuery](edgeScan, graph, plannerContext, targetPlanner)
-    with SparkEntityScan {
+  extends PhysEdgeScan(edgeScan, graph, plannerContext, targetPlanner) with SqlQueryGen {
 
   private val edgeBinding: Reference = edgeScan.edgeBinding
   private val fromBinding: Reference = edgeScan.fromBinding
@@ -44,56 +44,56 @@ case class SparkEdgeScan(edgeScan: EdgeScan,
     val fromTableRef: String = fromTableName.value
     val toTableRef: String = toTableName.value
 
-    val joinOnFromTempView: String = s"${edgeRef}_temp_edgeJoinedOnFrom"
-    val fromTempView: String = s"${fromRef}_temp_fromWithLabel"
-    val toTempView: String = s"${toRef}_temp_toWithLabel"
-    val edgeTempView: String = s"${edgeRef}_temp_edgeWithLabel"
+    val joinOnFromTempView: String = tempViewNameWithUID(s"${edgeRef}_fromJoin")
+    val fromTempView: String = tempViewNameWithUID(s"${fromRef}_fromWithLabel")
+    val toTempView: String = tempViewNameWithUID(s"${toRef}_toWithLabel")
+    val edgeTempView: String = tempViewNameWithUID(s"${edgeRef}_edgeWithLabel")
 
     val addLabelFrom: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW $fromTempView AS
+         | CREATE OR REPLACE TEMPORARY VIEW `$fromTempView` AS
          | SELECT
          | "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
-         | ${renameColumnsQuery(fromTable, fromBinding)}
+         | ${selectAllPrependRef(fromTable, fromBinding)}
          | FROM global_temp.$fromTableRef
        """.stripMargin
 
     val addLabelTo: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW $toTempView AS
+         | CREATE OR REPLACE TEMPORARY VIEW `$toTempView` AS
          | SELECT
          | "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
-         | ${renameColumnsQuery(toTable, toBinding)}
+         | ${selectAllPrependRef(toTable, toBinding)}
          | FROM global_temp.$toTableRef
        """.stripMargin
 
     val addLabelEdge: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW $edgeTempView AS
+         | CREATE OR REPLACE TEMPORARY VIEW `$edgeTempView` AS
          | SELECT
          | "$edgeTableRef" AS `$edgeRef$$${tableLabelColumn.columnName}`,
-         | ${renameColumnsQuery(edgeTable, edgeBinding)}
+         | ${selectAllPrependRef(edgeTable, edgeBinding)}
          | FROM global_temp.$edgeTableRef
        """.stripMargin
 
     val joinEdgeOnFrom: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW $joinOnFromTempView AS
-         | SELECT * FROM $edgeTempView
-         | FULL OUTER JOIN $fromTempView ON
+         | CREATE OR REPLACE TEMPORARY VIEW `$joinOnFromTempView` AS
+         | SELECT * FROM `$edgeTempView`
+         | INNER JOIN `$fromTempView` ON
          | `$edgeRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`
        """.stripMargin
 
     val joinEdgeOnFromAndTo: String =
       s"""
-         | SELECT * FROM $joinOnFromTempView FULL OUTER JOIN $toTempView ON
+         | SELECT * FROM `$joinOnFromTempView` INNER JOIN `$toTempView` ON
          | `$edgeRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`
        """.stripMargin
 
-    val cleanupJoinOnFromTempView: String = s"DROP VIEW $joinOnFromTempView"
-    val cleanupFromTempView: String = s"DROP VIEW $fromTempView"
-    val cleanupToTempView: String = s"DROP VIEW $toTempView"
-    val cleanupEdgeTempView: String = s"DROP VIEW $edgeTempView"
+    val cleanupJoinOnFromTempView: String = s"DROP VIEW `$joinOnFromTempView`"
+    val cleanupFromTempView: String = s"DROP VIEW `$fromTempView`"
+    val cleanupToTempView: String = s"DROP VIEW `$toTempView`"
+    val cleanupEdgeTempView: String = s"DROP VIEW `$edgeTempView`"
 
     SqlQuery(
       prologue = Seq(addLabelFrom, addLabelTo, addLabelEdge, joinEdgeOnFrom),
@@ -102,12 +102,14 @@ case class SparkEdgeScan(edgeScan: EdgeScan,
         Seq(cleanupFromTempView, cleanupToTempView, cleanupEdgeTempView, cleanupJoinOnFromTempView))
   }
 
+  private val newEdgeSchema: StructType = refactorScanSchema(edgeTable.data.schema, edgeBinding)
+  private val newFromSchema: StructType = refactorScanSchema(fromTable.data.schema, fromBinding)
+  private val newToSchema: StructType = refactorScanSchema(toTable.data.schema, toBinding)
+
   override val bindingTable: BindingTable =
     SparkBindingTable(
       schemas = Map(
-        edgeBinding -> refactorSchema(edgeTable.data.schema, edgeBinding),
-        fromBinding -> refactorSchema(fromTable.data.schema, fromBinding),
-        toBinding -> refactorSchema(toTable.data.schema, toBinding)),
-      btableOps = sqlQuery
-    )
+        edgeBinding -> newEdgeSchema, fromBinding -> newFromSchema, toBinding -> newToSchema),
+      btableUnifiedSchema = mergeSchemas(newEdgeSchema, newFromSchema, newToSchema),
+      btableOps = sqlQuery)
 }

@@ -13,7 +13,7 @@ abstract class JoinLike(lhs: RelationLike,
     */
   def commonInSeenBindingSets: Set[Reference] = BindingSet.intersectBindingTables(seenBindingSets)
 
-  /** The sets of bindings that have been seen so far by in this [[JoinLike subtree. */
+  /** The sets of bindings that have been seen so far by in this [[JoinLike]] subtree. */
   val seenBindingSets: Seq[Set[Reference]] = {
     var union: Seq[Set[Reference]] = Seq.empty
 
@@ -36,7 +36,12 @@ case class LeftOuterJoin(lhs: RelationLike,
                          bindingTable: Option[BindingSet] = None)
   extends JoinLike(lhs, rhs, bindingTable)
 
-case class FullOuterJoin(lhs: RelationLike,
-                         rhs: RelationLike,
-                         bindingTable: Option[BindingSet] = None)
+case class InnerJoin(lhs: RelationLike,
+                     rhs: RelationLike,
+                     bindingTable: Option[BindingSet] = None)
+  extends JoinLike(lhs, rhs, bindingTable)
+
+case class CrossJoin(lhs: RelationLike,
+                     rhs: RelationLike,
+                     bindingTable: Option[BindingSet] = None)
   extends JoinLike(lhs, rhs, bindingTable)

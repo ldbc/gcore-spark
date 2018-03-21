@@ -91,7 +91,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
 
       // Do a natural join over relations that share the variable.
       val joinedRelations = multiBinding._2.toSeq
-      val join: RelationLike = reduceLeft(joinedRelations, FullOuterJoin)
+      val join: RelationLike = reduceLeft(joinedRelations, InnerJoin)
 
       // For each binding in the join, remove previous relations it appeared in and are now part of
       // the joined relations, and add the join result to its mmap set.
@@ -118,7 +118,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
           bindingToRelationMmap.foldLeft(Set.empty[RelationLike]) {
             (agg, bindingToRels) => agg.union(bindingToRels._2)
           }.toSeq,
-        binaryOp = CartesianProduct)
+        binaryOp = CrossJoin)
     }
   }
 

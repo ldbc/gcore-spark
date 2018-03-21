@@ -16,7 +16,9 @@ case class Label(value: String) extends AlgebraExpression {
   * A predicate that asserts that the graph entity has at least one of the given labels. It is a
   * disjunction of labels. The labels are expressed through their [[Literal]] value.
   */
-case class HasLabel(labels: Seq[Label]) extends AlgebraExpression with SemanticCheckWithContext {
+case class HasLabel(labels: Seq[Label]) extends AlgebraExpression
+  with SemanticCheck with SemanticCheckWithContext {
+
   children = labels
 
   override def checkWithContext(context: Context): Unit = {
@@ -30,6 +32,12 @@ case class HasLabel(labels: Seq[Label]) extends AlgebraExpression with SemanticC
           graphName = context.asInstanceOf[DisjunctLabelsContext].graphName,
           unavailableLabels = givenUnavailable,
           schema = schema)
+  }
+
+  override def check(): Unit = {
+    if (labels.lengthCompare(1) > 0)
+      throw UnsupportedOperation("Label disjunction is not supported. An entity must have " +
+        "only one label associated with it.")
   }
 }
 

@@ -14,8 +14,7 @@ case class SparkVertexScan(vertexScan: VertexScan,
                            graph: Graph,
                            targetPlanner: TargetPlanner,
                            plannerContext: PlannerContext)
-  extends PhysVertexScan[SqlQuery](vertexScan, graph, plannerContext, targetPlanner)
-    with SparkEntityScan {
+  extends PhysVertexScan(vertexScan, graph, plannerContext, targetPlanner) with SqlQueryGen {
 
   private val binding: Reference = vertexScan.binding
   private val tableName: Label = vertexScan.tableName
@@ -28,14 +27,17 @@ case class SparkVertexScan(vertexScan: VertexScan,
       s"""
          | SELECT
          | "${tableName.value}" AS `${binding.refName}$$${tableLabelColumn.columnName}`,
-         | ${renameColumnsQuery(physTable, binding)}
+         | ${selectAllPrependRef(physTable, binding)}
          | FROM global_temp.${tableName.value}
        """.stripMargin
     SqlQuery(prologue = Seq.empty, resQuery = scanQuery, epilogue = Seq.empty)
   }
 
-  private val schema: StructType = refactorSchema(physTable.data.schema, binding)
+  private val schema: StructType = refactorScanSchema(physTable.data.schema, binding)
 
   override val bindingTable: BindingTable =
-    SparkBindingTable(schemas = Map(binding -> schema), btableOps = sqlQuery)
+    SparkBindingTable(
+      schemas = Map(binding -> schema),
+      btableUnifiedSchema = schema,
+      btableOps = sqlQuery)
 }

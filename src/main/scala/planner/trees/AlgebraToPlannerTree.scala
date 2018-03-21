@@ -3,10 +3,9 @@ package planner.trees
 import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import common.trees.BottomUpRewriter
-import planner.operators.{EdgeScan, VertexScan}
+import planner.operators.{BindingTableOp, EdgeScan, VertexScan}
 
-case class AlgebraToPlannerTree(context: PlannerContext)
-  extends BottomUpRewriter[AlgebraTreeNode] {
+case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewriter[AlgebraTreeNode] {
 
   private val query: RewriteFuncType = {
     case q @ Query(_) => q.children.head
@@ -24,5 +23,13 @@ case class AlgebraToPlannerTree(context: PlannerContext)
       EdgeScan(relation, matchContext.graph, context)
   }
 
-  override val rule: RewriteFuncType = query orElse condMatchRelation orElse simpleMatchRelation
+  private val bindingTableOp: RewriteFuncType = {
+    case op @ UnionAll(_, _, _) => BindingTableOp(op)
+    case op @ InnerJoin(_, _, _) => BindingTableOp(op)
+    case op @ LeftOuterJoin(_, _, _) => BindingTableOp(op)
+    case op @ CrossJoin(_, _, _) => BindingTableOp(op)
+  }
+
+  override val rule: RewriteFuncType =
+    query orElse condMatchRelation orElse simpleMatchRelation orElse bindingTableOp
 }
