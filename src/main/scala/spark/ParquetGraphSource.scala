@@ -27,6 +27,7 @@ case class ParquetGraphSource(spark: SparkSession) extends GraphSource(spark) {
 
       // TODO: Add a valid restriction here.
       override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
+      override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     }
   }
 }

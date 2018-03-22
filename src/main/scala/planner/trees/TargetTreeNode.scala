@@ -1,9 +1,8 @@
 package planner.trees
 
 import planner.operators.BindingTable
-import planner.target_api.TargetPlanner
 
-abstract class TargetTreeNode(targetPlanner: TargetPlanner) extends PlannerTreeNode {
+abstract class TargetTreeNode extends PlannerTreeNode {
 
   val bindingTable: BindingTable
 }

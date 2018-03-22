@@ -1,12 +1,12 @@
 package spark.sql.operators
 
 import org.apache.spark.sql.types.StructType
-import planner.operators.{BindingTable, PhysJoin}
-import planner.target_api.TargetPlanner
+import planner.operators.BindingTable
+import planner.target_api.PhysJoin
 import planner.trees.TargetTreeNode
 
-abstract class SparkJoin(lhs: TargetTreeNode, rhs: TargetTreeNode, targetPlanner: TargetPlanner)
-  extends PhysJoin(lhs, rhs, targetPlanner) with SqlQueryGen {
+abstract class SparkJoin(lhs: TargetTreeNode, rhs: TargetTreeNode)
+  extends PhysJoin(lhs, rhs) with SqlQueryGen {
 
   def joinTypeSql: String
   def joinCondition: String

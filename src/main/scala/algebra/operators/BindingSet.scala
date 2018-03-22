@@ -13,7 +13,7 @@ case class BindingSet(refSet: Set[Reference]) {
     BindingSet(this.refSet ++ other.refSet)
   }
 
-  override def toString: String = s"{${refSet.mkString(", ")}"
+  override def toString: String = s"{${refSet.mkString(", ")}}"
 }
 
 object BindingSet {

@@ -70,6 +70,18 @@ trait SqlQueryGen {
     s"USING (${lhsSchema.intersect(rhsSchema).map(f => s"`${f.name}`").mkString(", ")})"
   }
 
+  /**
+    * Creates the string for selecting all columns in a schema, except for those that belong to a
+    * certain binding.
+    */
+  def allColumnsExceptForRef(ref: Reference, mergeSchemas: StructType): String = {
+    mergeSchemas.fields
+      .map(_.name)
+      .filter(!_.startsWith(ref.refName))
+      .map(col => s"`$col`")
+      .mkString(", ")
+  }
+
   /** Creates a new schema, by merging together multiple schemas. */
   def mergeSchemas(schemas: StructType*): StructType = {
     new StructType(schemas.flatMap(_.fields).toSet.toArray)

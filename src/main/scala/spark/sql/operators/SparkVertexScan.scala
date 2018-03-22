@@ -5,16 +5,15 @@ import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column.tableLabelColumn
-import planner.operators.{BindingTable, PhysVertexScan, VertexScan}
-import planner.target_api.TargetPlanner
+import planner.operators.{BindingTable, VertexScan}
+import planner.target_api.PhysVertexScan
 import planner.trees.PlannerContext
 import schema.Table
 
 case class SparkVertexScan(vertexScan: VertexScan,
                            graph: Graph,
-                           targetPlanner: TargetPlanner,
                            plannerContext: PlannerContext)
-  extends PhysVertexScan(vertexScan, graph, plannerContext, targetPlanner) with SqlQueryGen {
+  extends PhysVertexScan(vertexScan, graph, plannerContext) with SqlQueryGen {
 
   private val binding: Reference = vertexScan.binding
   private val tableName: Label = vertexScan.tableName

@@ -5,16 +5,13 @@ import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column.{fromIdColumn, idColumn, tableLabelColumn, toIdColumn}
-import planner.operators.{BindingTable, EdgeScan, PhysEdgeScan}
-import planner.target_api.TargetPlanner
+import planner.operators.{BindingTable, EdgeScan}
+import planner.target_api.PhysEdgeScan
 import planner.trees.PlannerContext
 import schema.Table
 
-case class SparkEdgeScan(edgeScan: EdgeScan,
-                         graph: Graph,
-                         plannerContext: PlannerContext,
-                         targetPlanner: TargetPlanner)
-  extends PhysEdgeScan(edgeScan, graph, plannerContext, targetPlanner) with SqlQueryGen {
+case class SparkEdgeScan(edgeScan: EdgeScan, graph: Graph, plannerContext: PlannerContext)
+  extends PhysEdgeScan(edgeScan, graph, plannerContext) with SqlQueryGen {
 
   private val edgeBinding: Reference = edgeScan.edgeBinding
   private val fromBinding: Reference = edgeScan.fromBinding

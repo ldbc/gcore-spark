@@ -1,7 +1,7 @@
 package algebra.operators
 
 import algebra.expressions.{AlgebraExpression, Label, Reference}
-import algebra.types.Graph
+import algebra.types.{Graph, PathQuantifier}
 import common.compiler.Context
 
 abstract class RelationLike(bindingTable: BindingSet) extends AlgebraPrimitive {
@@ -35,6 +35,19 @@ case class EdgeRelation(ref: Reference,
                         expr: AlgebraExpression,
                         fromRel: VertexRelation,
                         toRel: VertexRelation)
+  extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingTable ++ toRel.getBindingTable) {
+
+  children = List(ref, labelRelation, expr, fromRel, toRel)
+}
+
+case class StoredPathRelation(ref: Reference,
+                              isReachableTest: Boolean,
+                              labelRelation: RelationLike,
+                              expr: AlgebraExpression,
+                              fromRel: VertexRelation,
+                              toRel: VertexRelation,
+                              costVarDef: Option[Reference],
+                              quantifier: Option[PathQuantifier])
   extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingTable ++ toRel.getBindingTable) {
 
   children = List(ref, labelRelation, expr, fromRel, toRel)

@@ -6,6 +6,7 @@ import algebra.types._
 import algebra.trees.AlgebraTreeNode
 import common.trees.TreeBuilder
 import parser.exceptions.QueryParseException
+import parser.utils.VarBinder
 
 /**
   * Creates the algebraic tree from the lexical tree generated with Spoofax.
@@ -257,15 +258,16 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
     // SpoofaxLeaf["@"]. We remove this node to avoid checking the path type for each Path element.
     val pathType = connElement.children.head /*Virtual/Objectified*/
     if (pathType.name == "Objectified")
-      pathType.children = List(pathType.children.head) ++ pathType.children.drop(2)
+      pathType.children = List(pathType.children.head) ++ pathType.children.drop(2) // drop first 2
 
     val refName = pathType.children(1) /*Some or None*/
-    val connName = refName.name match {
-      case "None" => Option.empty
+    val (connName, isReachableTest) = refName.name match {
+      case "None" => (Reference(VarBinder.createVar("p")), true)
       case "Some" =>
-        Option(Reference(refName.children.head /*VarDef */
+        (Reference(refName.children.head /*VarDef */
           .children.head /*SpoofaxLeaf */
-          .asInstanceOf[SpoofaxLeaf[String]].value))
+          .asInstanceOf[SpoofaxLeaf[String]].value),
+          false)
     }
 
     val connType = from.children.head.name match {
@@ -285,35 +287,35 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
     val isObj = connElement.name == "Path" && connElement.children.head.name == "Objectified"
 
     val quantifierElement = connElement.children.head /* Virtual/Objectified */
-        .children.head /* Some/None */
-      val quantifier = quantifierElement.name match {
-      case "None" => Option.empty
+      .children.head /* Some/None */
+    val quantifier = quantifierElement.name match {
+      case "None" => None
       case "Some" => quantifierElement.children.head.name match {
-        case "Shortest" => Option(Shortest(qty = 1, isDistinct = false))
+        case "Shortest" => Some(Shortest(qty = 1, isDistinct = false))
         case "XShortest" =>
-          Option(Shortest(qty = quantifierElement.children.head.children.head
+          Some(Shortest(qty = quantifierElement.children.head.children.head
             .asInstanceOf[SpoofaxLeaf[String]].value.toInt,
             isDistinct = false))
         case "XDistinctShortest" =>
-          Option(Shortest(qty = quantifierElement.children.head.children.head
+          Some(Shortest(qty = quantifierElement.children.head.children.head
             .asInstanceOf[SpoofaxLeaf[String]].value.toInt,
             isDistinct = true))
-        case "AllPaths" => Option(new AllPaths)
+        case "AllPaths" => Option(AllPaths())
       }
     }
 
     val costVarDefElement = connElement.children.head /* Virtual/Objectified */
         .children.last /* None or Some */
     val costVarDef = costVarDefElement.name match {
-      case "None" => Option.empty
+      case "None" => None
       case "Some" => {
         val costVarElement = costVarDefElement.children.head
         val varDefElement = costVarElement.children.head
-        Option(Literal[String](varDefElement.children.head.asInstanceOf[SpoofaxLeaf[String]].value))
+        Some(Reference(varDefElement.children.head.asInstanceOf[SpoofaxLeaf[String]].value))
       }
     }
 
-    Path(connName, leftEndpoint = prevRef, rightEndpoint, connType,
+    Path(connName, isReachableTest, leftEndpoint = prevRef, rightEndpoint, connType,
       expr, quantifier, costVarDef, isObj)
   }
 

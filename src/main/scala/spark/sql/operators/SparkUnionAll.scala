@@ -1,12 +1,12 @@
 package spark.sql.operators
 
 import org.apache.spark.sql.types.StructType
-import planner.operators.{BindingTable, PhysUnionAll}
-import planner.target_api.TargetPlanner
+import planner.operators.BindingTable
+import planner.target_api.PhysUnionAll
 import planner.trees.TargetTreeNode
 
-case class SparkUnionAll(lhs: TargetTreeNode, rhs: TargetTreeNode, targetPlanner: TargetPlanner)
-  extends PhysUnionAll(lhs, rhs, targetPlanner) with SqlQueryGen {
+case class SparkUnionAll(lhs: TargetTreeNode, rhs: TargetTreeNode)
+  extends PhysUnionAll(lhs, rhs) with SqlQueryGen {
 
   override val bindingTable: BindingTable = {
     val lhsBtable: SparkBindingTable = lhs.bindingTable.asInstanceOf[SparkBindingTable]

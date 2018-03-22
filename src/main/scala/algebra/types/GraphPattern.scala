@@ -1,5 +1,6 @@
 package algebra.types
 
+import algebra.exceptions.UnsupportedOperation
 import common.compiler.Context
 import algebra.expressions._
 import algebra.trees._
@@ -110,7 +111,7 @@ abstract class SingleEndpointConn(ref: Reference, expr: ObjectPattern) extends C
 abstract class DoubleEndpointConn(connType: ConnectionType,
                                   leftEndpoint: SingleEndpointConn,
                                   rightEndpoint: SingleEndpointConn,
-                                  expr: ObjectPattern) extends Connection(expr) {
+                                  expr: ObjectPattern) extends Connection(expr) with SemanticCheck {
 
   def getRightEndpoint: SingleEndpointConn = rightEndpoint
 
@@ -118,6 +119,11 @@ abstract class DoubleEndpointConn(connType: ConnectionType,
     super.checkWithContext(context)
     rightEndpoint.checkWithContext(context)
     leftEndpoint.checkWithContext(context)
+  }
+
+  override def check(): Unit = {
+    if (connType == UndirectedConn() || connType == InOutConn())
+      throw UnsupportedOperation(s"Connection type $connType unsupported.")
   }
 }
 
@@ -145,27 +151,32 @@ case class Edge(connName: Reference,
     context.schema.edgeSchema
 }
 
-case class Path(connName: Option[Reference], // If binding is not provided, we should not try to
-                                             // bind the results to any variable. An unnamed path
-                                             // is actually a reachability test.
+case class Path(connName: Reference,
+                // If binding is not provided, we should not truly bind the result - an unnamed path
+                // is actually a reachability test.
+                isReachableTest: Boolean,
                 leftEndpoint: SingleEndpointConn,
                 rightEndpoint: SingleEndpointConn,
                 connType: ConnectionType,
                 expr: ObjectPattern,
                 quantifier: Option[PathQuantifier],
-                costVarDef: Option[Literal[String]], // If COST is not mentioned, we are not
-                                                     // interested in computing it by default.
+                // If COST is not mentioned, we are not interested in computing it by default.
+                costVarDef: Option[Reference],
                 isObj: Boolean)
                 // TODO: path expression
   extends DoubleEndpointConn(connType, leftEndpoint, rightEndpoint, expr) {
 
-  children = connName.toList ++
-    List(leftEndpoint, rightEndpoint, connType, expr) ++
-    quantifier.toList ++
-    costVarDef.toList
+  children = List(connName, leftEndpoint, rightEndpoint, connType, expr) ++
+    quantifier.toList ++ costVarDef.toList
 
   override def toString: String = s"$name [isObjectified = $isObj]"
 
   override def schemaOfEntityType(context: GraphPatternContext): EntitySchema =
     context.schema.pathSchema
+
+  override def check(): Unit = {
+    super.check()
+    if (!isObj)
+      throw UnsupportedOperation(s"Virtual paths unsupported.")
+  }
 }

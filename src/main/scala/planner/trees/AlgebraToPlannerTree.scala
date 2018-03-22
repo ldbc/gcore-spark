@@ -3,7 +3,7 @@ package planner.trees
 import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import common.trees.BottomUpRewriter
-import planner.operators.{BindingTableOp, EdgeScan, VertexScan}
+import planner.operators.{BindingTableOp, EdgeScan, PathScan, VertexScan}
 
 case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewriter[AlgebraTreeNode] {
 
@@ -16,11 +16,14 @@ case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewrite
   }
 
   private val simpleMatchRelation: RewriteFuncType = {
-    case SimpleMatchRelation(relation @ VertexRelation(_, _, _), matchContext, _) =>
-      VertexScan(relation, matchContext.graph, context)
+    case SimpleMatchRelation(rel @ VertexRelation(_, _, _), matchContext, _) =>
+      VertexScan(rel, matchContext.graph, context)
 
-    case SimpleMatchRelation(relation @ EdgeRelation(_, _, _, _, _), matchContext, _) =>
-      EdgeScan(relation, matchContext.graph, context)
+    case SimpleMatchRelation(rel @ EdgeRelation(_, _, _, _, _), matchContext, _) =>
+      EdgeScan(rel, matchContext.graph, context)
+
+    case SimpleMatchRelation(rel @ StoredPathRelation(_, _, _, _, _, _, _, _), matchContext, _) =>
+      PathScan(rel, matchContext.graph, context)
   }
 
   private val bindingTableOp: RewriteFuncType = {

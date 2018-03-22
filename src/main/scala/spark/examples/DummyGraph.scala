@@ -66,10 +66,10 @@ final case class DummyGraph(spark: SparkSession) extends SparkGraph {
   val whiskasMadeInGermany = MadeIn(210, 106, 108)
   val gourmandMadeInFrance = MadeIn(211, 107, 109)
 
-  val fromCoby = ToGourmand(301, 2, Seq(205, 202))
-  val fromHosico = ToGourmand(302, 1, Seq(202))
-  val fromKittler = ToGourmand(303, 2, Seq(207, 204))
-  val fromMeowseph = ToGourmand(304, 1, Seq(204))
+  val fromCoby = ToGourmand(301, 2, 101, 107, Seq(205, 202))
+  val fromHosico = ToGourmand(302, 1, 102, 107, Seq(202))
+  val fromKittler = ToGourmand(303, 2, 103, 107, Seq(207, 204))
+  val fromMeowseph = ToGourmand(304, 1, 104, 107, Seq(204))
 
   import spark.implicits._
 
@@ -103,6 +103,9 @@ final case class DummyGraph(spark: SparkSession) extends SparkGraph {
       Label("Enemy") -> (Label("Cat"), Label("Cat")),
       Label("MadeIn") -> (Label("Food"), Label("Country"))
     ))
+
+  override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] =
+    SchemaMap(Map(Label("ToGourmand") -> (Label("Cat"), Label("Food"))))
 }
 
 sealed case class Cat(id: Int, name: String, age: Double, weight: Int, onDiet: Boolean)
@@ -112,4 +115,4 @@ sealed case class Eats(id: Int, gramsPerDay: Double, fromId: Int, toId: Int)
 sealed case class Friend(id: Int, since: String, fromId: Int, toId: Int)
 sealed case class Enemy(id: Int, since: String, fights: Int, fromId: Int, toId: Int)
 sealed case class MadeIn(id: Int, fromId: Int, toId: Int)
-sealed case class ToGourmand(id: Int, hops: Int, edges: Seq[Int])
+sealed case class ToGourmand(id: Int, hops: Int, fromId: Int, toId: Int, edges: Seq[Int])

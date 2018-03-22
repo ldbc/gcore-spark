@@ -12,5 +12,7 @@ object Column {
   val fromIdColumn: Column = Column("fromId")
   val toIdColumn: Column = Column("toId")
 
+  val edgeSeqColumn: Column = Column("edges")
+
   val tableLabelColumn: Column = Column("table_label")
 }

@@ -58,6 +58,7 @@ class SpoofaxParserTest extends FunSuite
     override def edgeData: Seq[Table[StorageType]] = Seq.empty
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
+    override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
   }
 
   val graphDb: GraphDb = new GraphDb { override type T = Nothing }

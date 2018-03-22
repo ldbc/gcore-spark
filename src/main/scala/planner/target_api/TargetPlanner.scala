@@ -14,6 +14,8 @@ abstract class TargetPlanner extends BottomUpRewriter[AlgebraTreeNode] {
 
   def createPhysEdgeScan(edgeScanOp: EdgeScan): PhysEdgeScan
 
+  def createPhysPathScan(pathScanOp: PathScan): PhysPathScan
+
   def createPhysUnionAll(unionAllOp: UnionAll): PhysUnionAll
 
   def createPhysJoin(joinOp: JoinLike): PhysJoin
@@ -21,6 +23,7 @@ abstract class TargetPlanner extends BottomUpRewriter[AlgebraTreeNode] {
   override val rule: RewriteFuncType = {
     case vs @ VertexScan(_, _, _) => createPhysVertexScan(vs)
     case es @ EdgeScan(_, _, _) => createPhysEdgeScan(es)
+    case ps @ PathScan(_, _, _) => createPhysPathScan(ps)
     case BindingTableOp(op @ UnionAll(_, _, _)) => createPhysUnionAll(op)
     case BindingTableOp(op @ InnerJoin(_, _, _)) => createPhysJoin(op)
     case BindingTableOp(op @ CrossJoin(_, _, _)) => createPhysJoin(op)
