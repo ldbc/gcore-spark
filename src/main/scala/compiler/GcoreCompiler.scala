@@ -14,8 +14,7 @@ case class GcoreCompiler(context: CompileContext) extends Compiler {
   val parser: ParseStage = SpoofaxParser(ParseContext(context.graphDb))
   val rewriter: RewriteStage = AlgebraRewriter(AlgebraContext(context.graphDb))
   val planner: PlanningStage = QueryPlanner(PlannerContext(context.graphDb))
-  val target: RunTargetCodeStage =
-    SparkSqlRunner(context.sparkSession, PlannerContext(context.graphDb))
+  val target: RunTargetCodeStage = SparkSqlRunner(context.sparkSession)
 
   override def compile(query: String): Unit =
     (parser andThen rewriter andThen planner andThen target) (query)

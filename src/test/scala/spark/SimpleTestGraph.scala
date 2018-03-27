@@ -1,7 +1,7 @@
 package spark
 
 /** An example graph for testing. */
-trait TestGraphWrapper {
+trait SimpleTestGraph {
 
   val peopleList =
     List(

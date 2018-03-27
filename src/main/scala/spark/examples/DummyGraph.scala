@@ -10,16 +10,18 @@ import spark._
   *
   * vertex labels: Cat        - name: String, age: Double, weight: Int, onDiet: Boolean
   *                Food       - brand: String
+  *                Country    - name: String
   * edge labels:   Eats       - gramsPerDay: Double: (Cat, Food)
   *                Friend     - since: Date: (Cat, Cat)
-  *                Enemy      - since: Date: (Cat, Cat)
+  *                Enemy      - since: Date, fights: Int: (Cat, Cat)
+  *                MadeIn     - (Food, Country)
   * path labels:   ToGourmand - hops: Int
   *
   * Graph:
   * 101: Cat(name = Coby, age = 3, weight = 6, onDiet = false)
   * 102: Cat(name = Hosico, age = 4, weight = 7, onDiet = true)
-  * 103: Cat(name = Kittler, age = 8, weight = 8, onDiet = true)
-  * 104: Cat(name = Meowseph, age = 0.5, weight = 2, onDiet = false)
+  * 103: Cat(name = Maru, age = 8, weight = 8, onDiet = true)
+  * 104: Cat(name = Grumpy, age = 0.5, weight = 2, onDiet = false)
   * 105: Food(brand = Purina)
   * 106: Food(brand = Whiskas)
   * 107: Food(brand = Gourmand)
@@ -32,8 +34,8 @@ import spark._
   * 204: Eats(gramsPerDay = 60)  (104 -> 107)
   * 205: Friend(since = Dec 2017)(101 -> 102)
   * 206: Friend(since = Dec 2017)(102 -> 101)
-  * 207: Enemy(since = Jan 2018) (103 -> 104)
-  * 208: Enemy(since = Jan 2018) (104 -> 103)
+  * 207: Enemy(since = Jan 2018, fights = 5) (103 -> 104)
+  * 208: Enemy(since = Jan 2018, fights = 5) (104 -> 103)
   * 209: MadeIn() (105 -> 108)
   * 210: MadeIn() (106 -> 108)
   * 211: MadeIn() (107 -> 109)
@@ -46,8 +48,8 @@ import spark._
 final case class DummyGraph(spark: SparkSession) extends SparkGraph {
   val coby = Cat(101, "Coby", 3, 6, onDiet = false)
   val hosico = Cat(102, "Hosico", 4, 7, onDiet = true)
-  val kittler = Cat(103, "Kittler", 8, 8, onDiet = true)
-  val meowseph = Cat(104, "Meowseph", 0.5, 2, onDiet = false)
+  val maru = Cat(103, "Maru", 8, 8, onDiet = true)
+  val grumpy = Cat(104, "Grumpy", 0.5, 2, onDiet = false)
   val purina = Food(105, "Purina")
   val whiskas = Food(106, "Whiskas")
   val gourmand = Food(107, "Gourmand")
@@ -56,20 +58,20 @@ final case class DummyGraph(spark: SparkSession) extends SparkGraph {
 
   val cobyEatsPurina = Eats(201, 100, 101, 105)
   val hosicoEatsGourmand = Eats(202, 100, 102, 107)
-  val kittlerEatsWhiskas = Eats(203, 80, 103, 106)
-  val meowsephEatsGourmand = Eats(204, 60, 104, 107)
+  val maruEatsWhiskas = Eats(203, 80, 103, 106)
+  val grumpyEatsGourmand = Eats(204, 60, 104, 107)
   val cobyFriendWithHosico = Friend(205, "Dec 2017", 101, 102)
   val hosicoFriendWithCobby = Friend(206, "Dec 2017", 102, 101)
-  val kittlerEnemyMeowseph = Enemy(207, "Jan 2018", 5, 103, 104)
-  val meowsephEnemyKittler = Enemy(208, "Jan 2018", 5, 104, 103)
+  val maruEnemyGrumpy = Enemy(207, "Jan 2018", 5, 103, 104)
+  val grumpyEnemyMaru = Enemy(208, "Jan 2018", 5, 104, 103)
   val purinaMadeInGermany = MadeIn(209, 105, 108)
   val whiskasMadeInGermany = MadeIn(210, 106, 108)
   val gourmandMadeInFrance = MadeIn(211, 107, 109)
 
   val fromCoby = ToGourmand(301, 2, 101, 107, Seq(205, 202))
   val fromHosico = ToGourmand(302, 1, 102, 107, Seq(202))
-  val fromKittler = ToGourmand(303, 2, 103, 107, Seq(207, 204))
-  val fromMeowseph = ToGourmand(304, 1, 104, 107, Seq(204))
+  val fromMaru = ToGourmand(303, 2, 103, 107, Seq(207, 204))
+  val fromGrumpy = ToGourmand(304, 1, 104, 107, Seq(204))
 
   import spark.implicits._
 
@@ -77,7 +79,7 @@ final case class DummyGraph(spark: SparkSession) extends SparkGraph {
 
   override def vertexData: Seq[Table[DataFrame]] =
     Seq(
-      Table(Label("Cat"), Seq(coby, hosico, kittler, meowseph).toDF()),
+      Table(Label("Cat"), Seq(coby, hosico, maru, grumpy).toDF()),
       Table(Label("Food"), Seq(purina, whiskas, gourmand).toDF()),
       Table(Label("Country"), Seq(germany, france).toDF()))
 
@@ -85,16 +87,16 @@ final case class DummyGraph(spark: SparkSession) extends SparkGraph {
     Seq(
       Table(
         Label("Eats"),
-        Seq(cobyEatsPurina, hosicoEatsGourmand, kittlerEatsWhiskas, meowsephEatsGourmand).toDF()),
+        Seq(cobyEatsPurina, hosicoEatsGourmand, maruEatsWhiskas, grumpyEatsGourmand).toDF()),
       Table(Label("Friend"), Seq(cobyFriendWithHosico, hosicoFriendWithCobby).toDF()),
-      Table(Label("Enemy"), Seq(kittlerEnemyMeowseph, meowsephEnemyKittler).toDF()),
+      Table(Label("Enemy"), Seq(maruEnemyGrumpy, grumpyEnemyMaru).toDF()),
       Table(
         Label("MadeIn"),
         Seq(purinaMadeInGermany, whiskasMadeInGermany, gourmandMadeInFrance).toDF())
     )
 
   override def pathData: Seq[Table[DataFrame]] =
-    Seq(Table(Label("ToGourmand"), Seq(fromCoby, fromHosico, fromKittler, fromMeowseph).toDF()))
+    Seq(Table(Label("ToGourmand"), Seq(fromCoby, fromHosico, fromMaru, fromGrumpy).toDF()))
 
   override def edgeRestrictions: SchemaMap[Label, (Label, Label)] =
     SchemaMap(Map(

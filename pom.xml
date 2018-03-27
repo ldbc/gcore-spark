@@ -83,6 +83,12 @@
             <version>3.0.5</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.scalamock</groupId>
+            <artifactId>scalamock-scalatest-support_${scala.version}</artifactId>
+            <version>3.6.0</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Spark dependencies. -->
         <dependency>

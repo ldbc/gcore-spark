@@ -7,8 +7,8 @@ abstract class AlgebraPrimitive extends AlgebraOperator
   * [[BindingSet]] of the [[RelationLike]] becomes the [[BindingSet]] of the resulting
   * [[RelationLike]].
   */
-abstract class UnaryPrimitive(relation: RelationLike, bindingTable: Option[BindingSet] = None)
-  extends RelationLike(bindingTable.getOrElse(relation.getBindingTable)) {
+abstract class UnaryPrimitive(relation: RelationLike, bindingSet: Option[BindingSet] = None)
+  extends RelationLike(bindingSet.getOrElse(relation.getBindingSet)) {
 
   children = List(relation)
 }
@@ -21,8 +21,8 @@ abstract class UnaryPrimitive(relation: RelationLike, bindingTable: Option[Bindi
   */
 abstract class BinaryPrimitive(lhs: RelationLike,
                                rhs: RelationLike,
-                               bindingTable: Option[BindingSet] = None)
-  extends RelationLike(bindingTable.getOrElse(lhs.getBindingTable ++ rhs.getBindingTable)) {
+                               bindingSet: Option[BindingSet] = None)
+  extends RelationLike(bindingSet.getOrElse(lhs.getBindingSet ++ rhs.getBindingSet)) {
 
   children = List(lhs, rhs)
 }
@@ -30,7 +30,7 @@ abstract class BinaryPrimitive(lhs: RelationLike,
 object BinaryPrimitive {
 
   /**
-    * Reduces a sequence of [[BinaryPrimitive]]s, from left to right. The folded result will be:
+    * Reduces a sequence of [[BinaryPrimitive]]s, from left to right. The reduced result will be:
     *
     * reduce([R1, R2, R3, ... Rn], binaryOp) =
     *   binaryOp(

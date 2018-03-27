@@ -1,7 +1,0 @@
-{
-  "graph_name": "dummy_graph",
-  "graph_root_dir": "/path/to/json",
-  "vertex_labels": ["Cat", "Food"],
-  "edge_labels": ["Eats", "Friend", "Enemy"],
-  "path_labels": ["ToGourmand"]
-}

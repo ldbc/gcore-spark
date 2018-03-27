@@ -8,7 +8,7 @@ import schema.{GraphDb, PathPropertyGraph}
 /** A [[GraphDb]] for [[PathPropertyGraph]]s backed by [[DataFrame]]s. */
 case class SparkGraphDb(sparkSession: SparkSession) extends GraphDb {
 
-  override type T = DataFrame
+  override type StorageType = DataFrame
 
   val jsonSource: JsonGraphSource = GraphSource.json(sparkSession)
   val parquetSource: ParquetGraphSource = GraphSource.parquet(sparkSession)

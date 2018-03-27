@@ -4,12 +4,12 @@ import algebra.expressions.{AlgebraExpression, Label, Reference}
 import algebra.types.{Graph, PathQuantifier}
 import common.compiler.Context
 
-abstract class RelationLike(bindingTable: BindingSet) extends AlgebraPrimitive {
+abstract class RelationLike(bindingSet: BindingSet) extends AlgebraPrimitive {
 
-  def getBindingTable: BindingSet = bindingTable
+  def getBindingSet: BindingSet = bindingSet
 
   override def name: String =
-    s"${super.name} [bindingTable = $bindingTable]"
+    s"${super.name} [bindingSet = $bindingSet]"
 }
 
 object RelationLike {
@@ -35,7 +35,7 @@ case class EdgeRelation(ref: Reference,
                         expr: AlgebraExpression,
                         fromRel: VertexRelation,
                         toRel: VertexRelation)
-  extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingTable ++ toRel.getBindingTable) {
+  extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingSet ++ toRel.getBindingSet) {
 
   children = List(ref, labelRelation, expr, fromRel, toRel)
 }
@@ -48,7 +48,7 @@ case class StoredPathRelation(ref: Reference,
                               toRel: VertexRelation,
                               costVarDef: Option[Reference],
                               quantifier: Option[PathQuantifier])
-  extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingTable ++ toRel.getBindingTable) {
+  extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingSet ++ toRel.getBindingSet) {
 
   children = List(ref, labelRelation, expr, fromRel, toRel)
 }
@@ -60,16 +60,16 @@ case class SimpleMatchRelationContext(graph: Graph) extends Context {
 
 case class SimpleMatchRelation(relation: RelationLike,
                                context: SimpleMatchRelationContext,
-                               bindingTable: Option[BindingSet] = None)
-  extends UnaryPrimitive(relation, bindingTable) {
+                               bindingSet: Option[BindingSet] = None)
+  extends UnaryPrimitive(relation, bindingSet) {
 
   override def name: String = s"${super.name} [graph = ${context.graph}]"
 }
 
 case class CondMatchRelation(relation: RelationLike,
                              expr: AlgebraExpression,
-                             bindingTable: Option[BindingSet] = None)
-  extends UnaryPrimitive(relation, bindingTable) {
+                             bindingSet: Option[BindingSet] = None)
+  extends UnaryPrimitive(relation, bindingSet) {
 
   children = List(relation, expr)
 }

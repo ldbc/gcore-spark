@@ -31,7 +31,7 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
         lhs should matchPattern { case SimpleRel(Reference("a")) => }
         rhs should matchPattern { case SimpleRel(Reference("b")) => }
 
-        val btable = reduced.getBindingTable
+        val btable = reduced.getBindingSet
 
         assert(btable.refSet.nonEmpty)
         assert(btable.refSet == Set(Reference("a"), Reference("b")))
@@ -49,7 +49,7 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
         }
         rhs should matchPattern { case SimpleRel(Reference("c")) => }
 
-        val btable = reduced.getBindingTable
+        val btable = reduced.getBindingSet
 
         assert(btable.refSet.nonEmpty)
         assert(btable.refSet == Set(Reference("a"), Reference("b"), Reference("c")))
@@ -69,7 +69,7 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
         }
         rhs should matchPattern { case SimpleRel(Reference("d")) => }
 
-        val btable = reduced.getBindingTable
+        val btable = reduced.getBindingSet
 
         assert(btable.refSet.nonEmpty)
         assert(

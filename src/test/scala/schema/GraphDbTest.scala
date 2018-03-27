@@ -91,7 +91,7 @@ class GraphDbTest extends FunSuite {
   }
 
   sealed abstract class AGraphDb extends GraphDb {
-    override type T = Nothing
+    override type StorageType = Nothing
   }
 
   /**

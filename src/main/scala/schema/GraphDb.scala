@@ -1,13 +1,13 @@
 package schema
 
 object GraphDb {
-  val empty: GraphDb = new GraphDb { override type T = Nothing }
+  val empty: GraphDb = new GraphDb { override type StorageType = Nothing }
 }
 
 /** Keeps track of all the [[PathPropertyGraph]]s available for querying. */
 abstract class GraphDb {
 
-  type T
+  type StorageType
 
   private var registeredGraphs: Map[String, PathPropertyGraph] = Map.empty
   private var registeredDefaultGraph: PathPropertyGraph = PathPropertyGraph.empty

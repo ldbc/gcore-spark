@@ -3,7 +3,7 @@ package algebra.operators
 import algebra.expressions.Reference
 import org.scalatest.FunSuite
 
-class BindingTableTest extends FunSuite {
+class BindingSetTest extends FunSuite {
 
   test("++ with other table") {
     val btable1 = new BindingSet(Reference("foo"), Reference("bar"))
@@ -16,13 +16,13 @@ class BindingTableTest extends FunSuite {
       new BindingSet(Reference("foo"), Reference("bar"), Reference("qux")))
   }
 
-  test("intersect sequence of BindingTables") {
+  test("intersect sequence of BindingSets") {
     val bset1 = Set(Reference("foo"), Reference("bar"))
     val bset2 = Set(Reference("foo"), Reference("qux"))
     val bset3 = Set(Reference("foo"), Reference("qux"), Reference("quux"))
 
     assert(
-      BindingSet.intersectBindingTables(Seq(bset1, bset2, bset3)) ==
+      BindingSet.intersectBindingSets(Seq(bset1, bset2, bset3)) ==
       Set(Reference("foo"), Reference("qux"))
     )
   }

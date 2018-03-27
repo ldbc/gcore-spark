@@ -187,7 +187,8 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
       }
     }
 
-    test("isObj = false for virtual path") {
+    // Ignored for now, because virtual paths are not supported.
+    ignore("isObj = false for virtual path") {
       val ast = GcoreLang parseQuery
         "CONSTRUCT () " +
           "MATCH (u)-/p/->(v)"
@@ -203,7 +204,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
           )) => {
 
           graphPattern should matchPattern {
-            case GraphPattern(List(Path(_, _, _, _, _, _, _, false))) => }
+            case GraphPattern(List(Path(_, _, _, _, _, _, _, _, false))) => }
         }
       }
     }
@@ -223,7 +224,43 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
             /* optional */ _)) => {
 
           graphPattern should matchPattern {
-            case GraphPattern(List(Path(_, _, _, _, _, _, _, true))) => }
+            case GraphPattern(List(Path(_, _, _, _, _, _, _, _, true))) => }
+        }
+      }
+    }
+
+    test("isReachableTest = true if name is not provided for path") {
+      val ast = GcoreLang parseQuery "CONSTRUCT () MATCH (u)-/@/->(v)"
+      val spoofaxTree = SpoofaxTreeBuilder build ast
+      val algebraTree = AlgebraTreeBuilder build spoofaxTree
+
+      inside (algebraTree) {
+        case Query(
+          MatchClause(
+            /* non optional */ CondMatchClause(
+              List(/*u-/@/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
+            /* optional */ _)) => {
+
+          graphPattern should matchPattern {
+            case GraphPattern(List(Path(_, true, _, _, _, _, _, _, _))) => }
+        }
+      }
+    }
+
+    test("isReachableTest = false if name is provided for path") {
+      val ast = GcoreLang parseQuery "CONSTRUCT () MATCH (u)-/@p/->(v)"
+      val spoofaxTree = SpoofaxTreeBuilder build ast
+      val algebraTree = AlgebraTreeBuilder build spoofaxTree
+
+      inside (algebraTree) {
+        case Query(
+        MatchClause(
+          /* non optional */ CondMatchClause(
+            List(/*u-/@/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
+          /* optional */ _)) => {
+
+          graphPattern should matchPattern {
+            case GraphPattern(List(Path(_, false, _, _, _, _, _, _, _))) => }
         }
       }
     }

@@ -1,14 +1,14 @@
 package planner.target_api
 
-import algebra.operators._
-import algebra.trees.AlgebraTreeNode
-import common.trees.BottomUpRewriter
-import planner.exceptions.UnsupportedOperation
-import planner.operators._
+import algebra.operators.{JoinLike, UnionAll}
+import planner.operators.{EdgeScan, PathScan, VertexScan}
+import planner.trees.PlannerTreeNode
 
-abstract class TargetPlanner extends BottomUpRewriter[AlgebraTreeNode] {
+abstract class TargetPlanner {
 
   type StorageType
+
+  def createBindingTable(input: PlannerTreeNode): StorageType
 
   def createPhysVertexScan(vertexScanOp: VertexScan): PhysVertexScan
 
@@ -19,17 +19,4 @@ abstract class TargetPlanner extends BottomUpRewriter[AlgebraTreeNode] {
   def createPhysUnionAll(unionAllOp: UnionAll): PhysUnionAll
 
   def createPhysJoin(joinOp: JoinLike): PhysJoin
-
-  override val rule: RewriteFuncType = {
-    case vs @ VertexScan(_, _, _) => createPhysVertexScan(vs)
-    case es @ EdgeScan(_, _, _) => createPhysEdgeScan(es)
-    case ps @ PathScan(_, _, _) => createPhysPathScan(ps)
-    case BindingTableOp(op @ UnionAll(_, _, _)) => createPhysUnionAll(op)
-    case BindingTableOp(op @ InnerJoin(_, _, _)) => createPhysJoin(op)
-    case BindingTableOp(op @ CrossJoin(_, _, _)) => createPhysJoin(op)
-    case BindingTableOp(op @ LeftOuterJoin(_, _, _)) => createPhysJoin(op)
-    case BindingTableOp(other) =>
-      throw UnsupportedOperation("Match pattern resulting in the following plan tree is not " +
-        s"supported at the moment:\n${other.treeString()}")
-  }
 }

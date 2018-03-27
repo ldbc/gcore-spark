@@ -16,7 +16,7 @@ import schema.{GraphData, GraphSchema}
 class GraphSourceTest extends FunSuite
   with SparkSessionTestWrapper
   with TemporaryFolder
-  with TestGraphWrapper
+  with SimpleTestGraph
   with BeforeAndAfterAll {
 
   import spark.implicits._
@@ -125,10 +125,5 @@ class GraphSourceTest extends FunSuite
     // longs. What generates this issue?
     compareDfs(actual = actual.select("id"),
       expected = travelRouteDf.select("id"))
-  }
-
-  private def compareDfs(actual: DataFrame, expected: DataFrame): Unit = {
-    assert(actual.except(expected).count() == 0)
-    assert(expected.except(actual).count() == 0)
   }
 }

@@ -22,7 +22,7 @@ object BindingSet {
 
   def newEmpty: BindingSet = BindingSet(Set.empty)
 
-  def intersectBindingTables(btables: Seq[Set[Reference]]): Set[Reference] = {
+  def intersectBindingSets(btables: Seq[Set[Reference]]): Set[Reference] = {
     val refToNumOccur: mutable.Map[Reference, Int] = mutable.Map()
     btables.foreach(_.foreach(ref => {
       val ocurr: Int = {

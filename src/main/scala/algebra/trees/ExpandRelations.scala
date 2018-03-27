@@ -174,7 +174,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           case DefaultGraph() => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
-        changed =
+        changed |=
           analyseDoubleEndpRelation(
             ref, edgeLblRel, fromRel, toRel, graphSchema.edgeRestrictions, restrictedBindings)
 
@@ -185,7 +185,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           case DefaultGraph() => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
-        changed =
+        changed |=
           analyseDoubleEndpRelation(
             ref, pathLblRel, fromRel, toRel, graphSchema.storedPathRestrictions, restrictedBindings)
     }

@@ -1,17 +1,14 @@
 package spark.sql.operators
 
 import algebra.expressions.{Label, Reference}
-import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column._
 import planner.operators.{BindingTable, PathScan}
 import planner.target_api.PhysPathScan
-import planner.trees.PlannerContext
 import schema.Table
 
-case class SparkPathScan(pathScan: PathScan, graph: Graph, plannerContext: PlannerContext)
-  extends PhysPathScan(pathScan, graph, plannerContext) with SqlQueryGen {
+case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with SqlQueryGen {
 
   private val pathBinding: Reference = pathScan.pathBinding
   private val fromBinding: Reference = pathScan.fromBinding

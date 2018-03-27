@@ -39,7 +39,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
     // Find those SimpleMatches that share the binding set - this will be either the binding of a
     // vertex, or the three-set for an edge (from, edge, to).
     relations.foreach(relation => {
-      val bset: Set[Reference] = relation.getBindingTable.refSet
+      val bset: Set[Reference] = relation.getBindingSet.refSet
       relationToBindingMmap.addBinding(bset, relation)
     })
 
@@ -70,7 +70,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
         with mutable.MultiMap[Reference, RelationLike]
 
     relations.foreach(relation => {
-      val bset: Set[Reference] = relation.getBindingTable.refSet
+      val bset: Set[Reference] = relation.getBindingSet.refSet
       bset.foreach(ref => bindingToRelationMmap.addBinding(ref, relation))
     })
 
@@ -95,7 +95,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
 
       // For each binding in the join, remove previous relations it appeared in and are now part of
       // the joined relations, and add the join result to its mmap set.
-      join.asInstanceOf[JoinLike].getBindingTable.refSet.foreach(
+      join.asInstanceOf[JoinLike].getBindingSet.refSet.foreach(
         ref => {
           joinedRelations.foreach(
             // If this binding appeared in this relation, remove the relation from the mmap.

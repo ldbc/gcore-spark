@@ -61,7 +61,7 @@ class SpoofaxParserTest extends FunSuite
     override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
   }
 
-  val graphDb: GraphDb = new GraphDb { override type T = Nothing }
+  val graphDb: GraphDb = new GraphDb { override type StorageType = Nothing }
   val parseContext: ParseContext = ParseContext(graphDb = graphDb)
   val parser: SpoofaxParser = SpoofaxParser(parseContext)
 
@@ -75,9 +75,35 @@ class SpoofaxParserTest extends FunSuite
     }
   }
 
+  test("Disjunction of labels is not supported yet") {
+    assertThrows[UnsupportedOperation] {
+      parser parse "CONSTRUCT () MATCH (v:foo|bar)"
+    }
+  }
+
+  test("Undirected edges are not supported yet") {
+    assertThrows[UnsupportedOperation] {
+      parser parse "CONSTRUCT () MATCH (v)-(w)"
+    }
+  }
+
+  test("Both in- and out- directed edges are not supported yet") {
+    assertThrows[UnsupportedOperation] {
+      parser parse "CONSTRUCT () MATCH (v)<->(w)"
+    }
+  }
+
   test("QueryGraph is not supported yet") {
     assertThrows[UnsupportedOperation] {
       parser parse "CONSTRUCT () MATCH (v) ON (CONSTRUCT () MATCH (w))"
+    }
+  }
+
+  // TODO: Unignore the trees/SpoofaxToAlgebraMatch "isObj = false for virtual path" test once
+  // virtual paths get supported.
+  test("Virtual paths are not supported yet") {
+    assertThrows[UnsupportedOperation] {
+      parser parse "CONSTRUCT () MATCH (v)-/ /->(w)"
     }
   }
 
@@ -103,13 +129,13 @@ class SpoofaxParserTest extends FunSuite
     the [DisjunctLabelsException] thrownBy {
       parser parse "CONSTRUCT () MATCH (v:foo) ON people"
     } should matchPattern {
-      case DisjunctLabelsException("people", Seq(Label("foo")), peopleVertexSchema) =>
+      case DisjunctLabelsException("people", Seq(Label("foo")), `peopleVertexSchema`) =>
     }
 
     the [DisjunctLabelsException] thrownBy {
-      parser parse "CONSTRUCT () MATCH ()-[:foo]-() ON people"
+      parser parse "CONSTRUCT () MATCH ()-[:foo]->() ON people"
     } should matchPattern {
-      case DisjunctLabelsException("people", Seq(Label("foo")), peopleEdgeSchema) =>
+      case DisjunctLabelsException("people", Seq(Label("foo")), `peopleEdgeSchema`) =>
     }
 
     noException should be thrownBy {
@@ -117,12 +143,13 @@ class SpoofaxParserTest extends FunSuite
     }
 
     noException should be thrownBy {
-      parser parse "CONSTRUCT () MATCH (:person)-[:livesIn]-(:city) ON people"
+      parser parse "CONSTRUCT () MATCH (:person)-[:livesIn]->(:city) ON people"
     }
 
-    noException should be thrownBy {
-      parser parse "CONSTRUCT () MATCH (:person|city) ON people"
-    }
+//    TODO: Uncomment once label disjunction is supported again.
+//    noException should be thrownBy {
+//      parser parse "CONSTRUCT () MATCH (:person|city) ON people"
+//    }
   }
 
   test("Property keys are present in schema") {
@@ -133,19 +160,19 @@ class SpoofaxParserTest extends FunSuite
     } should matchPattern {
       case PropKeysException("people",
                              Seq(PropertyKey("foo"), PropertyKey("bar")),
-                             peopleVertexSchema) =>
+                             `peopleVertexSchema`) =>
     }
 
     the [PropKeysException] thrownBy {
       parser parse "CONSTRUCT () MATCH (:person {since = 4}) ON people"
     } should matchPattern {
-      case PropKeysException("people", Seq(PropertyKey("since")), peopleVertexSchema) =>
+      case PropKeysException("people", Seq(PropertyKey("since")), `peopleVertexSchema`) =>
     }
 
     the [PropKeysException] thrownBy {
-      parser parse "CONSTRUCT () MATCH ()-[{baz = 3}]-() ON people"
+      parser parse "CONSTRUCT () MATCH ()-[{baz = 3}]->() ON people"
     } should matchPattern {
-      case PropKeysException("people", Seq(PropertyKey("baz")), peopleEdgeSchema) =>
+      case PropKeysException("people", Seq(PropertyKey("baz")), `peopleEdgeSchema`) =>
     }
 
 //    TODO: Uncomment once expressions are fixed.

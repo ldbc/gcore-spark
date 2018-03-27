@@ -9,7 +9,7 @@ import schema._
 /** Verifies that the [[GraphSchema]] is inferred correctly from the [[GraphData]]. */
 class SparkGraphTest extends FunSuite
   with SparkSessionTestWrapper
-  with TestGraphWrapper {
+  with SimpleTestGraph {
 
   import spark.implicits._
 

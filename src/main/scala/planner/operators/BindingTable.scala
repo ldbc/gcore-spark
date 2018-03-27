@@ -2,7 +2,7 @@ package planner.operators
 
 import algebra.expressions.Reference
 
-abstract class BindingTable() {
+abstract class BindingTable {
   type SchemaType
   type QueryOperand
 

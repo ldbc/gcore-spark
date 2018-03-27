@@ -26,7 +26,7 @@ object GcoreRunner {
     val compiler: Compiler = GcoreCompiler(CompileContext(graphDb, spark.newSession()))
     compiler.compile(
       """
-        | CONSTRUCT () MATCH (c)-/@p COST cst/->(f)
+        | CONSTRUCT () MATCH (c:Cat)->(f:Food)
       """.stripMargin)
 //      """
 //        | CONSTRUCT () MATCH (c1:Cat)->(f:Food), (f: Food), (c2: Cat)
@@ -35,8 +35,6 @@ object GcoreRunner {
 //        | CONSTRUCT () MATCH (c1)->(c2:Cat), (f:Food), (c1)->(f), (f)->(c3)
 //      """.stripMargin)
 //
-//    Below pattern does not work correctly: c2 is identified both as a Cat and as Food. It should
-//    only be a Cat, given that only a Cat node can point to a Food node.
 //          """
 //            | CONSTRUCT () MATCH (c1)->(f), (c1:Cat)->(c2)->(f:Food), (f)->(c3)
 //          """.stripMargingin)

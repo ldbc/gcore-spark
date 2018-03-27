@@ -11,7 +11,7 @@ abstract class JoinLike(lhs: RelationLike,
     * Returns all the bindings that appear in at least two binding sets that have been seen so far
     * by this [[JoinLike]].
     */
-  def commonInSeenBindingSets: Set[Reference] = BindingSet.intersectBindingTables(seenBindingSets)
+  def commonInSeenBindingSets: Set[Reference] = BindingSet.intersectBindingSets(seenBindingSets)
 
   /** The sets of bindings that have been seen so far by in this [[JoinLike]] subtree. */
   val seenBindingSets: Seq[Set[Reference]] = {
@@ -19,12 +19,12 @@ abstract class JoinLike(lhs: RelationLike,
 
     lhs match {
       case joinLike: JoinLike => union = union ++ joinLike.seenBindingSets
-      case _ => union = union ++ Set(lhs.getBindingTable.refSet)
+      case _ => union = union ++ Set(lhs.getBindingSet.refSet)
     }
 
     rhs match {
       case joinLike: JoinLike => union = union ++ joinLike.seenBindingSets
-      case _ => union = union ++ Set(rhs.getBindingTable.refSet)
+      case _ => union = union ++ Set(rhs.getBindingSet.refSet)
     }
 
     union
