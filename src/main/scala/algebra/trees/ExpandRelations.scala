@@ -12,7 +12,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
   sealed abstract class EntityTuple
   sealed case class VertexTuple(label: Label) extends EntityTuple
-  sealed case class EdgeOrPathTuple(edgeLabel: Label, fromLabel: Label, toLabel: Label)
+  sealed case class EdgeOrPathTuple(label: Label, fromLabel: Label, toLabel: Label)
     extends EntityTuple
 
   private type BindingToLabelsMmap = mutable.HashMap[Reference, mutable.Set[Label]]
@@ -59,7 +59,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
               val edgeTuple: EdgeOrPathTuple = tuple.asInstanceOf[EdgeOrPathTuple]
               m.copy(
                 relation = rel.copy(
-                  labelRelation = Relation(edgeTuple.edgeLabel),
+                  labelRelation = Relation(edgeTuple.label),
                   fromRel = fromRel.copy(labelRelation = Relation(edgeTuple.fromLabel)),
                   toRel = toRel.copy(labelRelation = Relation(edgeTuple.toLabel))))
             })
@@ -69,7 +69,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
               val pathTuple: EdgeOrPathTuple = tuple.asInstanceOf[EdgeOrPathTuple]
               m.copy(
                 relation = rel.copy(
-                  labelRelation = Relation(pathTuple.edgeLabel),
+                  labelRelation = Relation(pathTuple.label),
                   fromRel = fromRel.copy(labelRelation = Relation(pathTuple.fromLabel)),
                   toRel = toRel.copy(labelRelation = Relation(pathTuple.toLabel))))
             })
@@ -167,7 +167,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
     var changed: Boolean = false
     relations.foreach {
       case SimpleMatchRelation(VertexRelation(ref, labelRelation, _), _, _) =>
-        analyseSingleEndpRelation(ref, labelRelation, restrictedBindings)
+        changed |= analyseSingleEndpRelation(ref, labelRelation, restrictedBindings)
 
       case SimpleMatchRelation(EdgeRelation(ref, edgeLblRel, _, fromRel, toRel), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
@@ -239,9 +239,9 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           mutable.Set(
             schemaRestrictions.map
               // Extract edges that appear in the restrictions of current edge.
-              .filter(edgeToFromAnToTuple => {
-                val edgeLabel: Label = edgeToFromAnToTuple._1
-                restrictedBindings(ref).contains(edgeLabel)
+              .filter(kv => {
+                val edgeOrPathLabel: Label = kv._1
+                restrictedBindings(ref).contains(edgeOrPathLabel)
               })
               // Retain (from, to) tuple.
               .values
@@ -272,9 +272,9 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
             schemaRestrictions.map
               // Extract the edges that have the left endpoint in the left endpoint's
               // restrictions and the right endpoint in the right endpoint's restrictions.
-              .filter(edgeToFromAndToTuple => {
-                val fromLabel: Label = edgeToFromAndToTuple._2._1
-                val toLabel: Label = edgeToFromAndToTuple._2._2
+              .filter(kv => {
+                val fromLabel: Label = kv._2._1
+                val toLabel: Label = kv._2._2
                 restrictedBindings(fromRel.ref).contains(fromLabel) &&
                   restrictedBindings(toRel.ref).contains(toLabel)
               })
@@ -303,9 +303,9 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           mutable.Set(
             schemaRestrictions.map
               // Extract edges that appear in the restrictions of current edge.
-              .filter(edgeToFromAnToTuple => {
-                val edgeLabel: Label = edgeToFromAnToTuple._1
-                restrictedBindings(ref).contains(edgeLabel)
+              .filter(kv => {
+                val edgeOrPathLabel: Label = kv._1
+                restrictedBindings(ref).contains(edgeOrPathLabel)
               })
               // Retain (from, to) tuple.
               .values
