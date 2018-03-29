@@ -1,5 +1,6 @@
 package spark
 
+import java.io.File
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Paths}
 
@@ -11,7 +12,7 @@ import schema.{GraphData, GraphSchema}
 /**
   * Tests that a [[GraphSource]] successfully loads a [[SparkGraph]] from any available format and
   * correctly fills in the [[GraphData]] within the graph. Does not verify that the [[GraphSchema]]
-  * is built correctly, as this tested is separately in [[SparkGraphTest]].
+  * is inferred correctly, as this tested is separately in [[SparkGraphTest]].
   */
 class GraphSourceTest extends FunSuite
   with SparkSessionTestWrapper
@@ -32,7 +33,34 @@ class GraphSourceTest extends FunSuite
     deleteTestDir()
   }
 
-  test("JsonGraphSource") {
+  test("A GraphSource infers the edge and path restrictions correctly") {
+    val rootDir = newDir("empty_dfs")
+    val json = createTestConfig(rootDir)
+    Files.write(Paths.get(rootDir.getPath, "config.json"), json.getBytes(UTF_8))
+
+    val graphSource = new GraphSource(spark) {
+      override val loadDataFn: String => DataFrame = _ => spark.emptyDataFrame
+    }
+    val graph = graphSource.loadGraph(Paths.get(testDir.getPath, "empty_dfs", "config.json"))
+
+    val edgeRestrictions: Map[Label, (Label, Label)] = graph.edgeRestrictions.map
+    val pathRestrictions: Map[Label, (Label, Label)] = graph.storedPathRestrictions.map
+
+    assert(edgeRestrictions.size == 2)
+    assert(pathRestrictions.size == 1)
+
+    assert(edgeRestrictions.toSet ==
+      Set(
+        (Label("BornIn"), (Label("Person"), Label("City"))),
+        (Label("Road"), (Label("City"), Label("City"))))
+    )
+
+    assert(pathRestrictions.toSet ==
+      Set((Label("TravelRoute"), (Label("City"), Label("City"))))
+    )
+  }
+
+  test("A JsonGraphSource infers the graph data correctly") {
     val rootDir = newDir("json")
     peopleDf.repartition(1).write.json(rootDir.getPath + "/person")
     cityDf.repartition(1).write.json(rootDir.getPath + "/city")
@@ -40,15 +68,7 @@ class GraphSourceTest extends FunSuite
     roadDf.repartition(1).write.json(rootDir.getPath + "/road")
     travelRouteDf.repartition(1).write.json(rootDir.getPath + "/travelRoute")
 
-    val json =
-      s"""
-         |{
-         |"graph_name": "test_graph",
-         |"graph_root_dir": "${rootDir.getPath}",
-         |"vertex_labels": ["person", "city"],
-         |"edge_labels": ["bornIn", "road"],
-         |"path_labels": ["travelRoute"]
-         |} """.stripMargin
+    val json = createTestConfig(rootDir)
 
     Files.write(Paths.get(rootDir.getPath, "config.json"), json.getBytes(UTF_8))
     val graphSource = GraphSource.json(spark)
@@ -57,7 +77,7 @@ class GraphSourceTest extends FunSuite
     runTestOn(graph)
   }
 
-  test("ParquetGraphSource") {
+  test("A ParquetGraphSource infers the graph data correctly") {
     val rootDir = newDir("parquet")
     peopleDf.repartition(1).write.parquet(rootDir.getPath + "/person")
     cityDf.repartition(1).write.parquet(rootDir.getPath + "/city")
@@ -65,15 +85,7 @@ class GraphSourceTest extends FunSuite
     roadDf.repartition(1).write.parquet(rootDir.getPath + "/road")
     travelRouteDf.repartition(1).write.parquet(rootDir.getPath + "/travelRoute")
 
-    val json =
-      s"""
-         |{
-         |"graph_name": "test_graph",
-         |"graph_root_dir": "${rootDir.getPath}",
-         |"vertex_labels": ["person", "city"],
-         |"edge_labels": ["bornIn", "road"],
-         |"path_labels": ["travelRoute"]
-         |} """.stripMargin
+    val json = createTestConfig(rootDir)
 
     Files.write(Paths.get(rootDir.getPath, "config.json"), json.getBytes(UTF_8))
     val graphSource = GraphSource.parquet(spark)
@@ -81,6 +93,35 @@ class GraphSourceTest extends FunSuite
 
     runTestOn(graph)
   }
+
+  private def createTestConfig(rootDir: File): String =
+    s"""
+       |{
+       |  "graph_name": "test_graph",
+       |  "graph_root_dir": "${rootDir.getPath}",
+       |  "vertex_labels": ["person", "city"],
+       |  "edge_labels": ["bornIn", "road"],
+       |  "path_labels": ["travelRoute"],
+       |  "edge_restrictions": [
+       |    {
+       |      "conn_label": "BornIn",
+       |      "source_label": "Person",
+       |      "destination_label": "City"
+       |    },
+       |    {
+       |      "conn_label": "Road",
+       |      "source_label": "City",
+       |      "destination_label": "City"
+       |    }
+       |  ],
+       |  "path_restrictions": [
+       |    {
+       |      "conn_label": "TravelRoute",
+       |      "source_label": "City",
+       |      "destination_label": "City"
+       |    }
+       |  ]
+       |} """.stripMargin
 
   private def runTestOn(graph: SparkGraph): Unit = {
     // It would be nicer to just call compareDfs here, but upon reading from file, Spark sometimes

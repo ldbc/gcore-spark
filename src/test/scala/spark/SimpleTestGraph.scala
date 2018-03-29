@@ -33,12 +33,12 @@ trait SimpleTestGraph {
 
   val travelRouteList =
     List(
-      TravelRoute(id = 301, edges = Seq(203)),
-      TravelRoute(id = 302, edges = Seq(204, 205, 206, 207)))
+      TravelRoute(id = 301, fromId = 103, toId = 102, edges = Seq(203)),
+      TravelRoute(id = 302, fromId = 104, toId = 108, edges = Seq(204, 205, 206, 207)))
 }
 
 sealed case class Person(id: Int, name: String, age: Int, isAlive: Boolean)
 sealed case class City(id: Int, name: String)
 sealed case class BornIn(id: Int, fromId: Int, toId: Int, hasLeft: Boolean)
 sealed case class Road(id: Int, fromId: Int, toId: Int)
-sealed case class TravelRoute(id: Int, edges: Seq[Int])
+sealed case class TravelRoute(id: Int, fromId: Int, toId: Int, edges: Seq[Int])
