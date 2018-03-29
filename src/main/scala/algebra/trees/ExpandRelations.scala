@@ -31,55 +31,90 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       with mutable.MultiMap[SimpleMatchRelation, EntityTuple]
 
   override val rule: RewriteFuncType = {
-    case condMatchClause @ CondMatchClause(_, matchPred) =>
+    case matchClause: MatchClause =>
       val graphDb: GraphDb = context.graphDb
-      val simpleMatches: Seq[SimpleMatchRelation] =
-        condMatchClause.children.init.flatMap(m => {
-          val graphPattern: AlgebraTreeNode = m.children.head
-          graphPattern.children.map(pattern =>
-            SimpleMatchRelation(
-              relation = pattern.asInstanceOf[RelationLike],
-              context = SimpleMatchRelationContext(m.children.last.asInstanceOf[Graph])
-            ))
+
+      val allSimpleMatches: mutable.ArrayBuffer[SimpleMatchRelation] =
+        new mutable.ArrayBuffer[SimpleMatchRelation]()
+
+      // For both non-optional and optional match clauses, replace the SimpleMatchClauses with
+      // SimpleMatchRelations and merge all SimpleMatchRelations into the allSimpleMatches buffer.
+      // We want to perform label resolution on all patterns as a whole.
+      matchClause.children.foreach(
+        condMatch => {
+          val simpleMatches: Seq[SimpleMatchRelation] =
+            simpleMatchClauseToRelation(condMatch.asInstanceOf[CondMatchClause])
+          val matchPred: AlgebraTreeNode = condMatch.children.last
+          condMatch.children = simpleMatches :+ matchPred
+
+          allSimpleMatches ++= simpleMatches
         })
 
-      val constrainedLabels: BindingToLabelsMmap = restrictLabelsOverall(simpleMatches, graphDb)
-      val constrainedPerMatch: MatchToBindingTuplesMmap =
-        restrictLabelsPerMatch(simpleMatches, constrainedLabels, graphDb)
-      val expandedSimpleMatches: Seq[SimpleMatchRelation] =
-        simpleMatches.flatMap {
-          case m @ SimpleMatchRelation(rel @ VertexRelation(_, _, _), _, _) =>
-            constrainedPerMatch(m).map(tuple =>
-              m.copy(
-                relation = rel.copy(labelRelation = Relation(tuple.asInstanceOf[VertexTuple].label))
-              )
-            )
-          case m @ SimpleMatchRelation(rel @ EdgeRelation(_, _, _, fromRel, toRel), _, _) =>
-            constrainedPerMatch(m).map(tuple => {
-              val edgeTuple: EdgeOrPathTuple = tuple.asInstanceOf[EdgeOrPathTuple]
-              m.copy(
-                relation = rel.copy(
-                  labelRelation = Relation(edgeTuple.label),
-                  fromRel = fromRel.copy(labelRelation = Relation(edgeTuple.fromLabel)),
-                  toRel = toRel.copy(labelRelation = Relation(edgeTuple.toLabel))))
-            })
-          case m @ SimpleMatchRelation(
-          rel @ StoredPathRelation(_, _, _, _, fromRel, toRel, _, _), _, _) =>
-            constrainedPerMatch(m).map(tuple => {
-              val pathTuple: EdgeOrPathTuple = tuple.asInstanceOf[EdgeOrPathTuple]
-              m.copy(
-                relation = rel.copy(
-                  labelRelation = Relation(pathTuple.label),
-                  fromRel = fromRel.copy(labelRelation = Relation(pathTuple.fromLabel)),
-                  toRel = toRel.copy(labelRelation = Relation(pathTuple.toLabel))))
-            })
-        }
+      // Use all SimpleMatchRelations to restrict the labels of all variables in the match query.
+      val constrainedLabels: BindingToLabelsMmap = restrictLabelsOverall(allSimpleMatches, graphDb)
 
-      condMatchClause.children = expandedSimpleMatches ++ Seq(matchPred)
-      condMatchClause
+      // Constrain labels for each CondMatchClause.
+      matchClause.children.foreach(
+        condMatch => {
+          val simpleMatches: Seq[SimpleMatchRelation] =
+            constrainSimpleMatches(
+              simpleMatches = condMatch.children.init, constrainedLabels, graphDb)
+          val matchPred: AlgebraTreeNode = condMatch.children.last
+          condMatch.children = simpleMatches :+ matchPred
+        })
+
+      matchClause
   }
 
-  private def restrictLabelsPerMatch(relations: Seq[SimpleMatchRelation],
+  private
+  def simpleMatchClauseToRelation(condMatchClause: CondMatchClause): Seq[SimpleMatchRelation] = {
+    condMatchClause.children.init.flatMap(
+      simpleMatchClause => {
+        val graphPattern: AlgebraTreeNode = simpleMatchClause.children.head
+        val graph: Graph = simpleMatchClause.children.last.asInstanceOf[Graph]
+        graphPattern.children.map(pattern =>
+          SimpleMatchRelation(
+            relation = pattern.asInstanceOf[RelationLike],
+            context = SimpleMatchRelationContext(graph)
+          ))
+      })
+  }
+
+  private def constrainSimpleMatches(simpleMatches: Seq[AlgebraTreeNode],
+                                     constrainedLabels: BindingToLabelsMmap,
+                                     graphDb: GraphDb): Seq[SimpleMatchRelation] = {
+    val constrainedPerMatch: MatchToBindingTuplesMmap =
+      restrictLabelsPerMatch(simpleMatches, constrainedLabels, graphDb)
+
+    simpleMatches.flatMap {
+      case m @ SimpleMatchRelation(rel @ VertexRelation(_, _, _), _, _) =>
+        constrainedPerMatch(m).map(tuple =>
+          m.copy(
+            relation = rel.copy(labelRelation = Relation(tuple.asInstanceOf[VertexTuple].label)))
+        )
+      case m @ SimpleMatchRelation(rel @ EdgeRelation(_, _, _, fromRel, toRel), _, _) =>
+        constrainedPerMatch(m).map(tuple => {
+          val edgeTuple: EdgeOrPathTuple = tuple.asInstanceOf[EdgeOrPathTuple]
+          m.copy(
+            relation = rel.copy(
+              labelRelation = Relation(edgeTuple.label),
+              fromRel = fromRel.copy(labelRelation = Relation(edgeTuple.fromLabel)),
+              toRel = toRel.copy(labelRelation = Relation(edgeTuple.toLabel))))
+        })
+      case m @ SimpleMatchRelation(
+      rel @ StoredPathRelation(_, _, _, _, fromRel, toRel, _, _), _, _) =>
+        constrainedPerMatch(m).map(tuple => {
+          val pathTuple: EdgeOrPathTuple = tuple.asInstanceOf[EdgeOrPathTuple]
+          m.copy(
+            relation = rel.copy(
+              labelRelation = Relation(pathTuple.label),
+              fromRel = fromRel.copy(labelRelation = Relation(pathTuple.fromLabel)),
+              toRel = toRel.copy(labelRelation = Relation(pathTuple.toLabel))))
+        })
+    }
+  }
+
+  private def restrictLabelsPerMatch(relations: Seq[AlgebraTreeNode],
                                      constrainedLabels: BindingToLabelsMmap,
                                      graphDb: GraphDb): MatchToBindingTuplesMmap = {
     val matchToBindingTuplesMmap: MatchToBindingTuplesMmap = newMatchToBindingsMmap

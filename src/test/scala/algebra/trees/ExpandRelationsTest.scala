@@ -24,7 +24,7 @@ class ExpandRelationsTest extends FunSuite
 
   test("Strict label for vertex is preserved - (v:Cat)") {
     val query = "CONSTRUCT () MATCH (v:Cat)"
-    val simpleMatches = extractSimpleMatches(query)
+    val simpleMatches = extractNonOptSimpleMatches(query)
 
     simpleMatches.head should matchPattern {
       case SimpleMatchRelation(VertexRelation(Reference("v"), Relation(Label("Cat")), _), _, _) =>
@@ -33,7 +33,7 @@ class ExpandRelationsTest extends FunSuite
 
   test("Unlabeled vertex is expanded into all available labels - (v)") {
     val query = "CONSTRUCT () MATCH (v)"
-    val simpleMatches = extractSimpleMatches(query)
+    val simpleMatches = extractNonOptSimpleMatches(query)
 
     val refs: Seq[Reference] =
       simpleMatches.map(_.children.head.asInstanceOf[VertexRelation].ref)
@@ -49,7 +49,7 @@ class ExpandRelationsTest extends FunSuite
 
   test("Mix labeled and unlabeled vertex - (v:Cat), (w)") {
     val query = "CONSTRUCT () MATCH (v:Cat), (w)"
-    val simpleMatches = extractSimpleMatches(query)
+    val simpleMatches = extractNonOptSimpleMatches(query)
 
     val refs: Set[Reference] =
       simpleMatches.map(_.children.head.asInstanceOf[VertexRelation].ref).toSet
@@ -76,10 +76,10 @@ class ExpandRelationsTest extends FunSuite
   test("Strict labels for edge/path and endpoints are preserved - " +
     "(f:Food)-[e:MadeIn]->(c:Country), (c:Cat)-/@p:ToGourmand/->(f:Food)") {
     val edgeQuery = "CONSTRUCT () MATCH (f:Food)-[e:MadeIn]->(c:Country)"
-    val edgeSimpleMatches = extractSimpleMatches(edgeQuery)
+    val edgeSimpleMatches = extractNonOptSimpleMatches(edgeQuery)
 
     val pathQuery = "CONSTRUCT () MATCH (c:Cat)-/@p:ToGourmand/->(f:Food)"
-    val pathSimpleMatches = extractSimpleMatches(pathQuery)
+    val pathSimpleMatches = extractNonOptSimpleMatches(pathQuery)
 
     edgeSimpleMatches.head should matchEdgeFoodMadeInCountry
     pathSimpleMatches.head should matchPathCatToGourmandFood
@@ -88,10 +88,10 @@ class ExpandRelationsTest extends FunSuite
   test("Labeled edge/path determines strict vertex labels - " +
     "(f)-[e:MadeIn]->(c), (c)-/@p:ToGourmand/->(f)") {
     val edgeQuery = "CONSTRUCT () MATCH (f)-[e:MadeIn]->(c)"
-    val edgeSimpleMatches = extractSimpleMatches(edgeQuery)
+    val edgeSimpleMatches = extractNonOptSimpleMatches(edgeQuery)
 
     val pathQuery = "CONSTRUCT () MATCH (c)-/@p:ToGourmand/->(f)"
-    val pathSimpleMatches = extractSimpleMatches(pathQuery)
+    val pathSimpleMatches = extractNonOptSimpleMatches(pathQuery)
 
     edgeSimpleMatches.head should matchEdgeFoodMadeInCountry
     pathSimpleMatches.head should matchPathCatToGourmandFood
@@ -100,10 +100,10 @@ class ExpandRelationsTest extends FunSuite
   test("Labeled vertices determine strict edge/path label - " +
     "(f:Food)-[e]->(c:Country), (c)-/@p:ToGourmand/->(f)") {
     val edgeQuery = "CONSTRUCT () MATCH (f:Food)-[e]->(c:Country)"
-    val edgeSimpleMatches = extractSimpleMatches(edgeQuery)
+    val edgeSimpleMatches = extractNonOptSimpleMatches(edgeQuery)
 
     val pathQuery = "CONSTRUCT () MATCH (c:Cat)-/@p/->(f:Food)"
-    val pathSimpleMatches = extractSimpleMatches(pathQuery)
+    val pathSimpleMatches = extractNonOptSimpleMatches(pathQuery)
 
     edgeSimpleMatches.head should matchEdgeFoodMadeInCountry
     pathSimpleMatches.head should matchPathCatToGourmandFood
@@ -112,16 +112,16 @@ class ExpandRelationsTest extends FunSuite
   test("Labeled vertex determine strict vertex and edge/path label - " +
     "(f:Food)-[e]->(c), (f)-[e]->(c:Country), (c:Cat)-/@p/->(f), (c)-/@p/->(f:Food)") {
     val edgeFoodQuery = "CONSTRUCT () MATCH (f:Food)-[e]->(c)"
-    val simpleMatchesEdgeFoodQuery = extractSimpleMatches(edgeFoodQuery)
+    val simpleMatchesEdgeFoodQuery = extractNonOptSimpleMatches(edgeFoodQuery)
 
     val edgeCountryQuery = "CONSTRUCT () MATCH (f)-[e]->(c:Country)"
-    val simpleMatchesEdgeCountryQuery = extractSimpleMatches(edgeCountryQuery)
+    val simpleMatchesEdgeCountryQuery = extractNonOptSimpleMatches(edgeCountryQuery)
 
     val pathCatQuery = "CONSTRUCT () MATCH (c:Cat)-/@p/->(f)"
-    val simpleMatchesPathCatQuery = extractSimpleMatches(pathCatQuery)
+    val simpleMatchesPathCatQuery = extractNonOptSimpleMatches(pathCatQuery)
 
     val pathFoodQuery = "CONSTRUCT () MATCH (c)-/@p/->(f:Food)"
-    val simpleMatchesPathFoodQuery = extractSimpleMatches(pathFoodQuery)
+    val simpleMatchesPathFoodQuery = extractNonOptSimpleMatches(pathFoodQuery)
 
     simpleMatchesEdgeCountryQuery.head should matchEdgeFoodMadeInCountry
     simpleMatchesEdgeFoodQuery.head should matchEdgeFoodMadeInCountry
@@ -131,7 +131,7 @@ class ExpandRelationsTest extends FunSuite
 
   test("Labeled vertices determine multi-valued edge label - (c1:Cat)-[e]->(c2:Cat)") {
     val query = "CONSTRUCT () MATCH (c1:Cat)-[e]->(c2:Cat)"
-    val simpleMatches = extractSimpleMatches(query)
+    val simpleMatches = extractNonOptSimpleMatches(query)
 
     val labelTuples: Seq[(RelationLike, RelationLike, RelationLike)] =
       simpleMatches
@@ -150,7 +150,7 @@ class ExpandRelationsTest extends FunSuite
 
   test("Labeled vertex determines multi-valued vertex and edge labels - (c:Cat)-[e]->(v)") {
     val query = "CONSTRUCT () MATCH (c:Cat)-[e]->(v)"
-    val simpleMatches = extractSimpleMatches(query)
+    val simpleMatches = extractNonOptSimpleMatches(query)
 
     val labelTuples: Seq[(RelationLike, RelationLike, RelationLike)] =
       simpleMatches
@@ -171,10 +171,10 @@ class ExpandRelationsTest extends FunSuite
   test("Loose edge/path pattern determines all combinations of vertex and edge labels - " +
     "(v)-[e]->(w), (v)-/@p/->(w)") {
     val edgeQuery = "CONSTRUCT () MATCH (v)-[e]->(w)"
-    val edgeSimpleMatches = extractSimpleMatches(edgeQuery)
+    val edgeSimpleMatches = extractNonOptSimpleMatches(edgeQuery)
 
     val pathQuery = "CONSTRUCT () MATCH (c)-/@p/->(f)"
-    val pathSimpleMatches = extractSimpleMatches(pathQuery)
+    val pathSimpleMatches = extractNonOptSimpleMatches(pathQuery)
 
     val edgeLabelTuples: Seq[(RelationLike, RelationLike, RelationLike)] =
       edgeSimpleMatches
@@ -207,7 +207,7 @@ class ExpandRelationsTest extends FunSuite
 
   test("Chained patterns become sequence of SimpleMatchRelations") {
     val query = "CONSTRUCT () MATCH (c1:Cat)-[e1]->(f:Food)-[e2]->(c2:Country)"
-    val relations = extractSimpleMatches(query)
+    val relations = extractNonOptSimpleMatches(query)
 
     assert(relations.lengthCompare(2) == 0)
 
@@ -229,7 +229,7 @@ class ExpandRelationsTest extends FunSuite
   test("Chained and comma-separated patterns become sequence of SimpleMatchRelations") {
     val query =
       "CONSTRUCT () MATCH (c1)-[e1:Enemy]->(c2), (c3:Cat)-[e2]->(f:Food)-[e3]->(c4:Country)"
-    val relations = extractSimpleMatches(query)
+    val relations = extractNonOptSimpleMatches(query)
 
     assert(relations.lengthCompare(3) == 0)
 
@@ -329,16 +329,75 @@ class ExpandRelationsTest extends FunSuite
     testChainedPattern(query, expectedEdgeOrPath, expectedVertex)
   }
 
+  test("Optional clauses participate in label inference: (f:Food), OPTIONAL (f)->(c)") {
+    val query = "CONSTRUCT () MATCH (f:Food) OPTIONAL (f)-[e]->(c)"
+    val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
+      Map(
+        Reference("e") ->
+          Seq((Label("Food"), Label("MadeIn"), Label("Country"))))
+    val expectedVertex: Map[Reference, Seq[Label]] = Map(Reference("f") -> Seq(Label("Food")))
+    testChainedPattern(query, expectedEdgeOrPath, expectedVertex)
+  }
+
+  test("Solve chained pattern: (c1)->(f), (f)->(c2:Country) OPTIONAL (c1)-[:Enemy]->(c3)") {
+    val query =
+      "CONSTRUCT () MATCH (c1)-[e1]->(f), (f)-[e2]->(c2:Country) OPTIONAL (c1)-[e3:Enemy]->(c3)"
+    val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
+      Map(
+        Reference("e1") ->
+          Seq((Label("Cat"), Label("Eats"), Label("Food"))),
+        Reference("e2") ->
+          Seq((Label("Food"), Label("MadeIn"), Label("Country"))),
+        Reference("e3") ->
+          Seq((Label("Cat"), Label("Enemy"), Label("Cat")))
+      )
+    testChainedPattern(query, expectedEdgeOrPath, expectedVertex = Map.empty)
+  }
+
+  test("Solve chained patterns: (c:Cat)->(f:Food) OPTIONAL (c)->(c2:Cat)") {
+    val query =
+      "CONSTRUCT () MATCH (c:Cat)-[e1]->(f:Food) OPTIONAL (c)-[e2]->(c2:Cat)"
+    val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
+      Map(
+        Reference("e1") ->
+          Seq((Label("Cat"), Label("Eats"), Label("Food"))),
+        Reference("e2") ->
+          Seq(
+            (Label("Cat"), Label("Friend"), Label("Cat")),
+            (Label("Cat"), Label("Enemy"), Label("Cat")))
+      )
+    testChainedPattern(query, expectedEdgeOrPath, expectedVertex = Map.empty)
+  }
+
   /**
-    * Extracts the array of [[SimpleMatchRelation]]s after the query has been parsed and rewritten
-    * using the [[PatternsToRelations]] and [[ExpandRelations]] rewriters.
+    * Extracts all [[SimpleMatchRelation]]s (from the non-optional and optional clauses) after the
+    * query has been parsed and rewritten using the [[PatternsToRelations]] and [[ExpandRelations]]
+    * rewriters.
     */
   private def extractSimpleMatches(query: String): Seq[AlgebraTreeNode] = {
     extractSimpleMatches(rewrite(query))
   }
 
+  /**
+    * Extracts the array of non-optional [[SimpleMatchRelation]]s after the query has been parsed
+    * and rewritten using the [[PatternsToRelations]] and [[ExpandRelations]] rewriters.
+    */
+  private def extractNonOptSimpleMatches(query: String): Seq[AlgebraTreeNode] = {
+    extractNonOptSimpleMatches(rewrite(query))
+  }
+
+  private def extractNonOptSimpleMatches(queryTree: AlgebraTreeNode): Seq[AlgebraTreeNode] = {
+    val matchClause = queryTree.children.head
+    val nonOptCondMatch = matchClause.children.head
+    nonOptCondMatch.children.init
+  }
+
   private def extractSimpleMatches(queryTree: AlgebraTreeNode): Seq[AlgebraTreeNode] = {
-    queryTree.children.head.children.head.children.init
+    val matchClause = queryTree.children.head
+    val nonOptCondMatch = matchClause.children.head
+    val optCondMatches = matchClause.children.tail
+
+    nonOptCondMatch.children.init ++ optCondMatches.flatMap(_.children.init)
   }
 
   private def rewrite(query: String): AlgebraTreeNode = {

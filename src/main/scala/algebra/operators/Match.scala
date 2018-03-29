@@ -11,7 +11,7 @@ abstract class MatchLike extends GcorePrimitive
 case class MatchClause(nonOptMatches: CondMatchClause, optMatches: Seq[CondMatchClause])
   extends MatchLike {
 
-  children = List(nonOptMatches) ++ optMatches
+  children = nonOptMatches +: optMatches
 
   override def checkWithContext(context: Context): Unit = {
     nonOptMatches.checkWithContext(context)

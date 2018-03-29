@@ -26,7 +26,7 @@ object GcoreRunner {
     val compiler: Compiler = GcoreCompiler(CompileContext(graphDb, spark.newSession()))
     compiler.compile(
       """
-        | CONSTRUCT () MATCH (c:Cat)->(f:Food)
+        | CONSTRUCT () MATCH (c:Cat)->(f:Food) OPTIONAL (c)-[:Enemy]->(c2)
       """.stripMargin)
 //      """
 //        | CONSTRUCT () MATCH (c1:Cat)->(f:Food), (f: Food), (c2: Cat)
