@@ -65,11 +65,3 @@ case class SimpleMatchRelation(relation: RelationLike,
 
   override def name: String = s"${super.name} [graph = ${context.graph}]"
 }
-
-case class CondMatchRelation(relation: RelationLike,
-                             expr: AlgebraExpression,
-                             bindingSet: Option[BindingSet] = None)
-  extends UnaryPrimitive(relation, bindingSet) {
-
-  children = List(relation, expr)
-}

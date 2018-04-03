@@ -1,6 +1,6 @@
 package planner.target_api
 
-import algebra.operators.{JoinLike, UnionAll}
+import algebra.operators.{JoinLike, Select, UnionAll}
 import planner.operators.{EdgeScan, PathScan, VertexScan}
 import planner.trees.PlannerTreeNode
 
@@ -19,4 +19,6 @@ abstract class TargetPlanner {
   def createPhysUnionAll(unionAllOp: UnionAll): PhysUnionAll
 
   def createPhysJoin(joinOp: JoinLike): PhysJoin
+
+  def createPhysSelect(selectOp: Select): PhysSelect
 }

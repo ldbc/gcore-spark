@@ -1,15 +1,13 @@
 package algebra.types
 
-import scala.reflect.ClassTag
-
-abstract class DataType[T](implicit tType: ClassTag[T]) extends AlgebraType {
-  override def toString: String = s"$name [${tType.toString()}]"
+abstract class DataType extends AlgebraType {
+  type ScalaType
 }
 
-case class TypeInteger() extends DataType[Long]
-case class TypeDecimal() extends DataType[Double]
-case class TypeString() extends DataType[String]
-case class TypeBoolean() extends DataType[Boolean]
-case class TypeArray() extends DataType[Int] // this will only be the sequence for paths
-case class TypeDate() extends DataType[String]
-case class TypeTimestamp() extends DataType[String]
+case class GcoreInteger() extends DataType { override type ScalaType = Long }
+case class GcoreDecimal() extends DataType { override type ScalaType = Double }
+case class GcoreString() extends DataType { override type ScalaType = String }
+case class GcoreBoolean() extends DataType { override type ScalaType = Boolean }
+case class GcoreArray() extends DataType { override type ScalaType = Int }
+case class GcoreDate() extends DataType { override type ScalaType = String }
+case class GcoreTimestamp() extends DataType { override type ScalaType = String }

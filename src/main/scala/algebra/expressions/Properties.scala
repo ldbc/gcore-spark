@@ -2,20 +2,22 @@ package algebra.expressions
 
 import algebra.exceptions.PropKeysException
 import algebra.trees.{PropertyContext, SemanticCheckWithContext}
+import algebra.types.GcoreString
 import common.compiler.Context
 import schema.EntitySchema
 
-
 case class PropertyKey(key: String) extends AlgebraExpression {
-  children = List(Literal(key))
-
-  def this(literal: Literal[String]) = this(literal.literalValue)
+  children = List(Literal(key, GcoreString()))
 
   override def name: String = key
 }
 
+case class PropertyRef(ref: Reference, propKey: PropertyKey) extends AlgebraExpression {
+  override def name: String = s"${super.name} [${ref.refName}.${propKey.key}]"
+}
+
 /** A predicate that asserts that the graph entity satisfies all the given property conditions. */
-case class WithProps(propConj: AlgebraExpression) extends PredicateExpression(propConj)
+case class WithProps(propConj: AlgebraExpression) extends AlgebraExpression
   with SemanticCheckWithContext {
 
   children = List(propConj)

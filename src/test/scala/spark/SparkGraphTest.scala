@@ -1,7 +1,7 @@
 package spark
 
 import algebra.expressions.{Label, PropertyKey}
-import algebra.types.{TypeArray, TypeBoolean, TypeInteger, TypeString}
+import algebra.types.{GcoreArray, GcoreBoolean, GcoreInteger, GcoreString}
 import org.apache.spark.sql.DataFrame
 import org.scalatest.FunSuite
 import schema._
@@ -41,31 +41,33 @@ class SparkGraphTest extends FunSuite
 
     val expectedVertexSchema = EntitySchema(SchemaMap(Map(
       Label("people") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("name") -> TypeString(),
-        PropertyKey("age") -> TypeInteger(),
-        PropertyKey("isAlive") -> TypeBoolean())),
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("name") -> GcoreString(),
+        PropertyKey("age") -> GcoreInteger(),
+        PropertyKey("isAlive") -> GcoreBoolean())),
       Label("city") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("name") -> TypeString()))
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("name") -> GcoreString()))
     )))
 
     val expectedEdgeSchema = EntitySchema(SchemaMap(Map(
       Label("bornIn") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("fromId") -> TypeInteger(),
-        PropertyKey("toId") -> TypeInteger(),
-        PropertyKey("hasLeft") -> TypeBoolean())),
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("fromId") -> GcoreInteger(),
+        PropertyKey("toId") -> GcoreInteger(),
+        PropertyKey("hasLeft") -> GcoreBoolean())),
       Label("road") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("fromId") -> TypeInteger(),
-        PropertyKey("toId") -> TypeInteger()))
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("fromId") -> GcoreInteger(),
+        PropertyKey("toId") -> GcoreInteger()))
     )))
 
     val expectedPathSchema = EntitySchema(SchemaMap(Map(
       Label("travelRoute") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("edges") -> TypeArray()))
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("fromId") -> GcoreInteger(),
+        PropertyKey("toId") -> GcoreInteger(),
+        PropertyKey("edges") -> GcoreArray()))
     )))
 
     assert(graph.vertexSchema == expectedVertexSchema)

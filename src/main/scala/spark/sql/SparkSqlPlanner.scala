@@ -39,4 +39,7 @@ case class SparkSqlPlanner(sparkSession: SparkSession) extends TargetPlanner {
       case _: LeftOuterJoin => SparkLeftOuterJoin(lhs, rhs)
     }
   }
+
+  override def createPhysSelect(selectOp: Select): PhysSelect =
+    SparkSelect(selectOp.children.head.asInstanceOf[TargetTreeNode], selectOp.expr)
 }

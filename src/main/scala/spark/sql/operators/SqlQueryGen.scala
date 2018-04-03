@@ -1,12 +1,17 @@
 package spark.sql.operators
 
-import algebra.expressions.Reference
+import algebra.expressions._
+import algebra.trees.AlgebraTreeNode
+import algebra.types.{GcoreInteger, GcoreString}
 import org.apache.commons.text.RandomStringGenerator
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column
 import planner.operators.Column.tableLabelColumn
 import schema.Table
+import spark.exceptions.UnsupportedOperation
+
+object SqlQueryGen extends SqlQueryGen
 
 trait SqlQueryGen {
 
@@ -85,5 +90,39 @@ trait SqlQueryGen {
   /** Creates a new schema, by merging together multiple schemas. */
   def mergeSchemas(schemas: StructType*): StructType = {
     new StructType(schemas.flatMap(_.fields).toSet.toArray)
+  }
+
+  /**
+    * Creates a filtering predicate (a WHERE expression) from an [[AlgebraExpression]] tree. The
+    * tree is traversed and the filtering expression is formed from the string representation
+    * (symbol) of each node in the tree.
+    */
+  def expressionToSelectionPred(expr: AlgebraTreeNode): String = {
+    expr match {
+      /** Expression leaves */
+      case propRef: PropertyRef => s"`${propRef.ref.refName}$$${propRef.propKey.key}`"
+      case Literal(value, GcoreString()) => s"'$value'"
+      case Literal(value, GcoreInteger()) => value.toString
+      case True() => "True"
+      case False() => "False"
+
+      case e: MathExpression =>
+        s"${e.getSymbol}(" +
+          s"${expressionToSelectionPred(e.getLhs)}, " +
+          s"${expressionToSelectionPred(e.getRhs)})"
+      case e: PredicateExpression =>
+        s"${expressionToSelectionPred(e.getOperand)} ${e.getSymbol}"
+      case e: BinaryExpression =>
+        s"${expressionToSelectionPred(e.getLhs)} " +
+          s"${e.getSymbol} " +
+          s"${expressionToSelectionPred(e.getRhs)}"
+      case e: UnaryExpression =>
+        s"${e.getSymbol} ${expressionToSelectionPred(e.getOperand)}"
+
+      /** Default case, cannot evaluate. */
+      case other =>
+        throw UnsupportedOperation("Cannot build filtering predicate for Spark SQL from " +
+          s"expression:\n${other.treeString()}")
+    }
   }
 }

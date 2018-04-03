@@ -31,7 +31,7 @@ abstract class SparkGraph extends PathPropertyGraph {
     data.foldLeft(EntitySchema.empty) {
       case (aggSchema, table) => {
         val schemaFields = table.data.schema.fields
-        val schemaMap = schemaFields.foldLeft(SchemaMap.empty[PropertyKey, DataType[_]]) {
+        val schemaMap = schemaFields.foldLeft(SchemaMap.empty[PropertyKey, DataType]) {
           case (aggMap, field) =>
             aggMap union SchemaMap(Map(PropertyKey(field.name) -> convertType(field.dataType)))
         }
@@ -42,15 +42,15 @@ abstract class SparkGraph extends PathPropertyGraph {
 
   /** Maps a [[spark.sql.types.DataType]] to an algebraic [[DataType]]. */
   // TODO: Check that the array type can only be the sequence of edges that define a path.
-  private def convertType(sparkType: spark.sql.types.DataType): DataType[_] = {
+  private def convertType(sparkType: spark.sql.types.DataType): DataType = {
     sparkType.typeName match {
-      case "string" => TypeString()
-      case "integer" => TypeInteger()
-      case "long" => TypeInteger()
-      case "double" => TypeDecimal()
-      case "float" => TypeDecimal()
-      case "boolean" => TypeBoolean()
-      case "array" => TypeArray()
+      case "string" => GcoreString()
+      case "integer" => GcoreInteger()
+      case "long" => GcoreInteger()
+      case "double" => GcoreDecimal()
+      case "float" => GcoreDecimal()
+      case "boolean" => GcoreBoolean()
+      case "array" => GcoreArray()
       case other => throw SparkException(s"Unsupported type $other")
     }
   }

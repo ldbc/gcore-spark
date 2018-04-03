@@ -2,6 +2,7 @@ package algebra.expressions
 
 import algebra.operators.Query
 import algebra.trees._
+import algebra.types.DataType
 
 /**
   * A G-CORE expressions as defined at
@@ -18,10 +19,15 @@ case class Reference(refName: String) extends AlgebraExpression {
 }
 
 /** An actual value, such as strings, integers, booleans True and False, dates, etc. */
-case class Literal[T](literalValue: T) extends AlgebraExpression {
-  override def toString: String = s"$name [$literalValue]"
+case class Literal(literalValue: Any, gcoreType: DataType) extends AlgebraExpression {
+  override def toString: String = s"$name [$literalValue, $gcoreType]"
 }
 
 case class Exists(query: Query) extends AlgebraExpression {
   children = List(query)
+}
+
+case class ObjectPattern(labelsPred: AlgebraExpression, propsPred: AlgebraExpression)
+  extends AlgebraExpression {
+  children = List(labelsPred, propsPred)
 }

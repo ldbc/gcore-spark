@@ -47,9 +47,9 @@ case class EntitySchema(labelSchema: LabelSchemaType) {
 }
 
 object EntitySchema {
-  val empty = EntitySchema(SchemaMap.empty[Label, SchemaMap[PropertyKey, DataType[_]]])
+  val empty = EntitySchema(SchemaMap.empty[Label, SchemaMap[PropertyKey, DataType]])
 
-  type LabelSchemaType = SchemaMap[Label, SchemaMap[PropertyKey, DataType[_]]]
+  type LabelSchemaType = SchemaMap[Label, SchemaMap[PropertyKey, DataType]]
   type LabelRestrictionType = SchemaMap[Label, (Label, Label)]
 }
 

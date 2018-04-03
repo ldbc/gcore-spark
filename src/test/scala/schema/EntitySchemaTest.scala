@@ -1,34 +1,34 @@
 package schema
 
 import algebra.expressions.{Label, PropertyKey}
-import algebra.types.{TypeInteger, TypeString}
+import algebra.types.{GcoreInteger, GcoreString}
 import org.scalatest.FunSuite
 
 class EntitySchemaTest extends FunSuite {
 
   val schema1 = EntitySchema(SchemaMap(Map(
     Label("person") -> SchemaMap(Map(
-      PropertyKey("age") -> TypeInteger(),
-      PropertyKey("address") -> TypeString())),
+      PropertyKey("age") -> GcoreInteger(),
+      PropertyKey("address") -> GcoreString())),
     Label("city") -> SchemaMap(Map(
-      PropertyKey("population") -> TypeInteger()))
+      PropertyKey("population") -> GcoreInteger()))
   )))
 
   val schema2 = EntitySchema(SchemaMap(Map(
     Label("car") -> SchemaMap(Map(
-      PropertyKey("type") -> TypeString(),
-      PropertyKey("manufacturer") -> TypeString()))
+      PropertyKey("type") -> GcoreString(),
+      PropertyKey("manufacturer") -> GcoreString()))
   )))
 
   val schema1UnionSchema2 = EntitySchema(SchemaMap(Map(
     Label("person") -> SchemaMap(Map(
-      PropertyKey("age") -> TypeInteger(),
-      PropertyKey("address") -> TypeString())),
+      PropertyKey("age") -> GcoreInteger(),
+      PropertyKey("address") -> GcoreString())),
     Label("city") -> SchemaMap(Map(
-      PropertyKey("population") -> TypeInteger())),
+      PropertyKey("population") -> GcoreInteger())),
     Label("car") -> SchemaMap(Map(
-      PropertyKey("type") -> TypeString(),
-      PropertyKey("manufacturer") -> TypeString()))
+      PropertyKey("type") -> GcoreString(),
+      PropertyKey("manufacturer") -> GcoreString()))
   )))
 
   val emptySchema = EntitySchema.empty

@@ -11,10 +11,6 @@ case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewrite
     case q: Query => q.children.head
   }
 
-  private val condMatchRelation: RewriteFuncType = {
-    case m: CondMatchRelation => m.children.head
-  }
-
   private val simpleMatchRelation: RewriteFuncType = {
     case SimpleMatchRelation(rel, matchContext, _) =>
       rel match {
@@ -29,8 +25,8 @@ case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewrite
     case op: InnerJoin => BindingTableOp(op)
     case op: LeftOuterJoin => BindingTableOp(op)
     case op: CrossJoin => BindingTableOp(op)
+    case op: Select => BindingTableOp(op)
   }
 
-  override val rule: RewriteFuncType =
-    query orElse condMatchRelation orElse simpleMatchRelation orElse bindingTableOp
+  override val rule: RewriteFuncType = query orElse simpleMatchRelation orElse bindingTableOp
 }

@@ -17,4 +17,10 @@ trait SparkSessionTestWrapper {
     assert(actual.except(expected).count() == 0)
     assert(expected.except(actual).count() == 0)
   }
+
+  def compareHeaders(expectedHeader: Seq[String], actualDf: DataFrame): Unit = {
+    val actualHeader = actualDf.columns
+    assert(actualHeader.length == expectedHeader.length)
+    assert(actualHeader.toSet == expectedHeader.toSet)
+  }
 }

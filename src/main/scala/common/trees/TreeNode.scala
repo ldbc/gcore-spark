@@ -79,10 +79,26 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
   }
 
   /**
-    * Applies the given function in-order on the tree (root, then recursively on children from left
+    * Applies the given function top-down, with the following pattern: on the first half of the
+    * children list, from left to right, then on root, then on the second half of the children list.
+    * "Half" here means ceiling of the halved length.
+    */
+  def forEachInOrder(f: T => Unit): Unit = {
+    val stop: Int = (children.length + 1) / 2
+    for (i <- 0 until stop)
+      children(i).forEachInOrder(f)
+
+    f(self)
+
+    for (i <- stop until children.length)
+      children(i).forEachInOrder(f)
+  }
+
+  /**
+    * Applies the given function pre-order on the tree (root, then recursively on children from left
     * to right). The resulting in-order traversal is returned as a sequence of the results.
     */
-  def inOrderMap[U](f: T => U): Seq[U] = {
+  def preOrderMap[U](f: T => U): Seq[U] = {
     val traversal = new collection.mutable.ArrayBuffer[U]()
     forEachDown(traversal += f(_))
     traversal
@@ -95,6 +111,17 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
   def postOrderMap[U](f: T => U): Seq[U] = {
     val traversal = new collection.mutable.ArrayBuffer[U]()
     forEachUp(traversal += f(_))
+    traversal
+  }
+
+  /**
+    * Applies the given function in-order on the tree (recursively on the first half of the children
+    * list, from left to right, then root, then the second half of children list, from left to
+    * right). The resulting post-order traversal is returned as a sequence of the results.
+    */
+  def inOrderMap[U](f: T => U): Seq[U] = {
+    val traversal = new collection.mutable.ArrayBuffer[U]()
+    forEachInOrder(traversal += f(_))
     traversal
   }
 

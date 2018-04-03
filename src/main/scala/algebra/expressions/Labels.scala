@@ -2,12 +2,11 @@ package algebra.expressions
 
 import algebra.exceptions.{DisjunctLabelsException, UnsupportedOperation}
 import algebra.trees.{DisjunctLabelsContext, SemanticCheck, SemanticCheckWithContext}
+import algebra.types.GcoreString
 import common.compiler.Context
 
 case class Label(value: String) extends AlgebraExpression {
-  children = List(Literal(value))
-
-  def this(literal: Literal[String]) = this(literal.literalValue)
+  children = List(Literal(value, GcoreString()))
 
   override def name: String = value
 }
@@ -61,8 +60,9 @@ case class HasLabel(labels: Seq[Label]) extends AlgebraExpression
   *   )
   * )
   */
-case class WithLabels(labelConj: AlgebraExpression) extends PredicateExpression(labelConj)
-  with SemanticCheck {
+case class WithLabels(labelConj: AlgebraExpression) extends AlgebraExpression with SemanticCheck {
+
+  children = List(labelConj)
 
   override def check(): Unit =
     labelConj match {

@@ -1,8 +1,8 @@
 package spark.sql
 
-import algebra.expressions.{Label, Reference, True}
+import algebra.expressions._
 import algebra.operators._
-import algebra.types.DefaultGraph
+import algebra.types.{DefaultGraph, GcoreInteger}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.types._
@@ -322,12 +322,29 @@ class SparkSqlPlannerTest extends FunSuite
         s"c2Label", "c2Id", "c2Name", "c2Age", "c2Weight", "c2OnDiet"))
   }
 
-  private def compareHeaders(expectedHeader: Seq[String], actualDf: DataFrame): Unit = {
-    val actualHeader = actualDf.columns
-    assert(actualHeader.length == expectedHeader.length)
-    assert(actualHeader.toSet == expectedHeader.toSet)
+  test("Binding table of Select - (c:Cat) WHERE c.weight > 4 AND c.onDiet = True") {
+    val expr = And(
+      Gt(PropertyRef(Reference("c"), PropertyKey("weight")), Literal(4, GcoreInteger())),
+      Eq(PropertyRef(Reference("c"), PropertyKey("onDiet")), True()))
+    val relation = VertexRelation(Reference("c"), Relation(Label("Cat")), expr)
+    val scan = VertexScan(relation, DefaultGraph(), PlannerContext(db))
+    val select = Select(relation, expr)
+    select.children = List(scan, expr)
+    val actualDf = sparkPlanner.createBindingTable(BindingTableOp(select))
+
+    val expectedHeader: Seq[String] =
+      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+    compareHeaders(expectedHeader, actualDf)
+
+    val expectedDf =
+      Seq(hosico, maru).toDF.withColumn(tableLabelColumn.columnName, lit("Cat"))
+    compareDfs(
+      actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
+      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
   }
 
+
+  /**************************** Helpers to create test expectations. ******************************/
   private def createCatEatsFoodTable(tuples: Seq[(Cat, Eats, Food)],
                                      fromRef: String, edgeRef: String, toRef: String): DataFrame = {
     tuples

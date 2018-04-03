@@ -70,4 +70,11 @@ class PlannerToTargetTreeTest extends FunSuite with MockFactory {
     rewriter rewriteTree btableOp
     (mockedTargetPlanner.createPhysJoin _).verify(join).once
   }
+
+  test("createPhysSelect is called for BindingTableOp(Select)") {
+    val select = Select(RelationLike.empty, expr = True())
+    val btableOp = BindingTableOp(select)
+    rewriter rewriteTree btableOp
+    (mockedTargetPlanner.createPhysSelect _).verify(select).once
+  }
 }

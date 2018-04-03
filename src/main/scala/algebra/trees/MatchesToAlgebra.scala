@@ -21,7 +21,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
       val where: AlgebraExpression = cm.children.last.asInstanceOf[AlgebraExpression]
       val matchesAfterUnion: Seq[RelationLike] = unionSimpleMatchRelations(simpleMatches)
       val joinedMatches: RelationLike = joinSimpleMatchRelations(matchesAfterUnion)
-      CondMatchRelation(
+      Select(
         relation = joinedMatches,
         expr = where)
   }

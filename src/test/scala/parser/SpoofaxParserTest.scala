@@ -21,25 +21,25 @@ class SpoofaxParserTest extends FunSuite
   val peopleVertexSchema: EntitySchema =
     EntitySchema(SchemaMap(Map(
       Label("person") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("age") -> TypeInteger(),
-        PropertyKey("height") -> TypeDecimal(),
-        PropertyKey("name") -> TypeString())
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("age") -> GcoreInteger(),
+        PropertyKey("height") -> GcoreDecimal(),
+        PropertyKey("name") -> GcoreString())
       ),
       Label("city") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("population") -> TypeInteger(),
-        PropertyKey("name") -> TypeString())
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("population") -> GcoreInteger(),
+        PropertyKey("name") -> GcoreString())
       ))
     ))
 
   val peopleEdgeSchema: EntitySchema =
     EntitySchema(SchemaMap(Map(
       Label("livesIn") -> SchemaMap(Map(
-        PropertyKey("id") -> TypeInteger(),
-        PropertyKey("fromId") -> TypeInteger(),
-        PropertyKey("toId") -> TypeInteger(),
-        PropertyKey("since") -> TypeDate())
+        PropertyKey("id") -> GcoreInteger(),
+        PropertyKey("fromId") -> GcoreInteger(),
+        PropertyKey("toId") -> GcoreInteger(),
+        PropertyKey("since") -> GcoreDate())
       ))
     ))
 

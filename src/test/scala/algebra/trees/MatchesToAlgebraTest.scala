@@ -1,7 +1,8 @@
 package algebra.trees
 
-import algebra.expressions.Reference
+import algebra.expressions._
 import algebra.operators._
+import algebra.types.GcoreInteger
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Inside, Matchers}
 import parser.SpoofaxParser
 import parser.trees.ParseContext
@@ -20,11 +21,23 @@ class MatchesToAlgebraTest extends FunSuite
     graphDb.setDefaultGraph("cats graph")
   }
 
+  test("CondMatchClause becomes a Select") {
+    val query = "CONSTRUCT () MATCH (c:Cat) WHERE c.weight > 4"
+    val select = rewrite(query).children.head
+
+    select should matchPattern {
+      case Select(
+      /*relation =*/ _,
+      /*expr = */ Gt(PropertyRef(Reference("c"), PropertyKey("weight")), Literal(4, GcoreInteger())),
+      /*bindingSet =*/ _) =>
+    }
+  }
+
   test("Multi-labeled patterns are unioned - (v)->(w) and (v)") {
     val edgeQuery = "CONSTRUCT () MATCH (v)-[e]->(w)"
     val vertexQuery = "CONSTRUCT () MATCH (v)"
-    val edgeRelation = extractCondMatchRelation(edgeQuery)
-    val vertexRelation = extractCondMatchRelation(vertexQuery)
+    val edgeRelation = extractRelationUnderSelect(edgeQuery)
+    val vertexRelation = extractRelationUnderSelect(vertexQuery)
 
     testSingleBinOp[UnionAll](
       edgeRelation, Set(EdgeOrPathReference(Reference("v"), Reference("e"), Reference("w"))))
@@ -33,7 +46,7 @@ class MatchesToAlgebraTest extends FunSuite
 
   test("Patterns with common bindings are inner-joined - (v:Cat)->(w:Food), (v:Cat)") {
     val query = "CONSTRUCT () MATCH (v:Cat)-[e:Eats]->(w:Food), (v:Cat)"
-    val relation = extractCondMatchRelation(query)
+    val relation = extractRelationUnderSelect(query)
     testSingleBinOp[InnerJoin](
       relation,
       Set(
@@ -43,7 +56,7 @@ class MatchesToAlgebraTest extends FunSuite
 
   test("Disjoint patterns are cross-joined - (v:Cat)->(w:Food), (u:Cat)") {
     val query = "CONSTRUCT () MATCH (v:Cat)-[e:Eats]->(w:Food), (u:Cat)"
-    val relation = extractCondMatchRelation(query)
+    val relation = extractRelationUnderSelect(query)
     testSingleBinOp[CrossJoin](
       relation,
       Set(
@@ -53,7 +66,7 @@ class MatchesToAlgebraTest extends FunSuite
 
   test("Mix of union, inner- and cross- joins - (c1:Cat)->(c2:Cat)->(f:Food), (c3:Country)") {
     val query = "CONSTRUCT () MATCH (c1:Cat)-[e1]->(c2:Cat)-[e2]->(f:Food), (c3:Country)"
-    val relation = extractCondMatchRelation(query)
+    val relation = extractRelationUnderSelect(query)
 
     inside (relation) {
       case CrossJoin(cjLhs @ InnerJoin(_, _, _), cjRhs, _) =>
@@ -72,9 +85,9 @@ class MatchesToAlgebraTest extends FunSuite
     }
   }
 
-  private def extractCondMatchRelation(query: String): RelationLike = {
-    val condMatch = rewrite(query).children.head
-    condMatch.children.head.asInstanceOf[RelationLike]
+  private def extractRelationUnderSelect(query: String): RelationLike = {
+    val select = rewrite(query).children.head
+    select.children.head.asInstanceOf[RelationLike]
   }
 
   private def rewrite(query: String): AlgebraTreeNode = {

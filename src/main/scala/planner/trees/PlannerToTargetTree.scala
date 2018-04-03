@@ -1,6 +1,6 @@
 package planner.trees
 
-import algebra.operators.{JoinLike, UnionAll}
+import algebra.operators.{JoinLike, Select, UnionAll}
 import algebra.trees.AlgebraTreeNode
 import common.trees.BottomUpRewriter
 import planner.exceptions.UnsupportedOperation
@@ -18,6 +18,7 @@ case class PlannerToTargetTree(targetPlanner: TargetPlanner)
       op match {
         case ua: UnionAll => targetPlanner.createPhysUnionAll(ua)
         case join: JoinLike => targetPlanner.createPhysJoin(join)
+        case select: Select => targetPlanner.createPhysSelect(select)
         case other =>
           throw UnsupportedOperation("Match pattern resulting in the following plan tree is not " +
             s"supported at the moment:\n${other.treeString()}")

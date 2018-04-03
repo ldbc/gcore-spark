@@ -19,14 +19,14 @@ class TreeRewriterTest extends FunSuite with TestTreeWrapper {
   test("topDownRewriter") {
     val expectedInOrderTraversal: Seq[Int] = Seq(6, 10, 2, 5, 3)
     val rewriter = new TopDownRewriter[IntTree] { override val rule = f }
-    val actual = rewriter.rewriteTree(tree).inOrderMap(_.value)
+    val actual = rewriter.rewriteTree(tree).preOrderMap(_.value)
     assert(actual == expectedInOrderTraversal)
   }
 
   test("bottomUpRewriter") {
     val expectedInOrderTraversal: Seq[Int] = Seq(12, 8, 2, 5, 3)
     val rewriter = new BottomUpRewriter[IntTree] { override val rule = f }
-    val actual = rewriter.rewriteTree(tree).inOrderMap(_.value)
+    val actual = rewriter.rewriteTree(tree).preOrderMap(_.value)
     assert(actual == expectedInOrderTraversal)
   }
 }

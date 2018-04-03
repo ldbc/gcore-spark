@@ -269,10 +269,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
   def expressions(): Unit = {
 
     test("WHERE BasicGraphPattern => WHERE EXISTS (CONSTRUCT () MATCH BasicGraphPattern") {
-      val ast = GcoreLang parseQuery
-        "CONSTRUCT () " +
-          "MATCH (u) " +
-          "WHERE (u:Label)"
+      val ast = GcoreLang parseQuery "CONSTRUCT () MATCH (u) WHERE (u:Label)"
       val spoofaxTree = SpoofaxTreeBuilder build ast
       val algebraTree = AlgebraTreeBuilder build spoofaxTree
 
@@ -280,11 +277,144 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
         case Query(
           MatchClause(
             /* non optional */ CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr),
-            /* optional */ _
-          )) => {
+            /* optional */ _)) =>
 
           expr should matchPattern { case Exists(Query(_)) => }
-        }
+      }
+    }
+
+    test("WHERE NOT 2 => Not(2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE NOT 2"
+      val expected = Not(Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE -2 => Minus(2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE -2"
+      val expected = Minus(Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 AND 2 => And(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 AND 2"
+      val expected = And(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 OR 2 => Or(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 OR 2"
+      val expected = Or(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 = 2 => Eq(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 = 2"
+      val expected = Eq(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 != 2 (Neq1) => Neq(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 != 2"
+      val expected = Neq(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 <> 2 (Neq2) => Neq(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 <> 2"
+      val expected = Neq(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 > 2 => Gt(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 > 2"
+      val expected = Gt(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 >= 2 => Gte(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 >= 2"
+      val expected = Gte(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 < 2 => Lt(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 < 2"
+      val expected = Lt(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 <= 2 => Lte(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 <= 2"
+      val expected = Lte(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2^2 => Power(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2^2"
+      val expected = Power(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2*2 => Mul(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2*2"
+      val expected = Mul(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2/2 => Div(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2/2"
+      val expected = Div(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2%2 => Mod(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2%2"
+      val expected = Mod(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2+2 => Add(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2+2"
+      val expected = Add(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2-2 => Sub(2, 2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2-2"
+      val expected = Sub(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 IS NULL => IsNull(2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 IS NULL"
+      val expected = IsNull(Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE 2 IS NOT NULL => IsNotNull(2)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE 2 IS NOT NULL"
+      val expected = IsNotNull(Literal(2, GcoreInteger()))
+      runTest(query, expected)
+    }
+
+    test("WHERE u.prop => PropRef(u, prop)") {
+      val query = "CONSTRUCT () MATCH (u) WHERE u.prop"
+      val expected = PropertyRef(Reference("u"), PropertyKey("prop"))
+      runTest(query, expected)
+    }
+
+    def runTest(query: String, expected: AlgebraExpression): Unit = {
+      val ast = GcoreLang parseQuery query
+      val spoofaxTree = SpoofaxTreeBuilder build ast
+      val algebraTree = AlgebraTreeBuilder build spoofaxTree
+
+      inside (algebraTree) {
+        case Query(
+        MatchClause(
+        /* non optional */ CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr),
+        /* optional */ _)) =>
+
+          expr should matchPattern { case `expected` => }
       }
     }
   }

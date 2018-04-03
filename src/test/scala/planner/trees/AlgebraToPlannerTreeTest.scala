@@ -14,19 +14,27 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
   val matchContext: SimpleMatchRelationContext = SimpleMatchRelationContext(DefaultGraph())
 
   test("UnionAll is wrapped inside a BindingTableOp") {
-    testBindingTableOp(UnionAll)
+    testBtableBinOp(UnionAll)
   }
 
   test("InnerJoin is wrapped inside a BindingTableOp") {
-    testBindingTableOp(InnerJoin)
+    testBtableBinOp(InnerJoin)
   }
 
   test("CrossJoin is wrapped inside a BindingTableOp") {
-    testBindingTableOp(CrossJoin)
+    testBtableBinOp(CrossJoin)
   }
 
   test("LeftOuterJoin is wrapped inside a BindingTableOp") {
-    testBindingTableOp(LeftOuterJoin)
+    testBtableBinOp(LeftOuterJoin)
+  }
+
+  test("Select is wrapped inside a BindingTableOp") {
+    val rel = Select(relation = RelationLike.empty, expr = True(), bindingSet = None)
+    val actual = rewriter rewriteTree rel
+    actual should matchPattern {
+      case BindingTableOp(`rel`) =>
+    }
   }
 
   test("SimpleMatchRelation(VertexRelation, ...) becomes VertexScan") {
@@ -98,12 +106,6 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
     }
   }
 
-  test("CondMatchRelation becomes its first child (before we enable expression parsing)") {
-    val rel = CondMatchRelation(RelationLike.empty, expr = True())
-    val actual = rewriter rewriteTree rel
-    assert(actual == RelationLike.empty)
-  }
-
   test("Query becomes its first child (before we enable CONSTRUCT and/or PATH clause)") {
     val matchClause = MatchClause(CondMatchClause(Seq.empty, True()), Seq.empty)
     val rel = Query(matchClause)
@@ -111,9 +113,9 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
     assert(actual == matchClause)
   }
 
-  private type BindingTableOpType = (RelationLike, RelationLike, Option[BindingSet]) => RelationLike
+  private type BtableBinOpType = (RelationLike, RelationLike, Option[BindingSet]) => RelationLike
 
-  private def testBindingTableOp(op: BindingTableOpType): Unit = {
+  private def testBtableBinOp(op: BtableBinOpType): Unit = {
     val rel = op(RelationLike.empty, RelationLike.empty, None)
     val actual = rewriter rewriteTree rel
     actual should matchPattern {
