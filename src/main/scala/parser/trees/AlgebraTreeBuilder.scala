@@ -187,18 +187,7 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
       case "False" => False()
       case "String" =>
         Literal(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value, GcoreString())
-      case "BasicGraphPattern" =>
-        // TODO: The Query operator should also take an empty ConstructClause in this case.
-        Exists(
-          Query(
-            MatchClause(
-              CondMatchClause(
-                List(SimpleMatchClause(extractPattern(from), new DefaultGraph)),
-                /*where = */ True()),
-              List.empty[CondMatchClause]
-            )
-          )
-        )
+      case "BasicGraphPattern" => Exists(extractPattern(from))
 
       /* Default case. */
       case _ => throw QueryParseException(s"Unsupported expression ${from.name}")

@@ -49,15 +49,8 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
     val fromTableRef: String = fromTableName.value
     val toTableRef: String = toTableName.value
 
-    val joinOnFromTempView: String = tempViewNameWithUID(s"${pathRef}_fromJoin")
-    val joinOnFromAndToTempView: String = tempViewNameWithUID(s"${pathRef}_fromAndToJoin")
-    val fromTempView: String = tempViewNameWithUID(s"${fromRef}_fromWithLabel")
-    val toTempView: String = tempViewNameWithUID(s"${toRef}_toWithLabel")
-    val pathTempView: String = tempViewNameWithUID(s"${pathRef}_pathWithLabel")
-
     val addLabelFrom: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW `$fromTempView` AS
          | SELECT
          | "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
          | ${selectAllPrependRef(fromTable, fromBinding)}
@@ -66,7 +59,6 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
 
     val addLabelTo: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW `$toTempView` AS
          | SELECT
          | "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
          | ${selectAllPrependRef(toTable, toBinding)}
@@ -75,7 +67,6 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
 
     val addLabelPath: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW `$pathTempView` AS
          | SELECT
          | "$pathTableRef" AS `$pathRef$$${tableLabelColumn.columnName}`,
          | ${selectAllPrependRef(pathTable, pathBinding)}
@@ -84,26 +75,21 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
 
     val joinPathOnFrom: String =
       s"""
-         | CREATE OR REPLACE TEMPORARY VIEW `$joinOnFromTempView` AS
-         | SELECT * FROM `$pathTempView` INNER JOIN `$fromTempView` ON
+         | SELECT * FROM ($addLabelPath) INNER JOIN ($addLabelFrom) ON
          | `$pathRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`
        """.stripMargin
 
-    val reachableTestTempView: Option[String] =
-      if (pathScan.isReachableTest)
-        Some(
-          s"""
-             | CREATE OR REPLACE TEMPORARY VIEW `$joinOnFromAndToTempView` AS
-             | SELECT * FROM `$joinOnFromTempView` INNER JOIN `$toTempView` ON
-             | `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`
-          """.stripMargin)
-      else None
-
     val joinPathOnFromAndTo: String = {
       if (pathScan.isReachableTest) {
+        val reachableTestTempView: String =
+          s"""
+             | SELECT * FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
+             | `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`
+          """.stripMargin
+
         s"""
            | SELECT ${allColumnsExceptForRef(pathBinding, mergedSchemas)}
-           | FROM $joinOnFromAndToTempView
+           | FROM ($reachableTestTempView)
          """.stripMargin
 
       } else {
@@ -116,28 +102,13 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
         }
 
         s"""
-           | SELECT $columns FROM `$joinOnFromTempView` INNER JOIN `$toTempView` ON
+           | SELECT $columns FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
            | `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`
           """.stripMargin
       }
     }
 
-    val cleanupJoinOnFromTempView: String = s"DROP VIEW `$joinOnFromTempView`"
-    val cleanupJoinOnFromAndToTempView: Option[String] =
-      if (pathScan.isReachableTest) Some(s"DROP VIEW $joinOnFromAndToTempView")
-      else None
-    val cleanupFromTempView: String = s"DROP VIEW `$fromTempView`"
-    val cleanupToTempView: String = s"DROP VIEW `$toTempView`"
-    val cleanupPathTempView: String = s"DROP VIEW `$pathTempView`"
-
-    SqlQuery(
-      prologue =
-        Seq(addLabelFrom, addLabelTo, addLabelPath, joinPathOnFrom) ++ reachableTestTempView.toList,
-      resQuery = joinPathOnFromAndTo,
-      epilogue =
-        Seq(cleanupFromTempView, cleanupToTempView, cleanupPathTempView, cleanupJoinOnFromTempView)
-          ++ cleanupJoinOnFromAndToTempView.toList
-    )
+    SqlQuery(resQuery = joinPathOnFromAndTo)
   }
 
   override val bindingTable: BindingTable =

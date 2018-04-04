@@ -1,8 +1,7 @@
 package algebra.expressions
 
-import algebra.operators.Query
 import algebra.trees._
-import algebra.types.DataType
+import algebra.types.{DataType, GraphPattern}
 
 /**
   * A G-CORE expressions as defined at
@@ -23,8 +22,8 @@ case class Literal(literalValue: Any, gcoreType: DataType) extends AlgebraExpres
   override def toString: String = s"$name [$literalValue, $gcoreType]"
 }
 
-case class Exists(query: Query) extends AlgebraExpression {
-  children = List(query)
+case class Exists(graphPattern: GraphPattern) extends AlgebraExpression {
+  children = List(graphPattern)
 }
 
 case class ObjectPattern(labelsPred: AlgebraExpression, propsPred: AlgebraExpression)

@@ -1,6 +1,6 @@
 package algebra.trees
 
-import algebra.expressions.{AlgebraExpression, Reference}
+import algebra.expressions.{AlgebraExpression, Exists, Reference}
 import algebra.operators.BinaryPrimitive.reduceLeft
 import algebra.operators._
 import common.trees.BottomUpRewriter
@@ -10,12 +10,12 @@ import scala.collection.mutable
 object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
 
   private val matchClause: RewriteFuncType = {
-    case m @ MatchClause(_, _) =>
+    case m: MatchClause =>
       reduceLeft(m.children.map(_.asInstanceOf[RelationLike]), LeftOuterJoin)
   }
 
   private val condMatchClause: RewriteFuncType = {
-    case cm @ CondMatchClause(_, _) =>
+    case cm: CondMatchClause =>
       val simpleMatches: Seq[SimpleMatchRelation] =
         cm.children.init.map(_.asInstanceOf[SimpleMatchRelation])
       val where: AlgebraExpression = cm.children.last.asInstanceOf[AlgebraExpression]
@@ -24,6 +24,17 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
       Select(
         relation = joinedMatches,
         expr = where)
+  }
+
+  private val existsClause: RewriteFuncType = {
+    case ec: Exists =>
+      val simpleMatches: Seq[SimpleMatchRelation] =
+        ec.children.map(_.asInstanceOf[SimpleMatchRelation])
+      val matchesAfterUnion: Seq[RelationLike] = unionSimpleMatchRelations(simpleMatches)
+      val joinedMatches: RelationLike = joinSimpleMatchRelations(matchesAfterUnion)
+
+      ec.children = Seq(joinedMatches)
+      ec
   }
 
   private type BindingToRelations = mutable.HashMap[Reference, mutable.Set[RelationLike]]
@@ -122,5 +133,5 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
     }
   }
 
-  override val rule: RewriteFuncType = matchClause orElse condMatchClause
+  override val rule: RewriteFuncType = matchClause orElse condMatchClause orElse existsClause
 }

@@ -279,7 +279,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
             /* non optional */ CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr),
             /* optional */ _)) =>
 
-          expr should matchPattern { case Exists(Query(_)) => }
+          expr should matchPattern { case Exists(GraphPattern(_)) => }
       }
     }
 

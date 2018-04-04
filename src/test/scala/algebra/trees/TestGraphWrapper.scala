@@ -1,6 +1,7 @@
 package algebra.trees
 
-import algebra.expressions.Label
+import algebra.expressions.{Label, PropertyKey}
+import algebra.types._
 import schema._
 
 trait TestGraphWrapper {
@@ -24,19 +25,61 @@ trait TestGraphWrapper {
 
     override def vertexSchema: EntitySchema =
       EntitySchema(SchemaMap(Map(
-        Label("Cat") -> SchemaMap.empty,
-        Label("Food") -> SchemaMap.empty,
-        Label("Country") -> SchemaMap.empty)))
+        Label("Cat") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("name") -> GcoreString(),
+          PropertyKey("age") -> GcoreDecimal(),
+          PropertyKey("weight") -> GcoreInteger(),
+          PropertyKey("onDiet") -> GcoreBoolean()
+        )),
+        Label("Food") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("brand") -> GcoreString()
+        )),
+        Label("Country") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("name") -> GcoreString()
+        ))
+      )))
 
     override def pathSchema: EntitySchema =
-      EntitySchema(SchemaMap(Map(Label("ToGourmand") -> SchemaMap.empty)))
+      EntitySchema(SchemaMap(Map(
+        Label("ToGourmand") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("fromId") -> GcoreInteger(),
+          PropertyKey("toId") -> GcoreInteger(),
+          PropertyKey("edges") -> GcoreArray(),
+          PropertyKey("hops") -> GcoreInteger()
+        ))
+      )))
 
     override def edgeSchema: EntitySchema =
       EntitySchema(SchemaMap(Map(
-        Label("Eats") -> SchemaMap.empty,
-        Label("Enemy") -> SchemaMap.empty,
-        Label("Friend") -> SchemaMap.empty,
-        Label("MadeIn") -> SchemaMap.empty)))
+        Label("Eats") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("fromId") -> GcoreInteger(),
+          PropertyKey("toId") -> GcoreInteger(),
+          PropertyKey("gramsPerDay") -> GcoreDecimal()
+        )),
+        Label("Enemy") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("fromId") -> GcoreInteger(),
+          PropertyKey("toId") -> GcoreInteger(),
+          PropertyKey("since") -> GcoreString()
+        )),
+        Label("Friend") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("fromId") -> GcoreInteger(),
+          PropertyKey("toId") -> GcoreInteger(),
+          PropertyKey("since") -> GcoreString(),
+          PropertyKey("fights") -> GcoreString()
+        )),
+        Label("MadeIn") -> SchemaMap(Map(
+          PropertyKey("id") -> GcoreInteger(),
+          PropertyKey("fromId") -> GcoreInteger(),
+          PropertyKey("toId") -> GcoreInteger()
+        ))
+      )))
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] =
       SchemaMap(Map(

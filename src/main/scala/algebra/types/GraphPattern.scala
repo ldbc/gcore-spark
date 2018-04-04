@@ -73,8 +73,11 @@ case class AllPaths() extends PathQuantifier
 
 
 /** Abstract connections in graph. */
-abstract class Connection(expr: ObjectPattern) extends AlgebraType
+abstract class Connection(ref: Reference, expr: ObjectPattern) extends AlgebraType
   with SemanticCheckWithContext {
+
+  def getRef: Reference = ref
+  def getExpr: AlgebraExpression = expr
 
   def schemaOfEntityType(context: GraphPatternContext): EntitySchema
 
@@ -107,12 +110,16 @@ abstract class Connection(expr: ObjectPattern) extends AlgebraType
   }
 }
 
-abstract class SingleEndpointConn(ref: Reference, expr: ObjectPattern) extends Connection(expr)
-abstract class DoubleEndpointConn(connType: ConnectionType,
+abstract class SingleEndpointConn(ref: Reference, expr: ObjectPattern)
+  extends Connection(ref, expr)
+abstract class DoubleEndpointConn(connName: Reference,
+                                  connType: ConnectionType,
                                   leftEndpoint: SingleEndpointConn,
                                   rightEndpoint: SingleEndpointConn,
-                                  expr: ObjectPattern) extends Connection(expr) with SemanticCheck {
+                                  expr: ObjectPattern)
+  extends Connection(connName, expr) with SemanticCheck {
 
+  def getLeftEndpoint: SingleEndpointConn = leftEndpoint
   def getRightEndpoint: SingleEndpointConn = rightEndpoint
 
   override def checkWithContext(context: Context): Unit = {
@@ -143,7 +150,7 @@ case class Edge(connName: Reference,
                 rightEndpoint: SingleEndpointConn,
                 connType: ConnectionType,
                 expr: ObjectPattern)
-  extends DoubleEndpointConn(connType, leftEndpoint, rightEndpoint, expr) {
+  extends DoubleEndpointConn(connName, connType, leftEndpoint, rightEndpoint, expr) {
 
   children = List(connName, leftEndpoint, rightEndpoint, connType, expr)
 
@@ -164,7 +171,7 @@ case class Path(connName: Reference,
                 costVarDef: Option[Reference],
                 isObj: Boolean)
                 // TODO: path expression
-  extends DoubleEndpointConn(connType, leftEndpoint, rightEndpoint, expr) {
+  extends DoubleEndpointConn(connName, connType, leftEndpoint, rightEndpoint, expr) {
 
   children = List(connName, leftEndpoint, rightEndpoint, connType, expr) ++
     quantifier.toList ++ costVarDef.toList

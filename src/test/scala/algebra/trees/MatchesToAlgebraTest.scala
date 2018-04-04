@@ -28,7 +28,7 @@ class MatchesToAlgebraTest extends FunSuite
     select should matchPattern {
       case Select(
       /*relation =*/ _,
-      /*expr = */ Gt(PropertyRef(Reference("c"), PropertyKey("weight")), Literal(4, GcoreInteger())),
+      /*expr =*/ Gt(PropertyRef(Reference("c"), PropertyKey("weight")), Literal(4, GcoreInteger())),
       /*bindingSet =*/ _) =>
     }
   }
@@ -85,14 +85,39 @@ class MatchesToAlgebraTest extends FunSuite
     }
   }
 
+  test("Mix of union, and inner-join in exists sub-clause - (c1:Cat)->(c2:Cat)->(f:Food)") {
+    val query = "CONSTRUCT () MATCH () WHERE (c1:Cat)-[e1]->(c2:Cat)-[e2]->(f:Food)"
+    val relation = extractRelationUnderExists(query)
+
+    inside (relation) {
+      case cjLhs @ InnerJoin(ijLhs, ijRhs, _) =>
+        assert(
+          extractRefTuples(Seq(ijRhs)) ==
+            Set(EdgeOrPathReference(Reference("c2"), Reference("e2"), Reference("f"))))
+        testSingleBinOp[UnionAll](
+          ijLhs,
+          Set(EdgeOrPathReference(Reference("c1"), Reference("e1"), Reference("c2")))
+        )
+    }
+  }
+
   private def extractRelationUnderSelect(query: String): RelationLike = {
     val select = rewrite(query).children.head
     select.children.head.asInstanceOf[RelationLike]
   }
 
+  private def extractRelationUnderExists(query: String): RelationLike = {
+    val select = rewrite(query).children.head
+    val exists = select.children.last
+    exists.children.head.asInstanceOf[RelationLike]
+  }
+
   private def rewrite(query: String): AlgebraTreeNode = {
-    val parseTree = PatternsToRelations rewriteTree spoofaxParser.parse(query)
-    val expandedTree = expandRelations rewriteTree parseTree
+    val context = AlgebraContext(graphDb, Some(Map.empty)) // all vars in the default graph
+    val treeWithExists: AlgebraTreeNode =
+      AddGraphToExistentialPatterns(context).rewriteTree(spoofaxParser.parse(query))
+    val treeWithRelations = PatternsToRelations rewriteTree treeWithExists
+    val expandedTree = expandRelations rewriteTree treeWithRelations
     MatchesToAlgebra rewriteTree expandedTree
   }
 

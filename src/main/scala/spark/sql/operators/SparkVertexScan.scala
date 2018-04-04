@@ -25,7 +25,7 @@ case class SparkVertexScan(vertexScan: VertexScan)
          | ${selectAllPrependRef(physTable, binding)}
          | FROM global_temp.${tableName.value}
        """.stripMargin
-    SqlQuery(prologue = Seq.empty, resQuery = scanQuery, epilogue = Seq.empty)
+    SqlQuery(resQuery = scanQuery)
   }
 
   private val schema: StructType = refactorScanSchema(physTable.data.schema, binding)

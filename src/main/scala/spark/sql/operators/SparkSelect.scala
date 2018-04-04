@@ -10,26 +10,15 @@ case class SparkSelect(relation: TargetTreeNode, expr: AlgebraExpression)
 
   override val bindingTable: BindingTable = {
     val relationBtable: SparkBindingTable = relation.bindingTable.asInstanceOf[SparkBindingTable]
-    val relationTempView: String = tempViewNameWithUID("relation_temp")
 
-    val createRelationTempView: String =
-      s"""
-         | CREATE OR REPLACE TEMPORARY VIEW `$relationTempView` AS ${relationBtable.btable.resQuery}
-       """.stripMargin
+    val fromAlias: String = tempViewAlias
 
     val selectQuery: String =
       s"""
-         | SELECT * FROM `$relationTempView` WHERE ${expressionToSelectionPred(expr)}
+         | SELECT * FROM (${relationBtable.btable.resQuery}) $fromAlias
+         | WHERE ${expressionToSelectionPred(expr, relationBtable.schemas, fromAlias)}
        """.stripMargin
 
-    val dropRelationTempView = s"DROP VIEW `$relationTempView`"
-
-    relationBtable.copy(
-      btableOps =
-        SqlQuery(
-          prologue = relationBtable.btableOps.prologue :+ createRelationTempView,
-          resQuery = selectQuery,
-          epilogue = relationBtable.btableOps.epilogue :+ dropRelationTempView)
-    )
+    relationBtable.copy(btableOps = SqlQuery(resQuery = selectQuery))
   }
 }

@@ -1,6 +1,6 @@
 package algebra.trees
 
-import algebra.expressions.{Label, Reference}
+import algebra.expressions.{Exists, Label, Reference}
 import algebra.operators._
 import algebra.types.{DefaultGraph, Graph, NamedGraph}
 import common.trees.TopDownRewriter
@@ -43,11 +43,21 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       matchClause.children.foreach(
         condMatch => {
           val simpleMatches: Seq[SimpleMatchRelation] =
-            simpleMatchClauseToRelation(condMatch.asInstanceOf[CondMatchClause])
+            toMatchRelations(condMatch.asInstanceOf[CondMatchClause])
           val matchPred: AlgebraTreeNode = condMatch.children.last
           condMatch.children = simpleMatches :+ matchPred
 
           allSimpleMatches ++= simpleMatches
+
+          // If the matching predicate contains an existence clause, then we need to add to the
+          // allSimpleMatches buffer all the SimpleMatchRelations under the Exists condition.
+          matchPred forEachDown {
+            case e: Exists =>
+              val existsMatches: Seq[SimpleMatchRelation] = toMatchRelations(e.children)
+              e.children = existsMatches
+              allSimpleMatches ++= existsMatches
+            case _ =>
+          }
         })
 
       // Use all SimpleMatchRelations to restrict the labels of all variables in the match query.
@@ -61,14 +71,27 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
               simpleMatches = condMatch.children.init, constrainedLabels, graphDb)
           val matchPred: AlgebraTreeNode = condMatch.children.last
           condMatch.children = simpleMatches :+ matchPred
+
+          // If the matching predicate is an existence clause, we also constrain the simple matches
+          // under the Exists condition.
+          matchPred forEachDown {
+            case e: Exists =>
+              val existsMatches: Seq[SimpleMatchRelation] =
+                constrainSimpleMatches(simpleMatches = e.children, constrainedLabels, graphDb)
+              e.children = existsMatches
+            case _ =>
+          }
         })
 
       matchClause
   }
 
-  private
-  def simpleMatchClauseToRelation(condMatchClause: CondMatchClause): Seq[SimpleMatchRelation] = {
-    condMatchClause.children.init.flatMap(
+  private def toMatchRelations(condMatchClause: CondMatchClause): Seq[SimpleMatchRelation] = {
+    toMatchRelations(condMatchClause.children.init)
+  }
+
+  private def toMatchRelations(simpleMatches: Seq[AlgebraTreeNode]): Seq[SimpleMatchRelation] = {
+    simpleMatches.flatMap(
       simpleMatchClause => {
         val graphPattern: AlgebraTreeNode = simpleMatchClause.children.head
         val graph: Graph = simpleMatchClause.children.last.asInstanceOf[Graph]

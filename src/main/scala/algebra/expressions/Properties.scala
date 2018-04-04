@@ -6,6 +6,8 @@ import algebra.types.GcoreString
 import common.compiler.Context
 import schema.EntitySchema
 
+import scala.collection.mutable
+
 case class PropertyKey(key: String) extends AlgebraExpression {
   children = List(Literal(key, GcoreString()))
 
@@ -27,9 +29,9 @@ case class WithProps(propConj: AlgebraExpression) extends AlgebraExpression
     val schema: EntitySchema = context.asInstanceOf[PropertyContext].schema
 
     val propKeys: Seq[PropertyKey] = {
-      val pks = new collection.mutable.ArrayBuffer[PropertyKey]()
+      val pks = new mutable.ArrayBuffer[PropertyKey]()
       propConj.forEachDown {
-        case pk @ PropertyKey(_) => pks += pk
+        case pk: PropertyKey => pks += pk
         case _ =>
       }
       pks
@@ -38,9 +40,9 @@ case class WithProps(propConj: AlgebraExpression) extends AlgebraExpression
     val expectedProps: Seq[PropertyKey] = {
       if (withLabels.isDefined) {
         val labels: Seq[Label] = {
-          val ls = new collection.mutable.ArrayBuffer[Label]()
+          val ls = new mutable.ArrayBuffer[Label]()
           withLabels.get.forEachDown {
-            case l@Label(_) => ls += l
+            case l: Label => ls += l
             case _ =>
           }
           ls

@@ -5,9 +5,10 @@ import algebra.trees.AlgebraTreeNode
 import algebra.types.{GcoreInteger, GcoreString}
 import org.apache.commons.text.RandomStringGenerator
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructField, StructType}
 import planner.operators.Column
 import planner.operators.Column.tableLabelColumn
+import planner.trees.TargetTreeNode
 import schema.Table
 import spark.exceptions.UnsupportedOperation
 
@@ -19,12 +20,8 @@ trait SqlQueryGen {
   val randomStringGenerator: RandomStringGenerator =
     new RandomStringGenerator.Builder().selectFrom(('0' to '9') ++ ('a' to 'z'): _*).build()
 
-  /**
-    * Appends a random string of length [[randomStringLength]] to the name of a temporary view. This
-    * ensures that the view's name will be unique throughout the query session.
-    */
-  def tempViewNameWithUID(namePart: String): String = {
-    s"${namePart}_${randomStringGenerator.generate(randomStringLength)}"
+  def tempViewAlias: String = {
+    s"${randomStringGenerator.generate(randomStringLength)}"
   }
 
   /**
@@ -96,8 +93,15 @@ trait SqlQueryGen {
     * Creates a filtering predicate (a WHERE expression) from an [[AlgebraExpression]] tree. The
     * tree is traversed and the filtering expression is formed from the string representation
     * (symbol) of each node in the tree.
+    *
+    * The schema and alias parameters are used in case of an [[Exists]] sub-clause in the filtering
+    * predicate. We need the schema to infer whether there are common attributes between the main
+    * SELECT statement and the EXISTS sub-query and the alias to impose a filtering in the EXISTS
+    * clause based on the equality of the common attributes.
     */
-  def expressionToSelectionPred(expr: AlgebraTreeNode): String = {
+  def expressionToSelectionPred(expr: AlgebraTreeNode,
+                                selectSchemaMap: Map[Reference, StructType],
+                                selectAlias: String): String = {
     expr match {
       /** Expression leaves */
       case propRef: PropertyRef => s"`${propRef.ref.refName}$$${propRef.propKey.key}`"
@@ -106,18 +110,41 @@ trait SqlQueryGen {
       case True() => "True"
       case False() => "False"
 
+      /** Exists subclause. */
+      case _: Exists =>
+        val existsQuery: TargetTreeNode = expr.children.head.asInstanceOf[TargetTreeNode]
+        val existsBtable: SparkBindingTable =
+          existsQuery.bindingTable.asInstanceOf[SparkBindingTable]
+        val existsSchemaMap: Map[Reference, StructType] = existsBtable.schemaMap
+
+        val commonBindings: Set[Reference] =
+          selectSchemaMap.keys.toSet.intersect(existsSchemaMap.keys.toSet)
+
+        val tempName: String = tempViewAlias
+        val id: String = Column.idColumn.columnName
+        val selectConds: String =
+          commonBindings
+            .map(ref => s"$selectAlias.`${ref.refName}$$$id` = $tempName.`${ref.refName}$$$id`")
+            .mkString(" AND ")
+
+        s"""
+           | EXISTS
+           | (SELECT * FROM (${existsBtable.btable.resQuery}) $tempName WHERE $selectConds)
+           """.stripMargin
+
+      /** Basic expressions. */
       case e: MathExpression =>
         s"${e.getSymbol}(" +
-          s"${expressionToSelectionPred(e.getLhs)}, " +
-          s"${expressionToSelectionPred(e.getRhs)})"
+          s"${expressionToSelectionPred(e.getLhs, selectSchemaMap, selectAlias)}, " +
+          s"${expressionToSelectionPred(e.getRhs, selectSchemaMap, selectAlias)})"
       case e: PredicateExpression =>
-        s"${expressionToSelectionPred(e.getOperand)} ${e.getSymbol}"
+        s"${expressionToSelectionPred(e.getOperand, selectSchemaMap, selectAlias)} ${e.getSymbol}"
       case e: BinaryExpression =>
-        s"${expressionToSelectionPred(e.getLhs)} " +
+        s"${expressionToSelectionPred(e.getLhs, selectSchemaMap, selectAlias)} " +
           s"${e.getSymbol} " +
-          s"${expressionToSelectionPred(e.getRhs)}"
+          s"${expressionToSelectionPred(e.getRhs, selectSchemaMap, selectAlias)}"
       case e: UnaryExpression =>
-        s"${e.getSymbol} ${expressionToSelectionPred(e.getOperand)}"
+        s"${e.getSymbol} ${expressionToSelectionPred(e.getOperand, selectSchemaMap, selectAlias)}"
 
       /** Default case, cannot evaluate. */
       case other =>

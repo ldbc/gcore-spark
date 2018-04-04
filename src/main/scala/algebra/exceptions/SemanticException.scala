@@ -1,6 +1,7 @@
 package algebra.exceptions
 
 import algebra.expressions.{Label, PropertyKey, Reference}
+import algebra.types.DoubleEndpointConn
 import schema.EntitySchema
 
 abstract class SemanticException(reason: String) extends AlgebraException(reason)
@@ -10,6 +11,12 @@ case class NamedGraphNotAvailableException(graphName: String)
 
 case class DefaultGraphNotAvailableException()
   extends SemanticException("No default graph available.")
+
+case class AmbiguousGraphForExistentialPatternException(graphName1: String, graphName2: String,
+                                                        conn: DoubleEndpointConn)
+  extends SemanticException(
+    s"Ambiguous graph in existential pattern: either $graphName1 or $graphName2 in connection " +
+      s"{${conn.getLeftEndpoint.getRef}, ${conn.getRef}, ${conn.getRightEndpoint.getRef}}.")
 
 case class DisjunctLabelsException(graphName: String,
                                    unavailableLabels: Seq[Label],

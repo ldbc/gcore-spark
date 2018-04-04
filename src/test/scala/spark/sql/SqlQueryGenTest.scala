@@ -1,13 +1,14 @@
 package spark.sql
 
-import algebra.expressions
 import algebra.expressions._
-import algebra.types.{GcoreInteger, GcoreString}
-import org.apache.spark.sql.{DataFrame, Row}
+import algebra.types.{GcoreInteger, GcoreString, GraphPattern}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import planner.operators.{BindingTable, VertexScan}
+import planner.trees.TargetTreeNode
 import spark.SparkSessionTestWrapper
-import spark.sql.operators.SqlQueryGen
+import spark.sql.operators.{SparkBindingTable, SparkVertexScan, SqlQuery, SqlQueryGen}
 
 /**
   * Validates that the SQL filtering expressions built by
@@ -20,36 +21,58 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
 
   override def beforeAll() {
     super.beforeAll()
-    table.createOrReplaceTempView("Table")
+    vtable.createOrReplaceTempView("vTable")
+    wtable.createOrReplaceTempView("wTable")
   }
 
-  private val schema: StructType =
+  private val vschema: StructType =
     StructType(List(
+      StructField("v$id", IntegerType, nullable = false),
       StructField("v$aString", StringType, nullable = true),
       StructField("v$anInt", IntegerType, nullable = false),
       StructField("v$aBool", BooleanType, nullable = false)
     ))
 
-  private val fooRow: Row = Row("foo", 0, true)
-  private val barRow: Row = Row("bar", 1, false)
-  private val bazRow: Row = Row("baz", 2, false)
-  private val nullRow: Row = Row(null, 3, true)
-  private val rows: Seq[Row] = Seq(fooRow, barRow, bazRow, nullRow)
+  private val wschema: StructType =
+    StructType(List(
+      StructField("v$id", IntegerType, nullable = false),
+      StructField("w$dummyCol", StringType, nullable = true)
+    ))
+
+  private val fooRow: Row = Row(0, "foo", 0, true)
+  private val barRow: Row = Row(1, "bar", 1, false)
+  private val bazRow: Row = Row(2, "baz", 2, false)
+  private val nullRow: Row = Row(3, null, 3, true)
+  private val vrows: Seq[Row] = Seq(fooRow, barRow, bazRow, nullRow)
+
+  private val dummyRow: Row = Row(0, "dummy")
+  private val wrows: Seq[Row] = Seq(dummyRow)
 
   /**
-    * +-----------+---------+---------+
-    * | v$aString | v$anInt | v$aBool |
-    * +-----------+---------+---------+
-    * |   foo     |    0    |  true   |
-    * +-----------+---------+---------+
-    * |   bar     |    1    |  false  |
-    * +-----------+---------+---------+
-    * |   baz     |    2    |  false  |
-    * +-----------+---------+---------+
-    * |   null    |    3    |  true   |
-    * +-----------+---------+---------+
+    * +------+-----------+---------+---------+
+    * | v$id | v$aString | v$anInt | v$aBool |
+    * +------+-----------+---------+---------+
+    * |   0  |   foo     |    0    |  true   |
+    * +------+-----------+---------+---------+
+    * |   1  |   bar     |    1    |  false  |
+    * +------+-----------+---------+---------+
+    * |   2  |   baz     |    2    |  false  |
+    * +------+-----------+---------+---------+
+    * |   3  |   null    |    3    |  true   |
+    * +------+-----------+---------+---------+
     */
-  private val table: DataFrame = spark.createDataFrame(spark.sparkContext.parallelize(rows), schema)
+  private val vtable: DataFrame =
+    spark.createDataFrame(spark.sparkContext.parallelize(vrows), vschema)
+
+  /**
+    * +------+------------+
+    * | w$id | w$dummyCol |
+    * +------+------------+
+    * |   0  |   dummy    |
+    * +------+------------+
+    */
+  private val wtable: DataFrame=
+    spark.createDataFrame(spark.sparkContext.parallelize(wrows), wschema)
 
   testsFor(arithmeticExpressions())
   testsFor(conditionalExpressions())
@@ -57,6 +80,7 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
   testsFor(predicateExpressions())
   testsFor(logicalExpressions())
   testsFor(unaryExpressions())
+  testsFor(exists())
 
   def arithmeticExpressions(): Unit = {
     val gcoreExpressions: Seq[TestCase] =
@@ -174,7 +198,8 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
               Eq(
                 PropertyRef(Reference("v"), PropertyKey("aString")),
                 Literal("foo", GcoreString())),
-            rhs = Eq(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(3, GcoreInteger()))),
+            rhs =
+              Eq(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(3, GcoreInteger()))),
           Seq(fooRow, nullRow))
       )
 
@@ -199,19 +224,68 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
     gcoreExpressions foreach { testCase => testCase.runTestCase() }
   }
 
+  def exists(): Unit = {
+    val vselect = "SELECT * FROM vTable" // WHERE EXISTS (v)
+    val vrestricted = "SELECT * FROM vTable WHERE `v$id` = 0" // WHERE EXISTS (v)
+    val wselect = "SELECT * FROM wTable" // WHERE EXISTS (w)
+
+    val vscan = new TargetTreeNode {
+      override val bindingTable: BindingTable =
+        SparkBindingTable(
+          schemas = Map(Reference("v") -> vschema),
+          btableUnifiedSchema = vschema,
+          btableOps = SqlQuery(resQuery = vselect)
+        )
+    }
+
+    val vrestrictedScan = new TargetTreeNode {
+      override val bindingTable: BindingTable =
+        SparkBindingTable(
+          schemas = Map(Reference("v") -> vschema),
+          btableUnifiedSchema = vschema,
+          btableOps = SqlQuery(resQuery = vrestricted)
+        )
+    }
+
+    val vexists = Exists(GraphPattern(Seq.empty))
+    vexists.children = Seq(vscan)
+
+    val vrestrictedExists = Exists(GraphPattern(Seq.empty))
+    vrestrictedExists.children = Seq(vrestrictedScan)
+
+    val gcoreExpressions: Seq[TestCase] =
+      Seq(
+        TestCase(
+          "[Exists] WHERE EXISTS (v) (common binding v)",
+          vexists,
+          Seq(fooRow, barRow, bazRow, nullRow)),
+        TestCase(
+          "[Not Exists] WHERE NOT EXISTS (v) (common binding v)",
+          Not(vexists),
+          Seq.empty),
+        TestCase(
+          "[Exists] WHERE NOT EXISTS (v) (sub-table of vTable)",
+          vrestrictedExists,
+          Seq(fooRow))
+      )
+
+    gcoreExpressions foreach { testCase => testCase.runTestCase() }
+  }
+
   sealed case class TestCase(strExpr: String, expr: AlgebraExpression, expectedRows: Seq[Row]) {
 
     def runTestCase(): Unit = {
       test(s"Validate expressionToSelectionPred - $strExpr") {
-        val queryExpr =
-          s"SELECT * FROM Table WHERE ${SqlQueryGen.expressionToSelectionPred(expr)}"
+        val exprStr =
+          SqlQueryGen.expressionToSelectionPred(expr, Map(Reference("v") -> vschema), "v")
+        val queryExpr = s"SELECT * FROM vTable v WHERE $exprStr"
         val actualDf = spark.sql(queryExpr)
         val expectedDf =
-          spark.createDataFrame(spark.sparkContext.parallelize(expectedRows), schema)
+          spark.createDataFrame(spark.sparkContext.parallelize(expectedRows), vschema)
 
         compareDfs(
-          actualDf.select("v$aString", "v$anInt", "v$aBool"),
-          expectedDf.select("v$aString", "v$anInt", "v$aBool"))
+          actualDf.select("v$id", "v$aString", "v$anInt", "v$aBool"),
+          expectedDf.select("v$id", "v$aString", "v$anInt", "v$aBool"))
       }
     }
   }

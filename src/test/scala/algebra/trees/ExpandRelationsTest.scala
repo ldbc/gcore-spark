@@ -1,6 +1,6 @@
 package algebra.trees
 
-import algebra.expressions.{Label, Reference}
+import algebra.expressions.{Exists, Label, Reference}
 import algebra.operators._
 import algebra.trees.CustomMatchers._
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
@@ -369,6 +369,24 @@ class ExpandRelationsTest extends FunSuite
     testChainedPattern(query, expectedEdgeOrPath, expectedVertex = Map.empty)
   }
 
+  test("Exists clauses participate in label inference: (c) WHERE ()-[:Enemy]->(c)") {
+    val query = "CONSTRUCT () MATCH (c) WHERE (v)-[e:Enemy]->(c)"
+    val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
+      Map(Reference("e") -> Seq((Label("Cat"), Label("Enemy"), Label("Cat"))))
+    val expectedVertex: Map[Reference, Seq[Label]] = Map(Reference("c") -> Seq(Label("Cat")))
+    testChainedPattern(query, expectedEdgeOrPath, expectedVertex)
+  }
+
+  test("Exists clauses participate in label inference for optional matches: " +
+    "(c) OPTIONAL (c)->(f) WHERE (f:Food)") {
+    val query = "CONSTRUCT () MATCH (c) OPTIONAL (c)-[e]->(f) WHERE (f:Food)"
+    val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
+      Map(Reference("e") -> Seq((Label("Cat"), Label("Eats"), Label("Food"))))
+    val expectedVertex: Map[Reference, Seq[Label]] =
+      Map(Reference("c") -> Seq(Label("Cat")), Reference("f") -> Seq(Label("Food")))
+    testChainedPattern(query, expectedEdgeOrPath, expectedVertex)
+  }
+
   /**
     * Extracts all [[SimpleMatchRelation]]s (from the non-optional and optional clauses) after the
     * query has been parsed and rewritten using the [[PatternsToRelations]] and [[ExpandRelations]]
@@ -397,12 +415,22 @@ class ExpandRelationsTest extends FunSuite
     val nonOptCondMatch = matchClause.children.head
     val optCondMatches = matchClause.children.tail
 
-    nonOptCondMatch.children.init ++ optCondMatches.flatMap(_.children.init)
+    val existsSimpleMatches: mutable.ArrayBuffer[AlgebraTreeNode] =
+      new mutable.ArrayBuffer[AlgebraTreeNode]()
+    matchClause forEachDown {
+      case e: Exists => existsSimpleMatches ++= e.children
+      case _ =>
+    }
+
+    nonOptCondMatch.children.init ++ optCondMatches.flatMap(_.children.init) ++ existsSimpleMatches
   }
 
   private def rewrite(query: String): AlgebraTreeNode = {
-    val tree = PatternsToRelations rewriteTree spoofaxParser.parse(query)
-    expandRelations rewriteTree tree
+    val context = AlgebraContext(graphDb, Some(Map.empty)) // all vars in the default graph
+    val treeWithExists: AlgebraTreeNode =
+      AddGraphToExistentialPatterns(context).rewriteTree(spoofaxParser.parse(query))
+    val treeWithRelations = PatternsToRelations rewriteTree treeWithExists
+    expandRelations rewriteTree treeWithRelations
   }
 
   /**
