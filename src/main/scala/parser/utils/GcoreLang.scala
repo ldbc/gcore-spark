@@ -14,16 +14,16 @@ import parser.exceptions.{LanguageLoadException, QueryParseException}
 object GcoreLang {
 
   /** File name of the G-CORE language component. */
-  val gcoreGrammarSpec: String = "gcore-spoofax-0.1.0-SNAPSHOT.spoofax-language"
+  val GCORE_GRAMMAR_SPEC: String = "gcore-spoofax-0.1.0-SNAPSHOT.spoofax-language"
 
   val spoofax: Spoofax = new Spoofax()
 
   /**
     * The G-CORE language component we can use once [[Spoofax]] has loaded the grammar specification
-    * from [[gcoreGrammarSpec]].
+    * from [[GCORE_GRAMMAR_SPEC]].
     */
   val gcoreLang: ILanguageImpl = {
-    val gcoreUrl: URL = getClass.getClassLoader.getResource(gcoreGrammarSpec)
+    val gcoreUrl: URL = getClass.getClassLoader.getResource(GCORE_GRAMMAR_SPEC)
     val gcoreLocation: FileObject = spoofax.resourceService.resolve("zip:" + gcoreUrl + "!/")
     val requests: java.lang.Iterable[ILanguageDiscoveryRequest] =
       spoofax.languageDiscoveryService.request(gcoreLocation)
@@ -32,7 +32,7 @@ object GcoreLang {
     val implementations: java.util.Set[ILanguageImpl] = LanguageUtils.toImpls(components)
     val lang = LanguageUtils.active(implementations)
     if (lang == null)
-      throw LanguageLoadException(s"No language implementation was found at $gcoreGrammarSpec")
+      throw LanguageLoadException(s"No language implementation was found at $GCORE_GRAMMAR_SPEC")
     lang
   }
 

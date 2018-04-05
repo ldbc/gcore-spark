@@ -9,7 +9,8 @@ abstract class SpoofaxBaseTreeNode(term: IStrategoTerm) extends TreeNode[Spoofax
 
   // This assumes we have no nested lists, like for eg:
   // term children = [APPL, [APPL, LIST], APPL]
-  // After unwrapping the list above, we get: [APPL, APPL, LIST, APPL], so the second list remainds unwrapped.
+  // After unwrapping the list above, we get: [APPL, APPL, LIST, APPL], so the second list remains
+  // unwrapped.
   // TODO: Do we have any cases of nested lists?
   children = {
     term

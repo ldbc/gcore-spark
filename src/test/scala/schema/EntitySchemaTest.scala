@@ -8,27 +8,27 @@ class EntitySchemaTest extends FunSuite {
 
   val schema1 = EntitySchema(SchemaMap(Map(
     Label("person") -> SchemaMap(Map(
-      PropertyKey("age") -> GcoreInteger(),
-      PropertyKey("address") -> GcoreString())),
+      PropertyKey("age") -> GcoreInteger,
+      PropertyKey("address") -> GcoreString)),
     Label("city") -> SchemaMap(Map(
-      PropertyKey("population") -> GcoreInteger()))
+      PropertyKey("population") -> GcoreInteger))
   )))
 
   val schema2 = EntitySchema(SchemaMap(Map(
     Label("car") -> SchemaMap(Map(
-      PropertyKey("type") -> GcoreString(),
-      PropertyKey("manufacturer") -> GcoreString()))
+      PropertyKey("type") -> GcoreString,
+      PropertyKey("manufacturer") -> GcoreString))
   )))
 
   val schema1UnionSchema2 = EntitySchema(SchemaMap(Map(
     Label("person") -> SchemaMap(Map(
-      PropertyKey("age") -> GcoreInteger(),
-      PropertyKey("address") -> GcoreString())),
+      PropertyKey("age") -> GcoreInteger,
+      PropertyKey("address") -> GcoreString)),
     Label("city") -> SchemaMap(Map(
-      PropertyKey("population") -> GcoreInteger())),
+      PropertyKey("population") -> GcoreInteger)),
     Label("car") -> SchemaMap(Map(
-      PropertyKey("type") -> GcoreString(),
-      PropertyKey("manufacturer") -> GcoreString()))
+      PropertyKey("type") -> GcoreString,
+      PropertyKey("manufacturer") -> GcoreString))
   )))
 
   val emptySchema = EntitySchema.empty

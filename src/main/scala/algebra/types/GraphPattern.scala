@@ -1,48 +1,48 @@
 package algebra.types
 
-import algebra.exceptions.UnsupportedOperation
-import common.compiler.Context
 import algebra.expressions._
 import algebra.trees._
+import common.compiler.Context
+import common.exceptions.UnsupportedOperation
 import schema.EntitySchema
 
 /**
-  * A graph pattern to match against.
+  * A graph pattern to match in a [[Graph]].
   *
-  * A graph pattern is expressed through a succession of vertices and connections between them,
-  * such as edges or paths. For example, the following is a valid match pattern:
+  * In G-CORE grammar, a graph pattern is expressed through a succession of vertices and connections
+  * between them, such as edges or paths. For example, the following is a valid match pattern:
   *
   * (v0) -[e0]-> (v1) -[e1]-> (v2) ... -[en-2]-> (vn-1)
   *
-  * The topology of the connection is expressed as a sequence of connections. The above pattern
-  * will become:
+  * In the algebraic tree, we express this graph topology as a sequence of [[Connection]]s. The
+  * above pattern then becomes:
   *
   * [e0, e1, e2, ... en-2]
   *
-  * , where each ei will be the [[AlgebraType]] [[Edge]]. Similarly, a connection through a path
-  * will be the [[AlgebraType]] [[Path]]. These are both [[DoubleEndpointConn]]ections. If a
-  * single vertex is specified in the pattern, then we use the [[AlgebraType]] [[Vertex]], which
-  * is a [[SingleEndpointConn]]ection.
+  * , where each ei will be an [[Edge]]. Similarly, a [[Connection]] through a path will become a
+  * [[Path]]. The [[Edge]] and [[Path]] are both [[DoubleEndpointConn]]ections and have a right and
+  * a left endpoint determined by the variables used in the [[Connection]] as read from left to
+  * right. If a single vertex in the pattern, then we use a [[Vertex]] node in the tree, which is a
+  * [[SingleEndpointConn]]ection.
   *
-  * Each entity match pattern can specify conditions on labels and properties. We call this the
+  * Each variable match pattern can specify conditions on labels and properties. We call this the
   * pattern of an object. The pattern is the conjunction of a [[WithLabels]] and a [[WithProps]]
   * expression. Any of them can be empty, in which case they will be substituted with the [[True]]
-  * expression.
+  * literal. The two predicates are wrapped in an [[ObjectPattern]] node.
   *
   * The [[WithLabels]] predicate represents a conjunction of disjunct lists of labels. We translate
   * each disjunction as a [[HasLabel]] [[AlgebraExpression]] and then rewrite the conjunction of
-  * [[HasLabel]]s (which is actually a sequence of disjunctions) as follows:
+  * [[HasLabel]]s as follows:
   *
   * [DLS0, DLS1, DLS2, ... DLSn-1] =
   * = And(DLS0, [DLS1, DLS2, ..., DLSn-1) =
   * = And(DLS0, And(DLS1, [DLS2, ..., DLSn-1])) = ...
   *
-  * , where DLSi(labels: Seq[Literal]) = HasLabel(labels)
+  * , where DLSi(labels: Seq[Literal]) = HasLabel(Li0, Li1, ...)
   *
-  * The [[WithProps]] predicate represents a conjunction of property value equality conditions. We
-  * translate the condition to an [[Eq]] [[AlgebraExpression]] between the property key (a
-  * [[Literal]]) and the property value (a [[Literal]]). The rewrite of the conjunection (which is
-  * actually a list of property conditions) goes as follows:
+  * The [[WithProps]] predicate represents a conjunction of property value unrolling. We translate
+  * the predicate to an [[Eq]] expression between the [[PropertyKey]] and the property substitute.
+  * The rewrite of the conjunction is:
   *
   * [Prop0, Prop1, Prop2 ... Propn-1] =
   * = And(Prop0, [Prop1, Prop2, ... Propn-1]) =
@@ -54,14 +54,12 @@ case class GraphPattern(topology: Seq[Connection]) extends AlgebraType {
   children = topology
 }
 
-
 /** Where does the edge point? */
 abstract class ConnectionType extends AlgebraType
-case class InConn() extends ConnectionType
-case class OutConn() extends ConnectionType
-case class InOutConn() extends ConnectionType
-case class UndirectedConn() extends ConnectionType
-
+case object InConn extends ConnectionType
+case object OutConn extends ConnectionType
+case object InOutConn extends ConnectionType
+case object UndirectedConn extends ConnectionType
 
 /** Type of path to query for. */
 abstract class PathQuantifier extends AlgebraType
@@ -69,7 +67,7 @@ case class Shortest(qty: Integer, isDistinct: Boolean) extends PathQuantifier {
 
   override def toString: String = s"$name [$qty, isDistinct = $isDistinct]"
 }
-case class AllPaths() extends PathQuantifier
+case object AllPaths extends PathQuantifier
 
 
 /** Abstract connections in graph. */
@@ -84,27 +82,28 @@ abstract class Connection(ref: Reference, expr: ObjectPattern) extends AlgebraTy
   override def checkWithContext(context: Context): Unit = {
     val schema = schemaOfEntityType(context.asInstanceOf[GraphPatternContext])
     expr.forEachUp {
-      case expr @ ObjectPattern(WithLabels(_), WithProps(_)) =>
-        expr.propsPred.asInstanceOf[WithProps]
-          .checkWithContext(
-            PropertyContext(
-              graphName = context.asInstanceOf[GraphPatternContext].graphName,
-              labelsExpr = Some(expr.labelsPred.asInstanceOf[WithLabels]),
-              schema = schema))
-
-      case expr @ ObjectPattern(True(), WithProps(_)) =>
-        expr.propsPred.asInstanceOf[WithProps]
+      case ObjectPattern(True, propsPred: WithProps) =>
+        propsPred
           .checkWithContext(
             PropertyContext(
               graphName = context.asInstanceOf[GraphPatternContext].graphName,
               labelsExpr = None,
               schema = schema))
 
-      case hl @ HasLabel(_) =>
+      case ObjectPattern(labelsPred: WithLabels, propsPred: WithProps) =>
+        propsPred
+          .checkWithContext(
+            PropertyContext(
+              graphName = context.asInstanceOf[GraphPatternContext].graphName,
+              labelsExpr = Some(labelsPred),
+              schema = schema))
+
+      case hl: HasLabel =>
         hl.checkWithContext(
           DisjunctLabelsContext(
             graphName = context.asInstanceOf[GraphPatternContext].graphName,
             schema = schema))
+
       case _ =>
     }
   }
@@ -128,14 +127,13 @@ abstract class DoubleEndpointConn(connName: Reference,
     leftEndpoint.checkWithContext(context)
   }
 
+  /** Undirected or bi-directed connections are not supported in current version of interpreter. */
   override def check(): Unit = {
-    if (connType == UndirectedConn() || connType == InOutConn())
+    if (connType == UndirectedConn || connType == InOutConn)
       throw UnsupportedOperation(s"Connection type $connType unsupported.")
   }
 }
 
-
-/** Concrete connections in graph. */
 case class Vertex(vertexRef: Reference, expr: ObjectPattern)
   extends SingleEndpointConn(vertexRef, expr) {
 
@@ -181,6 +179,7 @@ case class Path(connName: Reference,
   override def schemaOfEntityType(context: GraphPatternContext): EntitySchema =
     context.schema.pathSchema
 
+  /** Virtual paths are not supported in current version of interpreter. */
   override def check(): Unit = {
     super.check()
     if (!isObj)

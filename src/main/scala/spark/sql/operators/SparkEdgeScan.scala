@@ -4,8 +4,8 @@ import algebra.expressions.{Label, Reference}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column.{fromIdColumn, idColumn, tableLabelColumn, toIdColumn}
-import planner.operators.{BindingTable, EdgeScan}
-import planner.target_api.PhysEdgeScan
+import planner.operators.EdgeScan
+import planner.target_api.{BindingTable, PhysEdgeScan}
 import schema.Table
 
 case class SparkEdgeScan(edgeScan: EdgeScan) extends PhysEdgeScan(edgeScan) with SqlQueryGen {
@@ -83,8 +83,8 @@ case class SparkEdgeScan(edgeScan: EdgeScan) extends PhysEdgeScan(edgeScan) with
 
   override val bindingTable: BindingTable =
     SparkBindingTable(
-      schemas = Map(
+      sparkSchemaMap = Map(
         edgeBinding -> newEdgeSchema, fromBinding -> newFromSchema, toBinding -> newToSchema),
-      btableUnifiedSchema = mergeSchemas(newEdgeSchema, newFromSchema, newToSchema),
+      sparkBtableSchema = mergeSchemas(newEdgeSchema, newFromSchema, newToSchema),
       btableOps = sqlQuery)
 }

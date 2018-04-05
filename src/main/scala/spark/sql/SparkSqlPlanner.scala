@@ -7,6 +7,7 @@ import planner.target_api._
 import planner.trees.{PlannerToTargetTree, PlannerTreeNode, TargetTreeNode}
 import spark.sql.operators._
 
+/** Creates a physical plan with textual SQL queries. */
 case class SparkSqlPlanner(sparkSession: SparkSession) extends TargetPlanner {
 
   override type StorageType = DataFrame

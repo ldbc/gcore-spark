@@ -1,8 +1,7 @@
 package spark.sql.operators
 
 import org.apache.spark.sql.types.StructType
-import planner.operators.BindingTable
-import planner.target_api.PhysJoin
+import planner.target_api.{BindingTable, PhysJoin}
 import planner.trees.TargetTreeNode
 
 abstract class SparkJoin(lhs: TargetTreeNode, rhs: TargetTreeNode)
@@ -31,8 +30,8 @@ abstract class SparkJoin(lhs: TargetTreeNode, rhs: TargetTreeNode)
     val unifiedSchema: StructType = new StructType(mergedSchemas.toArray)
 
     SparkBindingTable(
-      schemas = lhsBtable.schemaMap ++ rhsBtable.schemaMap,
-      btableUnifiedSchema = unifiedSchema,
+      sparkSchemaMap = lhsBtable.schemaMap ++ rhsBtable.schemaMap,
+      sparkBtableSchema = unifiedSchema,
       btableOps = sqlJoinQuery)
   }
 }

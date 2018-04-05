@@ -11,7 +11,7 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
 
   val plannerContext: PlannerContext = PlannerContext(GraphDb.empty)
   val rewriter: AlgebraToPlannerTree = AlgebraToPlannerTree(plannerContext)
-  val matchContext: SimpleMatchRelationContext = SimpleMatchRelationContext(DefaultGraph())
+  val matchContext: SimpleMatchRelationContext = SimpleMatchRelationContext(DefaultGraph)
 
   test("UnionAll is wrapped inside a BindingTableOp") {
     testBtableBinOp(UnionAll)
@@ -30,7 +30,7 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
   }
 
   test("Select is wrapped inside a BindingTableOp") {
-    val rel = Select(relation = RelationLike.empty, expr = True(), bindingSet = None)
+    val rel = Select(relation = RelationLike.empty, expr = True, bindingSet = None)
     val actual = rewriter rewriteTree rel
     actual should matchPattern {
       case BindingTableOp(`rel`) =>
@@ -38,28 +38,28 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
   }
 
   test("SimpleMatchRelation(VertexRelation, ...) becomes VertexScan") {
-    val vertexRelation = VertexRelation(Reference("v"), Relation(Label("vlabel")), True())
+    val vertexRelation = VertexRelation(Reference("v"), Relation(Label("vlabel")), True)
     val rel = SimpleMatchRelation(vertexRelation, matchContext)
     val actual = rewriter rewriteTree rel
 
     inside (actual) {
-      case vs @ VertexScan(`vertexRelation`, DefaultGraph(), `plannerContext`) =>
+      case vs @ VertexScan(`vertexRelation`, DefaultGraph, `plannerContext`) =>
         assert(vs.tableName == Label("vlabel"))
         assert(vs.binding == Reference("v"))
-        assert(vs.columnConditions == True())
+        assert(vs.columnConditions == True)
     }
   }
 
   test("SimpleMatchRelation(EdgeRelation, ...) becomes EdgeScan") {
-    val fromRel = VertexRelation(Reference("v"), Relation(Label("vlabel")), True())
-    val toRel = VertexRelation(Reference("w"), Relation(Label("wlabel")), True())
-    val edgeRel = EdgeRelation(Reference("e"), Relation(Label("elabel")), True(), fromRel, toRel)
+    val fromRel = VertexRelation(Reference("v"), Relation(Label("vlabel")), True)
+    val toRel = VertexRelation(Reference("w"), Relation(Label("wlabel")), True)
+    val edgeRel = EdgeRelation(Reference("e"), Relation(Label("elabel")), True, fromRel, toRel)
 
     val rel = SimpleMatchRelation(edgeRel, matchContext)
     val actual = rewriter rewriteTree rel
 
     inside (actual) {
-      case es @ EdgeScan(`edgeRel`, DefaultGraph(), `plannerContext`) =>
+      case es @ EdgeScan(`edgeRel`, DefaultGraph, `plannerContext`) =>
         assert(es.edgeTableName == Label("elabel"))
         assert(es.fromTableName == Label("vlabel"))
         assert(es.toTableName == Label("wlabel"))
@@ -68,18 +68,18 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
         assert(es.fromBinding == Reference("v"))
         assert(es.toBinding == Reference("w"))
 
-        assert(es.edgeExpr == True())
-        assert(es.fromExpr == True())
-        assert(es.toExpr == True())
+        assert(es.edgeExpr == True)
+        assert(es.fromExpr == True)
+        assert(es.toExpr == True)
     }
   }
 
   test("SimpleMatchRelation(StoredPathRelation, ...) becomes PathScan") {
-    val fromRel = VertexRelation(Reference("v"), Relation(Label("vlabel")), True())
-    val toRel = VertexRelation(Reference("w"), Relation(Label("wlabel")), True())
+    val fromRel = VertexRelation(Reference("v"), Relation(Label("vlabel")), True)
+    val toRel = VertexRelation(Reference("w"), Relation(Label("wlabel")), True)
     val pathRel =
       StoredPathRelation(
-        Reference("p"), isReachableTest = true, Relation(Label("plabel")), expr = True(),
+        Reference("p"), isReachableTest = true, Relation(Label("plabel")), expr = True,
         fromRel, toRel,
         costVarDef = None, quantifier = None)
 
@@ -87,7 +87,7 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
     val actual = rewriter rewriteTree rel
 
     inside (actual) {
-      case ps @ PathScan(`pathRel`, DefaultGraph(), `plannerContext`) =>
+      case ps @ PathScan(`pathRel`, DefaultGraph, `plannerContext`) =>
         assert(ps.pathTableName == Label("plabel"))
         assert(ps.fromTableName == Label("vlabel"))
         assert(ps.toTableName == Label("wlabel"))
@@ -96,9 +96,9 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
         assert(ps.fromBinding == Reference("v"))
         assert(ps.toBinding == Reference("w"))
 
-        assert(ps.pathExpr == True())
-        assert(ps.fromExpr == True())
-        assert(ps.toExpr == True())
+        assert(ps.pathExpr == True)
+        assert(ps.fromExpr == True)
+        assert(ps.toExpr == True)
 
         assert(ps.isReachableTest)
         assert(ps.costVarDef.isEmpty)
@@ -107,7 +107,7 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
   }
 
   test("Query becomes its first child (before we enable CONSTRUCT and/or PATH clause)") {
-    val matchClause = MatchClause(CondMatchClause(Seq.empty, True()), Seq.empty)
+    val matchClause = MatchClause(CondMatchClause(Seq.empty, True), Seq.empty)
     val rel = Query(matchClause)
     val actual = rewriter rewriteTree rel
     assert(actual == matchClause)

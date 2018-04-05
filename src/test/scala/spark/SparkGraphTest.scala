@@ -41,33 +41,33 @@ class SparkGraphTest extends FunSuite
 
     val expectedVertexSchema = EntitySchema(SchemaMap(Map(
       Label("people") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("name") -> GcoreString(),
-        PropertyKey("age") -> GcoreInteger(),
-        PropertyKey("isAlive") -> GcoreBoolean())),
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("name") -> GcoreString,
+        PropertyKey("age") -> GcoreInteger,
+        PropertyKey("isAlive") -> GcoreBoolean)),
       Label("city") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("name") -> GcoreString()))
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("name") -> GcoreString))
     )))
 
     val expectedEdgeSchema = EntitySchema(SchemaMap(Map(
       Label("bornIn") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("fromId") -> GcoreInteger(),
-        PropertyKey("toId") -> GcoreInteger(),
-        PropertyKey("hasLeft") -> GcoreBoolean())),
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("fromId") -> GcoreInteger,
+        PropertyKey("toId") -> GcoreInteger,
+        PropertyKey("hasLeft") -> GcoreBoolean)),
       Label("road") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("fromId") -> GcoreInteger(),
-        PropertyKey("toId") -> GcoreInteger()))
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("fromId") -> GcoreInteger,
+        PropertyKey("toId") -> GcoreInteger))
     )))
 
     val expectedPathSchema = EntitySchema(SchemaMap(Map(
       Label("travelRoute") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("fromId") -> GcoreInteger(),
-        PropertyKey("toId") -> GcoreInteger(),
-        PropertyKey("edges") -> GcoreArray()))
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("fromId") -> GcoreInteger,
+        PropertyKey("toId") -> GcoreInteger,
+        PropertyKey("edges") -> GcoreArray))
     )))
 
     assert(graph.vertexSchema == expectedVertexSchema)

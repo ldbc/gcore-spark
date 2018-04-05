@@ -2,6 +2,7 @@ package spark
 
 import algebra.expressions.PropertyKey
 import algebra.types._
+import common.exceptions.UnsupportedOperation
 import org.apache.spark
 import org.apache.spark.sql.DataFrame
 import schema._
@@ -29,29 +30,28 @@ abstract class SparkGraph extends PathPropertyGraph {
     */
   private def buildSchema(data: Seq[Table[DataFrame]]): EntitySchema =
     data.foldLeft(EntitySchema.empty) {
-      case (aggSchema, table) => {
+      case (aggSchema, table) =>
         val schemaFields = table.data.schema.fields
-        val schemaMap = schemaFields.foldLeft(SchemaMap.empty[PropertyKey, DataType]) {
+        val schemaMap = schemaFields.foldLeft(SchemaMap.empty[PropertyKey, GcoreDataType]) {
           case (aggMap, field) =>
             aggMap union SchemaMap(Map(PropertyKey(field.name) -> convertType(field.dataType)))
         }
 
         aggSchema union EntitySchema(SchemaMap(Map(table.name -> schemaMap)))
-      }
     }
 
-  /** Maps a [[spark.sql.types.DataType]] to an algebraic [[DataType]]. */
+  /** Maps a [[spark.sql.types.DataType]] to an algebraic [[GcoreDataType]]. */
   // TODO: Check that the array type can only be the sequence of edges that define a path.
-  private def convertType(sparkType: spark.sql.types.DataType): DataType = {
+  private def convertType(sparkType: spark.sql.types.DataType): GcoreDataType = {
     sparkType.typeName match {
-      case "string" => GcoreString()
-      case "integer" => GcoreInteger()
-      case "long" => GcoreInteger()
-      case "double" => GcoreDecimal()
-      case "float" => GcoreDecimal()
-      case "boolean" => GcoreBoolean()
-      case "array" => GcoreArray()
-      case other => throw SparkException(s"Unsupported type $other")
+      case "string" => GcoreString
+      case "integer" => GcoreInteger
+      case "long" => GcoreInteger
+      case "double" => GcoreDecimal
+      case "float" => GcoreDecimal
+      case "boolean" => GcoreBoolean
+      case "array" => GcoreArray
+      case other => throw UnsupportedOperation(s"Unsupported type $other")
     }
   }
 }

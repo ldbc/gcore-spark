@@ -2,24 +2,25 @@ package spark.sql.operators
 
 import algebra.expressions._
 import algebra.trees.AlgebraTreeNode
-import algebra.types.{GcoreInteger, GcoreString}
+import common.exceptions.UnsupportedOperation
 import org.apache.commons.text.RandomStringGenerator
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types.StructType
 import planner.operators.Column
 import planner.operators.Column.tableLabelColumn
 import planner.trees.TargetTreeNode
 import schema.Table
-import spark.exceptions.UnsupportedOperation
 
 object SqlQueryGen extends SqlQueryGen
 
+/** Helper methods to create parts of a SQL query. */
 trait SqlQueryGen {
 
   val randomStringLength: Int = 5
   val randomStringGenerator: RandomStringGenerator =
     new RandomStringGenerator.Builder().selectFrom(('0' to '9') ++ ('a' to 'z'): _*).build()
 
+  /** Create a unique alias for a table. */
   def tempViewAlias: String = {
     s"${randomStringGenerator.generate(randomStringLength)}"
   }
@@ -105,10 +106,10 @@ trait SqlQueryGen {
     expr match {
       /** Expression leaves */
       case propRef: PropertyRef => s"`${propRef.ref.refName}$$${propRef.propKey.key}`"
-      case Literal(value, GcoreString()) => s"'$value'"
-      case Literal(value, GcoreInteger()) => value.toString
-      case True() => "True"
-      case False() => "False"
+      case StringLiteral(value) => s"'$value'"
+      case IntLiteral(value) => value.toString
+      case True => "True"
+      case False => "False"
 
       /** Exists subclause. */
       case _: Exists =>

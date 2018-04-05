@@ -1,7 +1,7 @@
 package algebra.operators
 
 import algebra.expressions.Reference
-import algebra.operators.BinaryPrimitive.reduceLeft
+import algebra.operators.BinaryOperator.reduceLeft
 import org.scalatest.FunSuite
 
 class JoinLikeTest extends FunSuite {

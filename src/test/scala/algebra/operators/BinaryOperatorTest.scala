@@ -1,10 +1,10 @@
 package algebra.operators
 
 import algebra.expressions.Reference
-import algebra.operators.BinaryPrimitive.reduceLeft
+import algebra.operators.BinaryOperator.reduceLeft
 import org.scalatest.{FunSuite, Inside, Matchers}
 
-class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
+class BinaryOperatorTest extends FunSuite with Matchers with Inside {
 
   val rel1 = SimpleRel(Reference("a"))
   val rel2 = SimpleRel(Reference("b"))
@@ -82,7 +82,7 @@ class BinaryPrimitiveTest extends FunSuite with Matchers with Inside {
   sealed case class BinOp(lhs: RelationLike,
                           rhs: RelationLike,
                           bindingTable: Option[BindingSet])
-    extends BinaryPrimitive(lhs, rhs, bindingTable)
+    extends BinaryOperator(lhs, rhs, bindingTable)
 
   sealed case class SimpleRel(refs: Reference*) extends RelationLike(new BindingSet(refs: _*))
 }

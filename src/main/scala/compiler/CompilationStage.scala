@@ -31,8 +31,8 @@ trait ParseStage extends CompilationStage[String, AlgebraTreeNode] {
 
 /**
   * The step in the compilation pipeline that applies rewriting rules over the algebraic tree of
-  * the received query. The key idea is to bring the algebraic tree to a state from which planner
-  * code can be seamlessly generated.
+  * the received query. The key idea is to bring the algebraic tree to a state from which a logical
+  * plan can be generated.
   */
 trait RewriteStage extends CompilationStage[AlgebraTreeNode, AlgebraTreeNode] {
 
@@ -41,6 +41,9 @@ trait RewriteStage extends CompilationStage[AlgebraTreeNode, AlgebraTreeNode] {
   override def runStage(input: AlgebraTreeNode): AlgebraTreeNode = rewrite(input)
 }
 
+/**
+  * The step in the compilation pipeline that produces the logical plan from the algebraic tree.
+  */
 trait PlanningStage extends CompilationStage[AlgebraTreeNode, PlannerTreeNode] {
 
   def plan(tree: AlgebraTreeNode): PlannerTreeNode
@@ -48,6 +51,10 @@ trait PlanningStage extends CompilationStage[AlgebraTreeNode, PlannerTreeNode] {
   override def runStage(input: AlgebraTreeNode): PlannerTreeNode = plan(input)
 }
 
+/**
+  * The step in the compilation pipeline that produces a physical plan from the logical plan and
+  * then runs it on the target backend.
+  */
 trait RunTargetCodeStage extends CompilationStage[PlannerTreeNode, Unit] {
 
   override def runStage(input: PlannerTreeNode): Unit

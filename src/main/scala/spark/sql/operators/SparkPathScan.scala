@@ -4,8 +4,8 @@ import algebra.expressions.{Label, Reference}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column._
-import planner.operators.{BindingTable, PathScan}
-import planner.target_api.PhysPathScan
+import planner.operators.PathScan
+import planner.target_api.{BindingTable, PhysPathScan}
 import schema.Table
 
 case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with SqlQueryGen {
@@ -113,13 +113,13 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
 
   override val bindingTable: BindingTable =
     SparkBindingTable(
-      schemas = {
+      sparkSchemaMap = {
         if (pathScan.isReachableTest)
           Map(fromBinding -> newFromSchema, toBinding -> newToSchema)
         else
           Map(pathBinding -> newPathSchema, fromBinding -> newFromSchema, toBinding -> newToSchema)
       },
-      btableUnifiedSchema = {
+      sparkBtableSchema = {
         if (pathScan.isReachableTest) mergeSchemas(newFromSchema, newToSchema)
         else mergedSchemas
       },

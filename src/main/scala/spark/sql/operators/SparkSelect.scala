@@ -1,8 +1,7 @@
 package spark.sql.operators
 
 import algebra.expressions.AlgebraExpression
-import planner.operators.BindingTable
-import planner.target_api.PhysSelect
+import planner.target_api.{BindingTable, PhysSelect}
 import planner.trees.TargetTreeNode
 
 case class SparkSelect(relation: TargetTreeNode, expr: AlgebraExpression)
@@ -16,7 +15,7 @@ case class SparkSelect(relation: TargetTreeNode, expr: AlgebraExpression)
     val selectQuery: String =
       s"""
          | SELECT * FROM (${relationBtable.btable.resQuery}) $fromAlias
-         | WHERE ${expressionToSelectionPred(expr, relationBtable.schemas, fromAlias)}
+         | WHERE ${expressionToSelectionPred(expr, relationBtable.schemaMap, fromAlias)}
        """.stripMargin
 
     relationBtable.copy(btableOps = SqlQuery(resQuery = selectQuery))

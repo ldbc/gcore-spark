@@ -1,6 +1,6 @@
 package common.trees
 
-/** Applies a transformation over a tree, potentially modifying the initial structure. */
+/** Applies a transformation over a tree, creating a new tree of the same type. */
 abstract class TreeRewriter[T <: TreeNode[T]] {
 
   type RewriteFuncType = PartialFunction[T, T]

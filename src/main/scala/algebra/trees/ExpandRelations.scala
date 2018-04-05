@@ -2,12 +2,39 @@ package algebra.trees
 
 import algebra.expressions.{Exists, Label, Reference}
 import algebra.operators._
-import algebra.types.{DefaultGraph, Graph, NamedGraph}
+import algebra.types.{Connection, DefaultGraph, Graph, GraphPattern, NamedGraph}
 import common.trees.TopDownRewriter
 import schema.{GraphDb, GraphSchema, SchemaMap}
 
 import scala.collection.mutable
 
+/**
+  * A rewriting phase that does label inference on all the variables used in the [[MatchClause]],
+  * including:
+  * - variables used in the non-optional [[CondMatchClause]];
+  * - variables used in the optional [[CondMatchClause]]s (if any);
+  * - variables used in the [[Exists]] sub-queries (if any).
+  *
+  * Label inference is the process of finding the minimal set of [[Label]]s that determine a
+  * variable, given all the [[Connection]]s in all the graph patterns of a match clause. In other
+  * words, it is the process of identifying which tables will be queried for a particular variable
+  * in the [[MatchClause]]. It is essential to find the minimal set of labels/tables, as the runtime
+  * of solving a query is directly related to the size of the tables participating in the relational
+  * operations.
+  *
+  * Label inference relies on previous rewrite phases, where entity relations
+  * ([[VertexRelation]], [[EdgeRelation]], [[StoredPathRelation]]) have been either labeled with a
+  * fixed label ([[Relation]]), if this was provided in the query, or with the label
+  * [[AllRelations]], which means that at that point in the rewrite pipeline, we could only infer
+  * that the data for the respective variable is to be queried in all available tables for its type.
+  *
+  * During the inference process, each [[Connection]] in a [[GraphPattern]] becomes a
+  * [[SimpleMatchRelation]]. At the end of the inference process:
+  * - if a [[Connection]] is strictly labeled (there is only one [[Label]] in the minimal set), then
+  * we emit a single [[SimpleMatchRelation]] for that [[Connection]];
+  * - otherwise, we emit as many [[SimpleMatchRelation]]s as the size of the minimal set and
+  * preserve the binding tuple of the [[Connection]] in the newly formed relations.
+  */
 case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[AlgebraTreeNode] {
 
   sealed abstract class EntityTuple
@@ -148,7 +175,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
       case relation @ SimpleMatchRelation(EdgeRelation(edgeRef, _, _, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph() => graphDb.defaultGraph()
+          case DefaultGraph => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
         val constrainedEdgeLabels: Seq[Label] = constrainedLabels(edgeRef).toSeq
@@ -165,7 +192,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       case relation @ SimpleMatchRelation(
       StoredPathRelation(pathRef, _, _, _, _, _, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph() => graphDb.defaultGraph()
+          case DefaultGraph => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
         val constrainedPathLabels: Seq[Label] = constrainedLabels(pathRef).toSeq
@@ -189,14 +216,14 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
     relations.foreach {
       case SimpleMatchRelation(VertexRelation(ref, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph() => graphDb.defaultGraph()
+          case DefaultGraph => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
         initialRestrictedBindings.update(ref, mutable.Set(graphSchema.vertexSchema.labels: _*))
 
       case SimpleMatchRelation(EdgeRelation(edgeRef, _, _, fromRel, toRel), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph() => graphDb.defaultGraph()
+          case DefaultGraph => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
         val vertexLabels: Seq[Label] = graphSchema.vertexSchema.labels
@@ -207,7 +234,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       case SimpleMatchRelation(
       StoredPathRelation(pathRef, _, _, _, fromRel, toRel, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph() => graphDb.defaultGraph()
+          case DefaultGraph => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
         val vertexLabels: Seq[Label] = graphSchema.vertexSchema.labels
@@ -229,7 +256,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
       case SimpleMatchRelation(EdgeRelation(ref, edgeLblRel, _, fromRel, toRel), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph() => graphDb.defaultGraph()
+          case DefaultGraph => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
         changed |=
@@ -240,7 +267,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       case SimpleMatchRelation(
       StoredPathRelation(ref, _, pathLblRel, _, fromRel, toRel, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph() => graphDb.defaultGraph()
+          case DefaultGraph => graphDb.defaultGraph()
           case NamedGraph(graphName) => graphDb.graph(graphName)
         }
         changed |=

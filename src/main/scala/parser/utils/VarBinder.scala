@@ -1,5 +1,6 @@
 package parser.utils
 
+/** A monotonically increasing counter to create new variable names. */
 object VarBinder {
   private var unnamedVarId: Int = -1
 

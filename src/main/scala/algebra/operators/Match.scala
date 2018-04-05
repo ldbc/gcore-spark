@@ -1,13 +1,19 @@
 package algebra.operators
 
-import algebra.exceptions.{DefaultGraphNotAvailableException, NamedGraphNotAvailableException, UnsupportedOperation}
+import algebra.exceptions._
 import algebra.expressions.AlgebraExpression
 import algebra.trees.{GraphPatternContext, QueryContext}
 import algebra.types._
 import common.compiler.Context
+import common.exceptions.UnsupportedOperation
 
-abstract class MatchLike extends GcorePrimitive
+/** A match-like operator that participates in the match sub-query of a G-CORE query. */
+abstract class MatchLike extends GcoreOperator
 
+/**
+  * The top-most match clause of the query. It contains a non-optional [[CondMatchClause]] and zero
+  * or more optional [[CondMatchClause]]s.
+  */
 case class MatchClause(nonOptMatches: CondMatchClause, optMatches: Seq[CondMatchClause])
   extends MatchLike {
 
@@ -19,6 +25,10 @@ case class MatchClause(nonOptMatches: CondMatchClause, optMatches: Seq[CondMatch
   }
 }
 
+/**
+  * A sequence of [[SimpleMatchClause]]s and a condition over the binding table produced by solving
+  * this sequence.
+  */
 case class CondMatchClause(simpleMatches: Seq[SimpleMatchClause], where: AlgebraExpression)
   extends MatchLike {
 
@@ -28,15 +38,22 @@ case class CondMatchClause(simpleMatches: Seq[SimpleMatchClause], where: Algebra
     simpleMatches.foreach(_.checkWithContext(context))
 }
 
+/** A [[GraphPattern]] that should be solved within a particular [[Graph]]. */
 case class SimpleMatchClause(graphPattern: GraphPattern, graph: Graph) extends MatchLike {
 
   children = List(graphPattern, graph)
 
+  /**
+    * Validate that the [[Graph]] this pattern is matched on has been registered in the database.
+    * Otherwise we cannot infer its schema and cannot further run the query on it.
+    *
+    * [[QueryGraph]]s are not supported in the current version of the interpreter.
+    */
   override def checkWithContext(context: Context): Unit = {
     val graphDb = context.asInstanceOf[QueryContext].graphDb
     val graphPatternContext: GraphPatternContext = {
       graph match {
-        case DefaultGraph() =>
+        case DefaultGraph =>
           if (graphDb.hasDefaultGraph)
             GraphPatternContext(
               schema = graphDb.defaultGraph(), graphName = graphDb.defaultGraph().graphName)
@@ -49,7 +66,7 @@ case class SimpleMatchClause(graphPattern: GraphPattern, graph: Graph) extends M
           else
             throw NamedGraphNotAvailableException(graphName)
 
-        case QueryGraph(_) => // TODO: What checks should we add here?
+        case _: QueryGraph => // TODO: What checks should we add here?
           throw UnsupportedOperation("Query graphs are not supported.")
       }
     }

@@ -4,6 +4,7 @@ import algebra.exceptions._
 import algebra.expressions.{Label, PropertyKey}
 import algebra.trees.AlgebraTreeNode
 import algebra.types._
+import common.exceptions.UnsupportedOperation
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 import parser.trees.ParseContext
 import schema._
@@ -21,25 +22,25 @@ class SpoofaxParserTest extends FunSuite
   val peopleVertexSchema: EntitySchema =
     EntitySchema(SchemaMap(Map(
       Label("person") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("age") -> GcoreInteger(),
-        PropertyKey("height") -> GcoreDecimal(),
-        PropertyKey("name") -> GcoreString())
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("age") -> GcoreInteger,
+        PropertyKey("height") -> GcoreDecimal,
+        PropertyKey("name") -> GcoreString)
       ),
       Label("city") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("population") -> GcoreInteger(),
-        PropertyKey("name") -> GcoreString())
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("population") -> GcoreInteger,
+        PropertyKey("name") -> GcoreString)
       ))
     ))
 
   val peopleEdgeSchema: EntitySchema =
     EntitySchema(SchemaMap(Map(
       Label("livesIn") -> SchemaMap(Map(
-        PropertyKey("id") -> GcoreInteger(),
-        PropertyKey("fromId") -> GcoreInteger(),
-        PropertyKey("toId") -> GcoreInteger(),
-        PropertyKey("since") -> GcoreDate())
+        PropertyKey("id") -> GcoreInteger,
+        PropertyKey("fromId") -> GcoreInteger,
+        PropertyKey("toId") -> GcoreInteger,
+        PropertyKey("since") -> GcoreDate)
       ))
     ))
 
@@ -152,7 +153,8 @@ class SpoofaxParserTest extends FunSuite
 //    }
   }
 
-  test("Property keys are present in schema") {
+  // TODO: Un-ignore once property unrolling is supported.
+  ignore("Property keys are present in schema") {
     graphDb.registerGraph(peopleGraph)
 
     the [PropKeysException] thrownBy {
@@ -175,18 +177,16 @@ class SpoofaxParserTest extends FunSuite
       case PropKeysException("people", Seq(PropertyKey("baz")), `peopleEdgeSchema`) =>
     }
 
-//    TODO: Uncomment once expressions are fixed.
-//
-//    noException should be thrownBy {
-//      parser parse "" +
-//        "CONSTRUCT () " +
-//        "MATCH (:person {age > 24})-[:livesIn {since = 2018}]-(:city {name = Amsterdam}) ON people"
-//    }
-//
-//    noException should be thrownBy {
-//      parser parse "" +
-//        "CONSTRUCT () " +
-//        "MATCH ({age > 24})-[{since = 2018}]-({name = Amsterdam}) ON people"
-//    }
+    noException should be thrownBy {
+      parser parse "" +
+        "CONSTRUCT () " +
+        "MATCH (:person {age > 24})-[:livesIn {since = 2018}]-(:city {name = Amsterdam}) ON people"
+    }
+
+    noException should be thrownBy {
+      parser parse "" +
+        "CONSTRUCT () " +
+        "MATCH ({age > 24})-[{since = 2018}]-({name = Amsterdam}) ON people"
+    }
   }
 }

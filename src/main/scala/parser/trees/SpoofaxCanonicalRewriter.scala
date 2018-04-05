@@ -18,7 +18,7 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
     * () => (v_xy)
     */
   private val varDefUnnamedNode: RewriteFuncType = {
-    case vertex: SpoofaxTreeNode if vertex.name == "Vertex" => {
+    case vertex: SpoofaxTreeNode if vertex.name == "Vertex" =>
       val varDef = vertex.children.head
       val objMatchPattern = vertex.children(1)
       if (varDef.name == "Some")
@@ -28,7 +28,6 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
         vertex.children = List(newVarDef, objMatchPattern)
         vertex
       }
-    }
   }
 
   /**
@@ -50,7 +49,7 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
     * ()<-[]->() =>  ()<-[e_xy]->()
     */
   private val varDefUnnamedEdge: RewriteFuncType = {
-    case edgeMatchPattern: SpoofaxTreeNode if edgeMatchPattern.name == "EdgeMatchPattern" => {
+    case edgeMatchPattern: SpoofaxTreeNode if edgeMatchPattern.name == "EdgeMatchPattern" =>
       val varDef = edgeMatchPattern.children.head
       val objMatchPattern = edgeMatchPattern.children(1)
       if (varDef.name == "Some")
@@ -60,7 +59,6 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
         edgeMatchPattern.children = List(newVarDef, objMatchPattern)
         edgeMatchPattern
       }
-    }
   }
 
 
@@ -68,7 +66,7 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
     * @see [[varDefUnnamedEdge]]
     */
   private val varDefUnnamedConn: RewriteFuncType = {
-    case conn: SpoofaxTreeNode if inOutConnections.contains(conn.name) => {
+    case conn: SpoofaxTreeNode if inOutConnections.contains(conn.name) =>
       val edgeMatchPattern = conn.children.head
       if (edgeMatchPattern.name == "Some")
         conn
@@ -77,19 +75,16 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
         conn.children = List(newEdgeMatchPattern)
         conn
       }
-    }
-    case conn: SpoofaxTreeNode if inOutEdgeConnections.contains(conn.name) => {
+    case conn: SpoofaxTreeNode if inOutEdgeConnections.contains(conn.name) =>
       conn.name match {
         case "InEdge" => newConnectionTree("InConn")
         case "OutEdge" => newConnectionTree("OutConn")
       }
-    }
-    case conn: SpoofaxTreeNode if otherConnections.contains(conn.name) => {
+    case conn: SpoofaxTreeNode if otherConnections.contains(conn.name) =>
       if (conn.children.nonEmpty && conn.children.head.name == "Some") // at least one child
         conn // child was "Some", good, can move on
       else   // either "None" or no children, bad, need to name this connection
         newConnectionTree(conn.name)
-    }
   }
 
   private def newVarDefTree(prefix: String): SpoofaxTreeNode = {

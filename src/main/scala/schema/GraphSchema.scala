@@ -1,7 +1,7 @@
 package schema
 
 import algebra.expressions.{Label, PropertyKey}
-import algebra.types.DataType
+import algebra.types.GcoreDataType
 import schema.EntitySchema.{LabelRestrictionType, LabelSchemaType}
 
 /** The schema of a [[PathPropertyGraph]]. */
@@ -25,8 +25,10 @@ trait GraphSchema {
   */
 case class EntitySchema(labelSchema: LabelSchemaType) {
 
+  /** All the labels in this [[EntitySchema]]. */
   def labels: Seq[Label] = labelSchema.keys
 
+  /** All the properties in this [[EntitySchema]], mapped to the given [[Label]]. */
   def properties(label: Label): Seq[PropertyKey] = {
     val propertyMap = labelSchema.get(label)
     if (propertyMap.isDefined)
@@ -35,8 +37,13 @@ case class EntitySchema(labelSchema: LabelSchemaType) {
       Seq.empty
   }
 
+  /** All the properties in this [[EntitySchema]]. */
   def properties: Seq[PropertyKey] = labelSchema.values.flatMap(_.keys)
 
+  /**
+    * Creates a new [[EntitySchema]] containing the label schema in this [[EntitySchema]] and the
+    * label schema in the other [[EntitySchema]].
+    */
   def union(other: EntitySchema): EntitySchema =
     copy(labelSchema union other.labelSchema)
 
@@ -47,9 +54,9 @@ case class EntitySchema(labelSchema: LabelSchemaType) {
 }
 
 object EntitySchema {
-  val empty = EntitySchema(SchemaMap.empty[Label, SchemaMap[PropertyKey, DataType]])
+  val empty = EntitySchema(SchemaMap.empty[Label, SchemaMap[PropertyKey, GcoreDataType]])
 
-  type LabelSchemaType = SchemaMap[Label, SchemaMap[PropertyKey, DataType]]
+  type LabelSchemaType = SchemaMap[Label, SchemaMap[PropertyKey, GcoreDataType]]
   type LabelRestrictionType = SchemaMap[Label, (Label, Label)]
 }
 

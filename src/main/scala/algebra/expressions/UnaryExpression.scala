@@ -1,6 +1,9 @@
 package algebra.expressions
 
-/** Unary expressions. */
+/**
+  * An expression over one other [[AlgebraExpression]]. Usage is:
+  * > symbol expr
+  */
 abstract class UnaryExpression(expr: AlgebraExpression, symbol: String) extends AlgebraExpression {
   children = List(expr)
 

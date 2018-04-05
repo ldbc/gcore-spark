@@ -3,8 +3,13 @@ package planner.trees
 import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import common.trees.BottomUpRewriter
-import planner.operators.{BindingTableOp, EdgeScan, PathScan, VertexScan}
+import planner.operators.{BindingTableOp, EdgeScan, EntityScan, PathScan, VertexScan}
 
+/**
+  * Creates the logical plan from the algebraic tree. Entity relation is transformed into an
+  * [[EntityScan]], while the other relational operators are wrapped into a
+  * [[BindingTableOp]]erator.
+  */
 case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewriter[AlgebraTreeNode] {
 
   private val query: RewriteFuncType = {

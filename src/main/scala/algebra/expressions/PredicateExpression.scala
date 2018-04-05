@@ -1,6 +1,5 @@
 package algebra.expressions
 
-/** Predicate expressions. */
 abstract class PredicateExpression(expr: AlgebraExpression, symbol: String)
   extends UnaryExpression(expr, symbol)
 

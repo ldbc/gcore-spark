@@ -18,13 +18,13 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
 
   override def build(from: SpoofaxBaseTreeNode): AlgebraTreeNode = {
     from.name match {
-      case "BasicQuery" => {
-//        val pathClause = extractClause(from.children.head)
-//        val constructClause = extractClause(from.children(1))
+      case "BasicQuery" =>
+        //        val pathClause = extractClause(from.children.head)
+        //        val constructClause = extractClause(from.children(1))
         val matchClause = extractClause(from.children(2)).asInstanceOf[MatchClause]
 
         Query(matchClause)
-      }
+
       case _ => throw QueryParseException(s"Query type ${from.name} unsupported for the moment.")
     }
   }
@@ -35,14 +35,14 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
     */
   private def extractClause(from: SpoofaxBaseTreeNode): AlgebraOperator = {
     from.name match {
-      case "Match" => {
+      case "Match" =>
         val fullGraphPatternCondition = from.children.head
         val optionalClause = from.children(1)
 
         MatchClause(
           extractCondMatchClause(from = fullGraphPatternCondition),
           extractOptionalMatches(from = optionalClause))
-      }
+
       case _ => throw QueryParseException(s"Cannot extract clause from node type ${from.name} ")
     }
   }
@@ -50,14 +50,14 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
   /** Creates a [[algebra.operators.CondMatchClause]] from a given FullGraphPatternCondition. */
   private def extractCondMatchClause(from: SpoofaxBaseTreeNode): CondMatchClause = {
     from.name match {
-      case "FullGraphPatternCondition" => {
+      case "FullGraphPatternCondition" =>
         val fullGraphPattern = from.children.head
         val where = from.children(1)
 
         CondMatchClause(
           extractSimpleMatches(fullGraphPattern),
           extractWhere(where))
-      }
+
       case _ =>
         throw QueryParseException(s"Cannot extract CondMatchClause from node type ${from.name}")
     }
@@ -69,12 +69,11 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
       case "None" => List.empty
       // Some(OptionalClause(...))
       case "Some" => extractOptionalMatches(from.children.head)
-      case "OptionalClause" => {
+      case "OptionalClause" =>
         // OptionalClause.children = Seq[Optional]
         from.children.map(optional => {
           extractCondMatchClause(from = optional.children.head)
         })
-      }
       case _ =>
         throw QueryParseException(s"Cannot extract OptionalClause from node type ${from.name}")
     }
@@ -83,7 +82,7 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
   /** Extracts a [[SimpleMatchClause]] from a given FullGraphPattern node. */
   private def extractSimpleMatches(from: SpoofaxBaseTreeNode): Seq[SimpleMatchClause] = {
     from.name match {
-      case "FullGraphPattern" => {
+      case "FullGraphPattern" =>
         // FullGraphPattern.children = Seq[BasicGraphPatternLocation]
         from.children.map(basicGraphPatternLocation => {
           val basicGraphPattern = basicGraphPatternLocation.children.head
@@ -93,7 +92,6 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
             extractPattern(basicGraphPattern),
             extractLocation(location))
         })
-      }
       case _ =>
         throw QueryParseException(s"Cannot extract SimpleMatchClause from node type ${from.name}")
     }
@@ -102,7 +100,7 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
   /** Extracts the [[Graph]] expression from the Location node. */
   private def extractLocation(from: SpoofaxBaseTreeNode): Graph = {
     from.name match {
-      case "None" => new DefaultGraph
+      case "None" => DefaultGraph
       // Some(Location(...)
       case "Some" => extractLocation(from.children.head)
       // Location(...)
@@ -116,7 +114,7 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
   /** Extracts the condition of a [[CondMatchClause]] from the Where node of the lexical tree. */
   private def extractWhere(from: SpoofaxBaseTreeNode): AlgebraExpression = {
     from.name match {
-      case "None" => new True
+      case "None" => True
       // Some(Where(...)
       case "Some" => extractWhere(from.children.head)
       case "Where" => extractExpression(from.children.head)
@@ -181,12 +179,10 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
         PropertyRef(
           ref = extractExpression(from.children.head).asInstanceOf[Reference],
           propKey = PropertyKey(from.children(1).asInstanceOf[SpoofaxLeaf[String]].value))
-      case "Integer" =>
-        Literal(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value.toInt, GcoreInteger())
-      case "True" => True()
-      case "False" => False()
-      case "String" =>
-        Literal(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value, GcoreString())
+      case "Integer" => IntLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value.toInt)
+      case "True" => True
+      case "False" => False
+      case "String" => StringLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
       case "BasicGraphPattern" => Exists(extractPattern(from))
 
       /* Default case. */
@@ -223,13 +219,12 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
           /*prevRef =*/ extractVertex(vertex))
 
       // ... - EdgeVertexMatchPattern - ...
-      case Seq(connection, connections@_*) if connection.name == "EdgeVertexMatchPattern" => {
+      case Seq(connection, connections@_*) if connection.name == "EdgeVertexMatchPattern" =>
         val extractedConnection: DoubleEndpointConn = extractConnection(connection, prevRef)
         extractedConnection +:
           extractPatternTopology(connections, extractedConnection.getRightEndpoint)
-      }
 
-      case _ => Seq()
+      case _ => Seq.empty
     }
   }
 
@@ -268,10 +263,10 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
     val connName = Reference(refName.value)
 
     val connType = from.children.head.name match {
-      case "InConn" => InConn()
-      case "OutConn" => OutConn()
-      case "UndirectedEdge" => UndirectedConn()
-      case "InOutEdge" => InOutConn()
+      case "InConn" => InConn
+      case "OutConn" => OutConn
+      case "UndirectedEdge" => UndirectedConn
+      case "InOutEdge" => InOutConn
     }
 
     val expr = extractMatchPattern(connElement.children.head.children(1))
@@ -305,14 +300,14 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
     }
 
     val connType = from.children.head.name match {
-      case "InConn" => InConn()
-      case "OutConn" => OutConn()
-      case "UndirectedEdge" => UndirectedConn()
-      case "InOutEdge" => InOutConn()
+      case "InConn" => InConn
+      case "OutConn" => OutConn
+      case "UndirectedEdge" => UndirectedConn
+      case "InOutEdge" => InOutConn
     }
 
     val expr = connElement.children.head.name match {
-      case "Virtual" => ObjectPattern(True(), True()) // A Virtual path has no ObjectMatchPattern
+      case "Virtual" => ObjectPattern(True, True) // A Virtual path has no ObjectMatchPattern
       case "Objectified" => extractMatchPattern(connElement.children.head.children(3))
     }
 
@@ -327,26 +322,34 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
       case "Some" => quantifierElement.children.head.name match {
         case "Shortest" => Some(Shortest(qty = 1, isDistinct = false))
         case "XShortest" =>
-          Some(Shortest(qty = quantifierElement.children.head.children.head
-            .asInstanceOf[SpoofaxLeaf[String]].value.toInt,
+          Some(
+            Shortest(
+              qty =
+                quantifierElement.children.head
+                  .children.head.asInstanceOf[SpoofaxLeaf[String]]
+                  .value.toInt,
             isDistinct = false))
         case "XDistinctShortest" =>
-          Some(Shortest(qty = quantifierElement.children.head.children.head
-            .asInstanceOf[SpoofaxLeaf[String]].value.toInt,
+          Some(
+            Shortest(
+              qty =
+                quantifierElement.children.head
+                  .children.head.asInstanceOf[SpoofaxLeaf[String]]
+                  .value.toInt,
             isDistinct = true))
-        case "AllPaths" => Option(AllPaths())
+        case "AllPaths" => Some(AllPaths)
       }
     }
 
-    val costVarDefElement = connElement.children.head /* Virtual/Objectified */
+    val costVarDefElement =
+      connElement.children.head /* Virtual/Objectified */
         .children.last /* None or Some */
     val costVarDef = costVarDefElement.name match {
       case "None" => None
-      case "Some" => {
+      case "Some" =>
         val costVarElement = costVarDefElement.children.head
         val varDefElement = costVarElement.children.head
         Some(Reference(varDefElement.children.head.asInstanceOf[SpoofaxLeaf[String]].value))
-      }
     }
 
     Path(connName, isReachableTest, leftEndpoint = prevRef, rightEndpoint, connType,
@@ -369,7 +372,7 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
 
   private def extractLabels(from: SpoofaxBaseTreeNode): AlgebraExpression = {
     from.name match {
-      case "None" => True()
+      case "None" => True
       case "Some" => WithLabels(extractLabels(from.children.head))
       case "ConjunctLabels" => extractDisjunctLabels(from.children)
       case _ => throw QueryParseException(s"Cannot extract labels from node type ${from.name}")
@@ -389,13 +392,13 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
             dl.children.map(
               label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value))),
           extractDisjunctLabels(other))
-      case _ => new True
+      case _ => True
     }
   }
 
   private def extractProps(from: SpoofaxBaseTreeNode): AlgebraExpression = {
     from.name match {
-      case "None" => new True
+      case "None" => True
       case "Some" => extractProps(from.children.head)
       case "Props" => WithProps(extractConjunctProps(from.children))
       case _ => throw QueryParseException(s"Cannot extract properties from node type ${from.name}")
@@ -415,7 +418,7 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
             PropertyKey(prop.children.head.asInstanceOf[SpoofaxLeaf[String]].value),
             extractExpression(prop.children(1))),
           extractConjunctProps(other))
-      case Seq() => new True
+      case Seq() => True
     }
   }
 }

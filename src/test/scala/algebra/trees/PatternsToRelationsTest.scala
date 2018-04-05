@@ -7,11 +7,11 @@ import org.scalatest.{FunSuite, Matchers}
 
 class PatternsToRelationsTest extends FunSuite with Matchers {
 
-  private val emptyObjPattern: ObjectPattern = ObjectPattern(True(), True())
+  private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)
   private val labeledObjPattern: ObjectPattern =
     ObjectPattern(
-      labelsPred = WithLabels(And(HasLabel(Seq(Label("foo"))), True())),
-      propsPred = True())
+      labelsPred = WithLabels(And(HasLabel(Seq(Label("foo"))), True)),
+      propsPred = True)
 
   test("Vertex - match on AllRelations() if no label provided") {
     val vertex = Vertex(vertexRef = Reference("v"), expr = emptyObjPattern)
@@ -38,14 +38,14 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
       Edge(
         connName = Reference("e"),
         leftEndpoint = from, rightEndpoint = to,
-        connType = OutConn(),
+        connType = OutConn,
         expr = emptyObjPattern)
     val relationOutConn = PatternsToRelations rewriteTree edgeOutConn
     val edgeInConn =
       Edge(
         connName = Reference("e"),
         leftEndpoint = from, rightEndpoint = to,
-        connType = InConn(),
+        connType = InConn,
         expr = emptyObjPattern)
     val relationInConn = PatternsToRelations rewriteTree edgeInConn
 
@@ -69,14 +69,14 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
       Edge(
         connName = Reference("e"),
         leftEndpoint = from, rightEndpoint = to,
-        connType = OutConn(),
+        connType = OutConn,
         expr = labeledObjPattern)
     val relationOutConn = PatternsToRelations rewriteTree edgeOutConn
     val edgeInConn =
       Edge(
         connName = Reference("e"),
         leftEndpoint = from, rightEndpoint = to,
-        connType = InConn(),
+        connType = InConn,
         expr = labeledObjPattern)
     val relationInConn = PatternsToRelations rewriteTree edgeInConn
 
@@ -101,7 +101,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         connName = Reference("p"),
         isReachableTest = false,
         leftEndpoint = from, rightEndpoint = to,
-        connType = OutConn(),
+        connType = OutConn,
         expr = emptyObjPattern,
         quantifier = None, costVarDef = None, isObj = true)
     val relationOutConn = PatternsToRelations rewriteTree pathOutConn
@@ -110,7 +110,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         connName = Reference("p"),
         isReachableTest = false,
         leftEndpoint = from, rightEndpoint = to,
-        connType = InConn(),
+        connType = InConn,
         expr = emptyObjPattern,
         quantifier = None, costVarDef = None, isObj = true)
     val relationInConn = PatternsToRelations rewriteTree pathInConn
@@ -138,7 +138,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         connName = Reference("p"),
         isReachableTest = false,
         leftEndpoint = from, rightEndpoint = to,
-        connType = OutConn(),
+        connType = OutConn,
         expr = labeledObjPattern,
         quantifier = None, costVarDef = None, isObj = true)
     val relationOutConn = PatternsToRelations rewriteTree pathOutConn
@@ -147,7 +147,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         connName = Reference("p"),
         isReachableTest = false,
         leftEndpoint = from, rightEndpoint = to,
-        connType = InConn(),
+        connType = InConn,
         expr = labeledObjPattern,
         quantifier = None, costVarDef = None, isObj = true)
     val relationInConn = PatternsToRelations rewriteTree pathInConn

@@ -4,8 +4,8 @@ import algebra.expressions.{Label, Reference}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column.tableLabelColumn
-import planner.operators.{BindingTable, VertexScan}
-import planner.target_api.PhysVertexScan
+import planner.operators.VertexScan
+import planner.target_api.{BindingTable, PhysVertexScan}
 import schema.Table
 
 case class SparkVertexScan(vertexScan: VertexScan)
@@ -32,7 +32,7 @@ case class SparkVertexScan(vertexScan: VertexScan)
 
   override val bindingTable: BindingTable =
     SparkBindingTable(
-      schemas = Map(binding -> schema),
-      btableUnifiedSchema = schema,
+      sparkSchemaMap = Map(binding -> schema),
+      sparkBtableSchema = schema,
       btableOps = sqlQuery)
 }

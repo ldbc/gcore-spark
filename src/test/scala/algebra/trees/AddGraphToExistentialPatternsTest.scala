@@ -17,7 +17,7 @@ class AddGraphToExistentialPatternsTest extends FunSuite {
   private val rewriter: AddGraphToExistentialPatterns =
     AddGraphToExistentialPatterns(AlgebraContext(GraphDb.empty, Some(bindingToGraph)))
 
-  private val emptyObjPattern: ObjectPattern = ObjectPattern(True(), True())
+  private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)
 
   test("Each GraphPattern in Exists becomes a SimpleMatchClause") {
     val conn1 = Vertex(Reference("u"), emptyObjPattern)
@@ -28,7 +28,7 @@ class AddGraphToExistentialPatternsTest extends FunSuite {
     val expected =
       Set(
         SimpleMatchClause(GraphPattern(Seq(conn1)), graph1),
-        SimpleMatchClause(GraphPattern(Seq(conn2)), DefaultGraph())
+        SimpleMatchClause(GraphPattern(Seq(conn2)), DefaultGraph)
       )
 
     val actual = rewriter rewriteTree exists
@@ -44,28 +44,28 @@ class AddGraphToExistentialPatternsTest extends FunSuite {
 
   test("Exists on un-mapped vertex - (w) in default graph") {
     val conn = Vertex(Reference("w"), emptyObjPattern)
-    runSingleConnTest(conn, DefaultGraph())
+    runSingleConnTest(conn, DefaultGraph)
   }
 
   test("Exists on mapped edge - (u)->(v) in graph_1") {
     val left = Vertex(Reference("u"), emptyObjPattern)
     val right = Vertex(Reference("v"), emptyObjPattern)
-    val conn = Edge(Reference("e"), left, right, OutConn(), emptyObjPattern)
+    val conn = Edge(Reference("e"), left, right, OutConn, emptyObjPattern)
     runSingleConnTest(conn, graph1)
   }
 
   test("Exists on un-mapped edge - (x)->(y) in default graph") {
     val left = Vertex(Reference("x"), emptyObjPattern)
     val right = Vertex(Reference("y"), emptyObjPattern)
-    val conn = Edge(Reference("e"), left, right, OutConn(), emptyObjPattern)
-    runSingleConnTest(conn, DefaultGraph())
+    val conn = Edge(Reference("e"), left, right, OutConn, emptyObjPattern)
+    runSingleConnTest(conn, DefaultGraph)
   }
 
   test("Exists on edge with one endpoint mapped will take mapped endpoint's graph - " +
     "(u)->(y), (u) in graph_1, (y) in default graph") {
     val left = Vertex(Reference("u"), emptyObjPattern)
     val right = Vertex(Reference("y"), emptyObjPattern)
-    val conn = Edge(Reference("e"), left, right, OutConn(), emptyObjPattern)
+    val conn = Edge(Reference("e"), left, right, OutConn, emptyObjPattern)
     runSingleConnTest(conn, graph1)
   }
 
@@ -73,7 +73,7 @@ class AddGraphToExistentialPatternsTest extends FunSuite {
     "(u)->(z), (u) in graph_1, (z) in graph_2") {
     val left = Vertex(Reference("u"), emptyObjPattern)
     val right = Vertex(Reference("z"), emptyObjPattern)
-    val conn = Edge(Reference("e"), left, right, OutConn(), emptyObjPattern)
+    val conn = Edge(Reference("e"), left, right, OutConn, emptyObjPattern)
     val graphPattern = GraphPattern(topology = Seq(conn))
     val exists = Exists(graphPattern)
 

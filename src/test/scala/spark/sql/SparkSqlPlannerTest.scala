@@ -42,8 +42,8 @@ class SparkSqlPlannerTest extends FunSuite
   test("Binding table of VertexScan - (c:Cat)") {
     val scan =
       VertexScan(
-        VertexRelation(Reference("c"), Relation(Label("Cat")), True()),
-        DefaultGraph(), PlannerContext(db))
+        VertexRelation(Reference("c"), Relation(Label("Cat")), True),
+        DefaultGraph, PlannerContext(db))
     val actualDf = sparkPlanner.createBindingTable(scan)
 
     val expectedHeader: Seq[String] =
@@ -61,10 +61,10 @@ class SparkSqlPlannerTest extends FunSuite
     val scan =
       EdgeScan(
         EdgeRelation(
-          Reference("e"), Relation(Label("Eats")), expr = True(),
-          fromRel = VertexRelation(Reference("c"), Relation(Label("Cat")), True()),
-          toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True())),
-        DefaultGraph(), PlannerContext(db))
+          Reference("e"), Relation(Label("Eats")), expr = True,
+          fromRel = VertexRelation(Reference("c"), Relation(Label("Cat")), True),
+          toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True)),
+        DefaultGraph, PlannerContext(db))
     val actualDf = sparkPlanner.createBindingTable(scan)
 
     val expectedHeader: Seq[String] =
@@ -96,11 +96,11 @@ class SparkSqlPlannerTest extends FunSuite
     val scan =
       PathScan(
         StoredPathRelation(
-          Reference("p"), isReachableTest = true, Relation(Label("ToGourmand")), expr = True(),
-          fromRel = VertexRelation(Reference("c"), Relation(Label("Cat")), True()),
-          toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True()),
+          Reference("p"), isReachableTest = true, Relation(Label("ToGourmand")), expr = True,
+          fromRel = VertexRelation(Reference("c"), Relation(Label("Cat")), True),
+          toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True),
           costVarDef = None, quantifier = None),
-        DefaultGraph(), PlannerContext(db))
+        DefaultGraph, PlannerContext(db))
     val actualDf = sparkPlanner.createBindingTable(scan)
 
     /** isReachableTest = true => p's attributes are not included in the result. */
@@ -129,11 +129,11 @@ class SparkSqlPlannerTest extends FunSuite
     val scan =
       PathScan(
         StoredPathRelation(
-          Reference("p"), isReachableTest = false, Relation(Label("ToGourmand")), expr = True(),
-          fromRel = VertexRelation(Reference("c"), Relation(Label("Cat")), True()),
-          toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True()),
+          Reference("p"), isReachableTest = false, Relation(Label("ToGourmand")), expr = True,
+          fromRel = VertexRelation(Reference("c"), Relation(Label("Cat")), True),
+          toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True),
           costVarDef = Some(Reference("cost")), quantifier = None),
-        DefaultGraph(), PlannerContext(db))
+        DefaultGraph, PlannerContext(db))
     val actualDf = sparkPlanner.createBindingTable(scan)
 
     /**
@@ -174,16 +174,16 @@ class SparkSqlPlannerTest extends FunSuite
     "missing columns, set to null.") {
     val lhs =
       EdgeRelation(
-        Reference("e"), Relation(Label("Friend")), expr = True(),
-        fromRel = VertexRelation(Reference("c1"), Relation(Label("Cat")), True()),
-        toRel = VertexRelation(Reference("c2"), Relation(Label("Cat")), True()))
+        Reference("e"), Relation(Label("Friend")), expr = True,
+        fromRel = VertexRelation(Reference("c1"), Relation(Label("Cat")), True),
+        toRel = VertexRelation(Reference("c2"), Relation(Label("Cat")), True))
     val rhs =
       EdgeRelation(
-        Reference("e"), Relation(Label("Enemy")), expr = True(),
-        fromRel = VertexRelation(Reference("c1"), Relation(Label("Cat")), True()),
-        toRel = VertexRelation(Reference("c2"), Relation(Label("Cat")), True()))
-    val edgeScan1 = EdgeScan(lhs, DefaultGraph(), PlannerContext(db))
-    val edgeScan2 = EdgeScan(rhs, DefaultGraph(), PlannerContext(db))
+        Reference("e"), Relation(Label("Enemy")), expr = True,
+        fromRel = VertexRelation(Reference("c1"), Relation(Label("Cat")), True),
+        toRel = VertexRelation(Reference("c2"), Relation(Label("Cat")), True))
+    val edgeScan1 = EdgeScan(lhs, DefaultGraph, PlannerContext(db))
+    val edgeScan2 = EdgeScan(rhs, DefaultGraph, PlannerContext(db))
     val union = UnionAll(lhs, rhs)
     union.children = List(edgeScan1, edgeScan2)
     val actualDf = sparkPlanner.createBindingTable(BindingTableOp(union))
@@ -221,12 +221,12 @@ class SparkSqlPlannerTest extends FunSuite
     "are correctly identified.") {
     val lhs =
       EdgeRelation(
-        Reference("e"), Relation(Label("MadeIn")), expr = True(),
-        fromRel = VertexRelation(Reference("f"), Relation(Label("Food")), True()),
-        toRel = VertexRelation(Reference("c"), Relation(Label("Country")), True()))
-    val rhs = VertexRelation(Reference("f"), Relation(Label("Food")), expr = True())
-    val edgeScan = EdgeScan(lhs, DefaultGraph(), PlannerContext(db))
-    val vertexScan = VertexScan(rhs, DefaultGraph(), PlannerContext(db))
+        Reference("e"), Relation(Label("MadeIn")), expr = True,
+        fromRel = VertexRelation(Reference("f"), Relation(Label("Food")), True),
+        toRel = VertexRelation(Reference("c"), Relation(Label("Country")), True))
+    val rhs = VertexRelation(Reference("f"), Relation(Label("Food")), expr = True)
+    val edgeScan = EdgeScan(lhs, DefaultGraph, PlannerContext(db))
+    val vertexScan = VertexScan(rhs, DefaultGraph, PlannerContext(db))
     val join = InnerJoin(lhs, rhs)
     join.children = List(edgeScan, vertexScan)
     val actualDf = sparkPlanner.createBindingTable(BindingTableOp(join))
@@ -258,10 +258,10 @@ class SparkSqlPlannerTest extends FunSuite
   }
 
   test("Binding table of CrossJoin - (f:Food), (c:Country)") {
-    val lhs = VertexRelation(Reference("f"), Relation(Label("Food")), expr = True())
-    val rhs = VertexRelation(Reference("c"), Relation(Label("Country")), expr = True())
-    val lhsScan = VertexScan(lhs, DefaultGraph(), PlannerContext(db))
-    val rhsScan = VertexScan(rhs, DefaultGraph(), PlannerContext(db))
+    val lhs = VertexRelation(Reference("f"), Relation(Label("Food")), expr = True)
+    val rhs = VertexRelation(Reference("c"), Relation(Label("Country")), expr = True)
+    val lhsScan = VertexScan(lhs, DefaultGraph, PlannerContext(db))
+    val rhsScan = VertexScan(rhs, DefaultGraph, PlannerContext(db))
     val join = CrossJoin(lhs, rhs)
     join.children = List(lhsScan, rhsScan)
     val actualDf = sparkPlanner.createBindingTable(BindingTableOp(join))
@@ -286,14 +286,14 @@ class SparkSqlPlannerTest extends FunSuite
 
   test("Binding table of LeftOuterJoin - (c1:Cat), (c1)-[:Enemy]->(c2). Common columns used in " +
     "the join are correctly identified.") {
-    val lhs = VertexRelation(Reference("c1"), Relation(Label("Cat")), expr = True())
+    val lhs = VertexRelation(Reference("c1"), Relation(Label("Cat")), expr = True)
     val rhs =
       EdgeRelation(
-        Reference("e"), Relation(Label("Enemy")), expr = True(),
-        fromRel = VertexRelation(Reference("c1"), Relation(Label("Cat")), True()),
-        toRel = VertexRelation(Reference("c2"), Relation(Label("Cat")), True()))
-    val vertexScan = VertexScan(lhs, DefaultGraph(), PlannerContext(db))
-    val edgeScan = EdgeScan(rhs, DefaultGraph(), PlannerContext(db))
+        Reference("e"), Relation(Label("Enemy")), expr = True,
+        fromRel = VertexRelation(Reference("c1"), Relation(Label("Cat")), True),
+        toRel = VertexRelation(Reference("c2"), Relation(Label("Cat")), True))
+    val vertexScan = VertexScan(lhs, DefaultGraph, PlannerContext(db))
+    val edgeScan = EdgeScan(rhs, DefaultGraph, PlannerContext(db))
     val join = LeftOuterJoin(lhs, rhs)
     join.children = List(vertexScan, edgeScan)
     val actualDf = sparkPlanner.createBindingTable(BindingTableOp(join))
@@ -324,10 +324,10 @@ class SparkSqlPlannerTest extends FunSuite
 
   test("Binding table of Select - (c:Cat) WHERE c.weight > 4 AND c.onDiet = True") {
     val expr = And(
-      Gt(PropertyRef(Reference("c"), PropertyKey("weight")), Literal(4, GcoreInteger())),
-      Eq(PropertyRef(Reference("c"), PropertyKey("onDiet")), True()))
+      Gt(PropertyRef(Reference("c"), PropertyKey("weight")), IntLiteral(4)),
+      Eq(PropertyRef(Reference("c"), PropertyKey("onDiet")), True))
     val relation = VertexRelation(Reference("c"), Relation(Label("Cat")), expr)
-    val scan = VertexScan(relation, DefaultGraph(), PlannerContext(db))
+    val scan = VertexScan(relation, DefaultGraph, PlannerContext(db))
     val select = Select(relation, expr)
     select.children = List(scan, expr)
     val actualDf = sparkPlanner.createBindingTable(BindingTableOp(select))

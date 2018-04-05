@@ -8,7 +8,7 @@ abstract class PhysEntityScan(graph: Graph, plannerContext: PlannerContext)
   extends TargetTreeNode {
 
   val physGraph: PathPropertyGraph = graph match {
-    case DefaultGraph() => plannerContext.graphDb.defaultGraph()
+    case DefaultGraph => plannerContext.graphDb.defaultGraph()
     case NamedGraph(graphName) => plannerContext.graphDb.graph(graphName)
   }
 }

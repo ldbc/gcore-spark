@@ -1,6 +1,6 @@
 package planner.operators
 
-import algebra.expressions.{AlgebraExpression, Label, Reference}
+import algebra.expressions.{AlgebraExpression, Label, ObjectPattern, Reference}
 import algebra.operators.{EdgeRelation, Relation}
 import algebra.types.Graph
 import planner.trees.PlannerContext

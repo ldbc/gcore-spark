@@ -16,32 +16,32 @@ class RelationLikeTest extends FunSuite {
   }
 
   test("BindingSet = {ref} for VertexRelation") {
-    val relation = VertexRelation(Reference("vref"), Relation(Label("vlabel")), True())
+    val relation = VertexRelation(Reference("vref"), Relation(Label("vlabel")), True)
     assert(relation.getBindingSet.refSet == Set(Reference("vref")))
   }
 
   test("BindingSet = {fromRef, toRef, edgeRef} for EdgeRelation") {
-    val from = VertexRelation(Reference("fromRef"), Relation(Label("fromLabel")), True())
-    val to = VertexRelation(Reference("toRef"), Relation(Label("toLabel")), True())
+    val from = VertexRelation(Reference("fromRef"), Relation(Label("fromLabel")), True)
+    val to = VertexRelation(Reference("toRef"), Relation(Label("toLabel")), True)
     val edge =
       EdgeRelation(
         ref = Reference("edgeRef"),
         labelRelation = Relation(Label("edgeLabel")),
-        expr = True(),
+        expr = True,
         fromRel = from, toRel = to)
     assert(edge.getBindingSet.refSet ==
       Set(Reference("fromRef"), Reference("toRef"), Reference("edgeRef")))
   }
 
   test("BindingSet = {fromRef, toRef, pathRef} for StoredPathRelation") {
-    val from = VertexRelation(Reference("fromRef"), Relation(Label("fromLabel")), True())
-    val to = VertexRelation(Reference("toRef"), Relation(Label("toLabel")), True())
+    val from = VertexRelation(Reference("fromRef"), Relation(Label("fromLabel")), True)
+    val to = VertexRelation(Reference("toRef"), Relation(Label("toLabel")), True)
     val path =
       StoredPathRelation(
         ref = Reference("pathRef"),
         isReachableTest = true,
         labelRelation = Relation(Label("pathLabel")),
-        expr = True(),
+        expr = True,
         fromRel = from, toRel = to,
         costVarDef = None,
         quantifier = None)

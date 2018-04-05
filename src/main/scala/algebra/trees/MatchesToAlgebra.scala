@@ -1,12 +1,33 @@
 package algebra.trees
 
 import algebra.expressions.{AlgebraExpression, Exists, Reference}
-import algebra.operators.BinaryPrimitive.reduceLeft
+import algebra.operators.BinaryOperator.reduceLeft
 import algebra.operators._
 import common.trees.BottomUpRewriter
 
 import scala.collection.mutable
 
+/**
+  * Converts all the remaining [[GcoreOperator]]s in the algebraic tree into
+  * [[RelationalOperator]]s in order to obtain a fully relational tree. The entity relations are
+  * still used as logical views of their respective tables.
+  *
+  * A [[CondMatchClause]] and an [[Exists]] sub-clause are transformed into relational trees as
+  * follows:
+  * - First, [[UnionAll]] subtrees are created from the non-optional [[SimpleMatchRelation]]s that
+  * have the same [[BindingSet]].
+  * - Next, relations (be they non-optional [[SimpleMatchRelation]]s or [[UnionAll]] relations
+  * resulting from step 1) with common bindings in their [[BindingSet]] are [[InnerJoin]]ed.
+  * - Relations (be they non-optional [[SimpleMatchRelation]]s or [[InnerJoin]]s from the previous
+  * step) with disjoint [[BindingSet]]s are [[CrossJoin]]ed.
+  * - Finally, the resulting binding table from the non-optional [[SimpleMatchRelation]]s is
+  * [[LeftOuterJoin]]ed with the optional matches, from left to right as they appear in the query
+  * (as per the language specification).
+  *
+  * A [[CondMatchClause]] is then transformed into a [[Select]] clause.
+  *
+  * // TODO: Add info about other clauses, as they are implemented.
+  */
 object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
 
   private val matchClause: RewriteFuncType = {
@@ -42,6 +63,7 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
   private type BsetToBindings = mutable.HashMap[Set[Reference], mutable.Set[RelationLike]]
     with mutable.MultiMap[Set[Reference], RelationLike]
 
+  /** Creates a [[UnionAll]] of the [[RelationLike]]s with the same [[BindingSet]]. */
   private def unionSimpleMatchRelations(relations: Seq[SimpleMatchRelation]): Seq[RelationLike] = {
     val relationToBindingMmap: BsetToBindings =
       new mutable.HashMap[Set[Reference], mutable.Set[RelationLike]]
@@ -75,6 +97,10 @@ object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
     relationToBindingMmap.values.flatten.toSeq
   }
 
+  /**
+    * [[InnerJoin]]s [[RelationLike]]s with common bindings and [[CrossJoin]]s [[RelationLike]]s
+    * with disjoint [[BindingSet]]s.
+    */
   private def joinSimpleMatchRelations(relations: Seq[RelationLike]): RelationLike = {
     val bindingToRelationMmap: BindingToRelations =
       new mutable.HashMap[Reference, mutable.Set[RelationLike]]

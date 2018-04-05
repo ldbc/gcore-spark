@@ -1,5 +1,9 @@
 package algebra.expressions
 
+/**
+  * A [[BinaryExpression]] with usage:
+  * > lhs symbol rhs
+  */
 abstract class ArithmeticExpression(lhs: AlgebraExpression, rhs: AlgebraExpression, symbol: String)
   extends BinaryExpression(lhs, rhs, symbol)
 

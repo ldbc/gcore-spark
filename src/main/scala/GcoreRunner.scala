@@ -19,14 +19,14 @@ object GcoreRunner {
     val graphDb: SparkGraphDb = SparkGraphDb(spark)
 
     graphDb.registerGraph(DummyGraph(spark))
-//    graphDb.setDefaultGraph("dummy_graph")
+    graphDb.setDefaultGraph("dummy_graph")
 
     println(graphDb.graph("dummy_graph"))
 
     val compiler: Compiler = GcoreCompiler(CompileContext(graphDb, spark.newSession()))
     compiler.compile(
       """
-        | CONSTRUCT () MATCH (c) ON dummy_graph WHERE (:Cat)
+        | CONSTRUCT () MATCH (c:Cat)
       """.stripMargin)
   }
 }

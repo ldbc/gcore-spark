@@ -87,9 +87,9 @@ case class GraphJsonConfig(graphName: String,
 
   validateSchema()
 
-  val vertexFiles: Seq[Path] = vertexLabels.map(Paths.get(graphRootDir,  _))
-  val edgeFiles: Seq[Path] = edgeLabels.map(Paths.get(graphRootDir,  _))
-  val pathFiles: Seq[Path] = pathLabels.map(Paths.get(graphRootDir,  _))
+  val vertexFiles: Seq[Path] = vertexLabels.map(Paths.get(graphRootDir, _))
+  val edgeFiles: Seq[Path] = edgeLabels.map(Paths.get(graphRootDir, _))
+  val pathFiles: Seq[Path] = pathLabels.map(Paths.get(graphRootDir, _))
 
   def validateSchema(): Unit = {
     assert(vertexLabels.nonEmpty, invalidSchemaMessage("vertex_labels"))

@@ -2,7 +2,6 @@ package algebra.trees
 
 import algebra.expressions._
 import algebra.operators._
-import algebra.types.GcoreInteger
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Inside, Matchers}
 import parser.SpoofaxParser
 import parser.trees.ParseContext
@@ -28,7 +27,7 @@ class MatchesToAlgebraTest extends FunSuite
     select should matchPattern {
       case Select(
       /*relation =*/ _,
-      /*expr =*/ Gt(PropertyRef(Reference("c"), PropertyKey("weight")), Literal(4, GcoreInteger())),
+      /*expr =*/ Gt(PropertyRef(Reference("c"), PropertyKey("weight")), IntLiteral(4)),
       /*bindingSet =*/ _) =>
     }
   }
@@ -122,7 +121,7 @@ class MatchesToAlgebraTest extends FunSuite
   }
 
   private
-  def testSingleBinOp[T <: BinaryPrimitive: ClassTag]
+  def testSingleBinOp[T <: BinaryOperator: ClassTag]
   (op: RelationLike, expectedRefTuples: Set[ReferenceTuple]): Unit = {
 
     op shouldBe a [T]
@@ -147,7 +146,7 @@ class MatchesToAlgebraTest extends FunSuite
   }
 
   private
-  def extractBinOpOperands[T <: BinaryPrimitive: ClassTag](op: T): Seq[RelationLike] = {
+  def extractBinOpOperands[T <: BinaryOperator: ClassTag](op: T): Seq[RelationLike] = {
     val rhs: RelationLike = op.children.last.asInstanceOf[RelationLike]
 
     op.children.head match {

@@ -115,7 +115,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
                 /*connName =*/ Reference("e"),
                 /*leftEndpoint =*/ Vertex(Reference("u"), _),
                 /*rightEndpoint =*/ Vertex(Reference("v"), _),
-                /*connType =*/ OutConn(),
+                /*connType =*/ OutConn,
                 /*expr =*/ _))) =>
           }
         }
@@ -146,7 +146,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
               /*connName =*/ Reference("e1"),
               /*leftEndpoint =*/ Vertex(Reference("u"), _),
               /*rightEndpoint =*/ Vertex(Reference("v"), _),
-              /*connType =*/ OutConn(),
+              /*connType =*/ OutConn,
               /*expr =*/ _))) =>
           }
 
@@ -156,7 +156,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
                 /*connName =*/ Reference("e2"),
                 /*leftEndpoint =*/ Vertex(Reference("v"), _),
                 /*rightEndpoint =*/ Vertex(Reference("w"), _),
-                /*connType =*/ OutConn(),
+                /*connType =*/ OutConn,
                 /*expr =*/ _))) =>
           }
         }
@@ -180,8 +180,8 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
             /* optional */ _)) => {
 
           graphPattern should matchPattern { case GraphPattern(List(
-          Edge(Reference("e1"), Vertex(Reference("u"), _), Vertex(Reference("v"), _), OutConn(), _),
-          Edge(Reference("e2"), Vertex(Reference("v"), _), Vertex(Reference("w"), _), OutConn(), _))
+          Edge(Reference("e1"), Vertex(Reference("u"), _), Vertex(Reference("v"), _), OutConn, _),
+          Edge(Reference("e2"), Vertex(Reference("v"), _), Vertex(Reference("w"), _), OutConn, _))
           ) => }
         }
       }
@@ -285,115 +285,115 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
 
     test("WHERE NOT 2 => Not(2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE NOT 2"
-      val expected = Not(Literal(2, GcoreInteger()))
+      val expected = Not(IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE -2 => Minus(2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE -2"
-      val expected = Minus(Literal(2, GcoreInteger()))
+      val expected = Minus(IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 AND 2 => And(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 AND 2"
-      val expected = And(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = And(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 OR 2 => Or(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 OR 2"
-      val expected = Or(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Or(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 = 2 => Eq(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 = 2"
-      val expected = Eq(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Eq(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 != 2 (Neq1) => Neq(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 != 2"
-      val expected = Neq(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Neq(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 <> 2 (Neq2) => Neq(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 <> 2"
-      val expected = Neq(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Neq(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 > 2 => Gt(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 > 2"
-      val expected = Gt(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Gt(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 >= 2 => Gte(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 >= 2"
-      val expected = Gte(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Gte(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 < 2 => Lt(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 < 2"
-      val expected = Lt(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Lt(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 <= 2 => Lte(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 <= 2"
-      val expected = Lte(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Lte(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2^2 => Power(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2^2"
-      val expected = Power(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Power(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2*2 => Mul(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2*2"
-      val expected = Mul(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Mul(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2/2 => Div(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2/2"
-      val expected = Div(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Div(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2%2 => Mod(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2%2"
-      val expected = Mod(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Mod(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2+2 => Add(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2+2"
-      val expected = Add(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Add(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2-2 => Sub(2, 2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2-2"
-      val expected = Sub(lhs = Literal(2, GcoreInteger()), rhs = Literal(2, GcoreInteger()))
+      val expected = Sub(lhs = IntLiteral(2), rhs = IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 IS NULL => IsNull(2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 IS NULL"
-      val expected = IsNull(Literal(2, GcoreInteger()))
+      val expected = IsNull(IntLiteral(2))
       runTest(query, expected)
     }
 
     test("WHERE 2 IS NOT NULL => IsNotNull(2)") {
       val query = "CONSTRUCT () MATCH (u) WHERE 2 IS NOT NULL"
-      val expected = IsNotNull(Literal(2, GcoreInteger()))
+      val expected = IsNotNull(IntLiteral(2))
       runTest(query, expected)
     }
 
@@ -435,7 +435,7 @@ trait SpoofaxToAlgebraMatch extends Matchers with Inside {
             /* optional */ _
           )) => {
 
-          graph should matchPattern { case DefaultGraph() => }
+          graph should matchPattern { case DefaultGraph => }
         }
       }
     }

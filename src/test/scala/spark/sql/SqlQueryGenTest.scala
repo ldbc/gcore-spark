@@ -5,7 +5,8 @@ import algebra.types.{GcoreInteger, GcoreString, GraphPattern}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import planner.operators.{BindingTable, VertexScan}
+import planner.operators.VertexScan
+import planner.target_api.BindingTable
 import planner.trees.TargetTreeNode
 import spark.SparkSessionTestWrapper
 import spark.sql.operators.{SparkBindingTable, SparkVertexScan, SqlQuery, SqlQueryGen}
@@ -89,31 +90,31 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
           "[Mul] WHERE v.anInt > 2*1",
           Gt(
             lhs = PropertyRef(Reference("v"), PropertyKey("anInt")),
-            rhs = Mul(Literal(2, GcoreInteger()), Literal(1, GcoreInteger()))),
+            rhs = Mul(IntLiteral(2), IntLiteral(1))),
           Seq(nullRow)),
         TestCase(
           "[Div] WHERE v.anInt > 2/2",
           Gt(
             lhs = PropertyRef(Reference("v"), PropertyKey("anInt")),
-            rhs = Div(Literal(2, GcoreInteger()), Literal(2, GcoreInteger()))),
+            rhs = Div(IntLiteral(2), IntLiteral(2))),
           Seq(bazRow, nullRow)),
         TestCase(
           "[Mod] WHERE v.anInt > 3%2",
           Gt(
             lhs = PropertyRef(Reference("v"), PropertyKey("anInt")),
-            rhs = Mod(Literal(3, GcoreInteger()), Literal(2, GcoreInteger()))),
+            rhs = Mod(IntLiteral(3), IntLiteral(2))),
           Seq(bazRow, nullRow)),
         TestCase(
           "[Add] WHERE v.anInt >= 1+2",
           Gte(
             lhs = PropertyRef(Reference("v"), PropertyKey("anInt")),
-            rhs = Add(Literal(1, GcoreInteger()), Literal(2, GcoreInteger()))),
+            rhs = Add(IntLiteral(1), IntLiteral(2))),
           Seq(nullRow)),
         TestCase(
           "[Sub] WHERE v.anInt >= 7-4",
           Gte(
             lhs = PropertyRef(Reference("v"), PropertyKey("anInt")),
-            rhs = Sub(Literal(7, GcoreInteger()), Literal(4, GcoreInteger()))),
+            rhs = Sub(IntLiteral(7), IntLiteral(4))),
           Seq(nullRow))
       )
 
@@ -125,27 +126,27 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
       Seq(
         TestCase(
           "[Eq] WHERE v.anInt = 0",
-          Eq(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(0, GcoreInteger())),
+          Eq(PropertyRef(Reference("v"), PropertyKey("anInt")), IntLiteral(0)),
           Seq(fooRow)),
         TestCase(
           "[Neq] WHERE v.anInt != 0",
-          Neq(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(0, GcoreInteger())),
+          Neq(PropertyRef(Reference("v"), PropertyKey("anInt")), IntLiteral(0)),
           Seq(barRow, bazRow, nullRow)),
         TestCase(
           "[Gt] WHERE v.anInt > 2",
-          Gt(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(2, GcoreInteger())),
+          Gt(PropertyRef(Reference("v"), PropertyKey("anInt")), IntLiteral(2)),
           Seq(nullRow)),
         TestCase(
           "[Gte] WHERE v.anInt >= 2",
-          Gte(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(2, GcoreInteger())),
+          Gte(PropertyRef(Reference("v"), PropertyKey("anInt")), IntLiteral(2)),
           Seq(bazRow, nullRow)),
         TestCase(
           "[Lt] WHERE v.anInt < 2",
-          Lt(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(2, GcoreInteger())),
+          Lt(PropertyRef(Reference("v"), PropertyKey("anInt")), IntLiteral(2)),
           Seq(fooRow, barRow)),
         TestCase(
           "[Lte] WHERE v.anInt <= 2",
-          Lte(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(2, GcoreInteger())),
+          Lte(PropertyRef(Reference("v"), PropertyKey("anInt")), IntLiteral(2)),
           Seq(fooRow, barRow, bazRow))
       )
 
@@ -159,7 +160,7 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
           "[Power] WHERE v.anInt > 2^1",
           Gt(
             lhs = PropertyRef(Reference("v"), PropertyKey("anInt")),
-            rhs = Power(Literal(2, GcoreInteger()), Literal(1, GcoreInteger()))),
+            rhs = Power(IntLiteral(2), IntLiteral(1))),
           Seq(nullRow))
       )
 
@@ -189,7 +190,7 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
           "[And] WHERE v.aString IS NOT NULL AND v.aBool = False",
           And(
             lhs = IsNotNull(PropertyRef(Reference("v"), PropertyKey("aString"))),
-            rhs = Eq(PropertyRef(Reference("v"), PropertyKey("aBool")), False())),
+            rhs = Eq(PropertyRef(Reference("v"), PropertyKey("aBool")), False)),
           Seq(barRow, bazRow)),
         TestCase(
           """[Or] WHERE v.aString = "foo" OR v.anInt = 3""",
@@ -197,9 +198,9 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
             lhs =
               Eq(
                 PropertyRef(Reference("v"), PropertyKey("aString")),
-                Literal("foo", GcoreString())),
+                StringLiteral("foo")),
             rhs =
-              Eq(PropertyRef(Reference("v"), PropertyKey("anInt")), Literal(3, GcoreInteger()))),
+              Eq(PropertyRef(Reference("v"), PropertyKey("anInt")), IntLiteral(3))),
           Seq(fooRow, nullRow))
       )
 
@@ -213,7 +214,7 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
           "[Minus] WHERE -v.anInt < -2 (<=> anInt > 2)",
           Lt(
             lhs = Minus(PropertyRef(Reference("v"), PropertyKey("anInt"))),
-            rhs = Literal(-2, GcoreInteger())),
+            rhs = IntLiteral(-2)),
           Seq(nullRow)),
         TestCase(
           "[Not] WHERE NOT v.aBool",
@@ -232,8 +233,8 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
     val vscan = new TargetTreeNode {
       override val bindingTable: BindingTable =
         SparkBindingTable(
-          schemas = Map(Reference("v") -> vschema),
-          btableUnifiedSchema = vschema,
+          sparkSchemaMap = Map(Reference("v") -> vschema),
+          sparkBtableSchema = vschema,
           btableOps = SqlQuery(resQuery = vselect)
         )
     }
@@ -241,8 +242,8 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
     val vrestrictedScan = new TargetTreeNode {
       override val bindingTable: BindingTable =
         SparkBindingTable(
-          schemas = Map(Reference("v") -> vschema),
-          btableUnifiedSchema = vschema,
+          sparkSchemaMap = Map(Reference("v") -> vschema),
+          sparkBtableSchema = vschema,
           btableOps = SqlQuery(resQuery = vrestricted)
         )
     }

@@ -1,8 +1,7 @@
 package spark.sql.operators
 
 import org.apache.spark.sql.types.StructType
-import planner.operators.BindingTable
-import planner.target_api.PhysUnionAll
+import planner.target_api.{BindingTable, PhysUnionAll}
 import planner.trees.TargetTreeNode
 
 case class SparkUnionAll(lhs: TargetTreeNode, rhs: TargetTreeNode)
@@ -29,8 +28,8 @@ case class SparkUnionAll(lhs: TargetTreeNode, rhs: TargetTreeNode)
     val unifiedSchema: StructType = new StructType(mergedSchemas.toArray)
 
     SparkBindingTable(
-      schemas = lhsBtable.schemaMap ++ rhsBtable.schemaMap,
-      btableUnifiedSchema = unifiedSchema,
+      sparkSchemaMap = lhsBtable.schemaMap ++ rhsBtable.schemaMap,
+      sparkBtableSchema = unifiedSchema,
       btableOps = sqlUnionAll)
   }
 }

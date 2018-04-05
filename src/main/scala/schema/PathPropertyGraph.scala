@@ -3,9 +3,9 @@ import algebra.expressions.Label
 
 /**
   * The path property graph is the queryable unit of G-CORE. The graph retains information about
-  * vertices, edges and also paths. The stored information refers to labels and key-value
-  * attributes of an entity. A graph has a [[GraphSchema]] that describes the structure and
-  * properties the stored [[GraphData]].
+  * vertices, edges and paths. The stored information refers to labels and key-value attributes
+  * of an entity. A graph has a [[GraphSchema]], that describes its structure, and stored
+  * [[GraphData]].
   */
 abstract class PathPropertyGraph extends GraphSchema with GraphData {
 

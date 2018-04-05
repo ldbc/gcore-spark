@@ -2,11 +2,16 @@ package planner.trees
 
 import algebra.operators.{JoinLike, Select, UnionAll}
 import algebra.trees.AlgebraTreeNode
+import common.exceptions.UnsupportedOperation
 import common.trees.BottomUpRewriter
-import planner.exceptions.UnsupportedOperation
 import planner.operators.{BindingTableOp, EdgeScan, PathScan, VertexScan}
 import planner.target_api.TargetPlanner
 
+/**
+  * Creates the physical plan from the logical plan. Uses a [[TargetPlanner]] to emit
+  * target-specific operators. Each logical operator lop of type LopType is converted into its
+  * target-specific equivalent by calling the [[TargetPlanner]]'s createPhysLopType(lop) method.
+  */
 case class PlannerToTargetTree(targetPlanner: TargetPlanner)
   extends BottomUpRewriter[AlgebraTreeNode] {
 
@@ -24,5 +29,4 @@ case class PlannerToTargetTree(targetPlanner: TargetPlanner)
             s"supported at the moment:\n${other.treeString()}")
       }
   }
-
 }

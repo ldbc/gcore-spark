@@ -2,10 +2,11 @@ package algebra.operators
 
 import algebra.expressions.Reference
 
+/** A relational join-like operation. */
 abstract class JoinLike(lhs: RelationLike,
                         rhs: RelationLike,
                         bindingTable: Option[BindingSet])
-  extends BinaryPrimitive(lhs, rhs, bindingTable) {
+  extends BinaryOperator(lhs, rhs, bindingTable) {
 
   /**
     * Returns all the bindings that appear in at least two binding sets that have been seen so far
@@ -13,7 +14,7 @@ abstract class JoinLike(lhs: RelationLike,
     */
   def commonInSeenBindingSets: Set[Reference] = BindingSet.intersectBindingSets(seenBindingSets)
 
-  /** The sets of bindings that have been seen so far by in this [[JoinLike]] subtree. */
+  /** The sets of bindings that have been seen so far in this [[JoinLike]] subtree. */
   val seenBindingSets: Seq[Set[Reference]] = {
     var union: Seq[Set[Reference]] = Seq.empty
 
