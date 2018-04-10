@@ -405,13 +405,13 @@ class ExpandRelationsTest extends FunSuite
   }
 
   private def extractNonOptSimpleMatches(queryTree: AlgebraTreeNode): Seq[AlgebraTreeNode] = {
-    val matchClause = queryTree.children.head
+    val matchClause = queryTree.asInstanceOf[Query].getMatchClause
     val nonOptCondMatch = matchClause.children.head
     nonOptCondMatch.children.init
   }
 
   private def extractSimpleMatches(queryTree: AlgebraTreeNode): Seq[AlgebraTreeNode] = {
-    val matchClause = queryTree.children.head
+    val matchClause = queryTree.asInstanceOf[Query].getMatchClause
     val nonOptCondMatch = matchClause.children.head
     val optCondMatches = matchClause.children.tail
 

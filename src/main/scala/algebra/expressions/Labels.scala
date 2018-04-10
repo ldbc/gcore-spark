@@ -85,3 +85,11 @@ case class WithLabels(labelConj: AlgebraExpression) extends AlgebraExpression wi
           "only one label associated with it.")
     }
 }
+
+/**
+  * An [[ObjectConstructPattern]] member that creates new labels for a given constructed variable.
+  */
+case class LabelAssignments(labels: Seq[Label]) extends AlgebraExpression {
+
+  children = labels
+}

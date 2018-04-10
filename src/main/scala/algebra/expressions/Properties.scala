@@ -85,3 +85,15 @@ case class WithProps(propConj: AlgebraExpression) extends AlgebraExpression
   override def check(): Unit =
     throw UnsupportedOperation("Property unrolling is not supported in object pattern.")
 }
+
+/**
+  * An [[ObjectConstructPattern]] member that creates new properties with given values for a
+  * constructed variable.
+  */
+case class PropAssignments(props: Seq[PropAssignment]) extends AlgebraExpression {
+  children = props
+}
+
+case class PropAssignment(propKey: PropertyKey, expr: AlgebraExpression) extends AlgebraExpression {
+  children = List(propKey, expr)
+}

@@ -1,6 +1,7 @@
 package parser.trees
 
 import common.trees.TopDownRewriter
+import parser.exceptions.QueryParseException
 import parser.utils.{Stratego, VarBinder}
 
 /**
@@ -18,16 +19,51 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
     * () => (v_xy)
     */
   private val varDefUnnamedNode: RewriteFuncType = {
-    case vertex: SpoofaxTreeNode if vertex.name == "Vertex" =>
+    case vertex @ SpoofaxBaseTreeNode("Vertex") =>
       val varDef = vertex.children.head
-      val objMatchPattern = vertex.children(1)
       if (varDef.name == "Some")
         vertex
       else {
+        // For the construct pattern it should actually be a VarRefDef, but we treat it the same in
+        // ConstructTreeBuilder anyway.
         val newVarDef = newVarDefTree("v")
-        vertex.children = List(newVarDef, objMatchPattern)
+        vertex.children = List(newVarDef) ++ vertex.children.tail
         vertex
       }
+  }
+
+  /**
+    * Creates a name for an unnamed stored path variable in a construct clause. The rewrite rule is:
+    * ()->()      =>  ()-/@p_xy/->()
+    * ()-->()     =>  ()-/@p_xy/->()
+    * ()-/@/->()  =>  ()-/@p_xy/->()
+    *
+    * ()<-()      =>  ()<-/@p_xy/-()
+    * ()<--()     =>  ()<-/@p_xy/-()
+    * ()<-/@/-()  =>  ()<-/@p_xy/-()
+    *
+    * ()<->()     =>  ()<-/@p_xy/->()
+    * ()<-->()    =>  ()<-/@p_xy/->()
+    * ()<-/@/->() =>  ()<-/@p_xy/->()
+    */
+  private val varDefUnnamedPathObjectified: RewriteFuncType = {
+    case path @ SpoofaxBaseTreeNode("PathObjectified") =>
+      val varRefDef = path.children(1)
+      // The objectified path lexical tree will also contain a most redundant node, "@", the head
+      // of the children list of path. We do not add it to the resulting path.
+      if (varRefDef.name == "Some") {
+        val copyPattern = path.children(2)
+        val objConstructPattern = path.children.last
+        path.children = List(varRefDef, copyPattern, objConstructPattern)
+      }
+      else {
+        val newVarRefDef = newVarRefDefTree("p")
+        val copyPattern = path.children(2)
+        val objConstructPattern = path.children.last
+        path.children = List(newVarRefDef, copyPattern, objConstructPattern)
+      }
+
+      path
   }
 
   /**
@@ -49,48 +85,159 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
     * ()<-[]->() =>  ()<-[e_xy]->()
     */
   private val varDefUnnamedEdge: RewriteFuncType = {
-    case edgeMatchPattern: SpoofaxTreeNode if edgeMatchPattern.name == "EdgeMatchPattern" =>
-      val varDef = edgeMatchPattern.children.head
-      val objMatchPattern = edgeMatchPattern.children(1)
+    case edgePattern: SpoofaxTreeNode
+      if edgePattern.name == "EdgeMatchPattern" || edgePattern.name == "EdgeConstructPattern" =>
+
+      val varDef = edgePattern.children.head
       if (varDef.name == "Some")
-        edgeMatchPattern
+        edgePattern
       else {
-        val newVarDef = newVarDefTree("e")
-        edgeMatchPattern.children = List(newVarDef, objMatchPattern)
-        edgeMatchPattern
+        // For the construct pattern it should actually be a VarRefDef, but we treat it the same in
+        // ConstructTreeBuilder anyway.
+        val newVarDef = newVarRefDefTree("e")
+        edgePattern.children = List(newVarDef) ++ edgePattern.children.tail
+        edgePattern
       }
   }
-
 
   /**
     * @see [[varDefUnnamedEdge]]
     */
   private val varDefUnnamedConn: RewriteFuncType = {
-    case conn: SpoofaxTreeNode if inOutConnections.contains(conn.name) =>
-      val edgeMatchPattern = conn.children.head
-      if (edgeMatchPattern.name == "Some")
-        conn
-      else {
-        val newEdgeMatchPattern = newEdgeMatchPatternTree
-        conn.children = List(newEdgeMatchPattern)
-        conn
-      }
-    case conn: SpoofaxTreeNode if inOutEdgeConnections.contains(conn.name) =>
-      conn.name match {
-        case "InEdge" => newConnectionTree("InConn")
-        case "OutEdge" => newConnectionTree("OutConn")
-      }
-    case conn: SpoofaxTreeNode if otherConnections.contains(conn.name) =>
-      if (conn.children.nonEmpty && conn.children.head.name == "Some") // at least one child
-        conn // child was "Some", good, can move on
-      else   // either "None" or no children, bad, need to name this connection
-        newConnectionTree(conn.name)
+    case matchPattern @ SpoofaxBaseTreeNode("EdgeVertexMatchPattern") =>
+      val conn = matchPattern.children.head
+      val vertex = matchPattern.children.last
+      val newConn =
+        rewriteConnection(
+          matchPattern.children.head,
+          newEdgeMatchPatternTree,
+          newConnectionMatchTree)
+      matchPattern.children = List(newConn, vertex)
+
+      // If this is a connection with pattern <-[]->, then the direct child of the InOutEdge will be
+      // Some->EdgeMatchPattern, instead of Some->Edge->EdgeMatchPattern. We add the missing Edge
+      // node here.
+      val patternWithEdge = addEdgeToInOutEdge(matchPattern)
+
+      patternWithEdge
+
+    case constructPattern @ SpoofaxBaseTreeNode("EdgeVertexConstructPattern") =>
+      val conn = constructPattern.children.head
+      val vertex = constructPattern.children.last
+
+      // In case we are missing nodes from this connection, we add them here.
+      val newConn =
+        rewriteConnection(
+          constructPattern.children.head,
+          newEdgeConstructTree,
+          newConnectionConstructTree)
+      constructPattern.children = List(newConn, vertex)
+
+      // In case we had the necessary nodes in this connection, we check whether the node
+      // EdgeConstructPattern is missing or is called Edge instead and fix this.
+      val constructPatternRenamed = addEdgeConstructPatternToEdge(constructPattern)
+
+      constructPatternRenamed
+  }
+
+  private def addEdgeToInOutEdge(pattern: SpoofaxBaseTreeNode): SpoofaxBaseTreeNode = {
+    val connection = pattern.children.head
+    connection.name match {
+      case "InOutEdge" =>
+        val some = connection.children.head
+        if (some.children.head.name == "EdgeMatchPattern") {
+          val edge = SpoofaxTreeNode(Stratego.edge(Stratego.none))
+          edge.children = some.children
+          some.children = List(edge)
+        }
+
+        pattern
+
+      case _ => pattern
+    }
+  }
+
+  private def addEdgeConstructPatternToEdge(pattern: SpoofaxBaseTreeNode): SpoofaxBaseTreeNode = {
+    val connection = pattern.children.head
+    connection.name match {
+      case "InOutEdge" =>
+        val some = connection.children.head
+        if (some.name == "Some" && some.children.head.name == "Edge") {
+          val edge = some.children.head
+          val newEdge =
+            SpoofaxTreeNode(
+              Stratego.edge(
+                Stratego.edgeConstructPattern(
+                  Stratego.none,
+                  Stratego.none,
+                  Stratego.none,
+                  Stratego.none)))
+          val newConstructPattern = newEdge.children.head
+          newConstructPattern.children = edge.children
+          some.children = List(newEdge)
+        }
+
+        pattern
+
+      case _ =>
+        val some = connection.children.head
+        val edge = some.children.head
+        val constructPattern = edge.children.head
+        if (constructPattern.name == "Edge") {
+          val newConstructPattern =
+            SpoofaxTreeNode(
+              Stratego.edgeConstructPattern(
+                Stratego.none,
+                Stratego.none,
+                Stratego.none,
+                Stratego.none))
+          newConstructPattern.children = constructPattern.children
+          edge.children = List(newConstructPattern)
+        }
+
+        pattern
+    }
+  }
+
+  private
+  def rewriteConnection(conn: SpoofaxBaseTreeNode,
+                        newEdgeTree: => SpoofaxBaseTreeNode,
+                        newConnectionTree: String => SpoofaxTreeNode): SpoofaxTreeNode = {
+    conn match {
+      case conn: SpoofaxTreeNode if inOutConnections.contains(conn.name) =>
+        val edgePattern = conn.children.head
+        if (edgePattern.name == "Some")
+          conn
+        else {
+          conn.children = List(newEdgeTree)
+          conn
+        }
+      case conn: SpoofaxTreeNode if inOutEdgeConnections.contains(conn.name) =>
+        conn.name match {
+          case "InEdge" => newConnectionTree("InConn")
+          case "OutEdge" => newConnectionTree("OutConn")
+        }
+      case conn: SpoofaxTreeNode if otherConnections.contains(conn.name) =>
+        if (conn.children.nonEmpty && conn.children.head.name == "Some") // at least one child
+          conn // child was "Some", good, can move on
+        else // either "None" or no children, bad, need to name this connection
+          newConnectionTree(conn.name)
+      case _ =>
+        throw QueryParseException(s"Unknown connection ${conn.name}.")
+    }
   }
 
   private def newVarDefTree(prefix: String): SpoofaxTreeNode = {
     SpoofaxTreeNode(
       Stratego.some(
         Stratego.varDef(
+          Stratego.string(VarBinder.createVar(prefix)))))
+  }
+
+  private def newVarRefDefTree(prefix: String): SpoofaxTreeNode = {
+    SpoofaxTreeNode(
+      Stratego.some(
+        Stratego.varRefDef(
           Stratego.string(VarBinder.createVar(prefix)))))
   }
 
@@ -103,7 +250,19 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
             Stratego.objectMatchPattern(Stratego.none, Stratego.none)))))
   }
 
-  private def newConnectionTree(name: String): SpoofaxTreeNode = {
+  private def newEdgeConstructTree: SpoofaxTreeNode = {
+    SpoofaxTreeNode(
+      Stratego.some(
+        Stratego.edge(
+          Stratego.edgeConstructPattern(
+            /*varRefDef =*/ Stratego.none,
+            /*copyPattern =*/ Stratego.none,
+            /*groupDeclaration =*/ Stratego.none,
+            /*objConstrPattern =*/ Stratego.objectConstructPattern(Stratego.none, Stratego.none))))
+    )
+  }
+
+  private def newConnectionMatchTree(name: String): SpoofaxTreeNode = {
     SpoofaxTreeNode(
       Stratego.conn(
         name,
@@ -114,6 +273,26 @@ object SpoofaxCanonicalRewriter extends TopDownRewriter[SpoofaxBaseTreeNode] {
               Stratego.objectMatchPattern(Stratego.none, Stratego.none))))))
   }
 
+  private def newConnectionConstructTree(name: String): SpoofaxTreeNode = {
+    SpoofaxTreeNode(
+      Stratego.conn(
+        name,
+        Stratego.some(
+          Stratego.edge(
+            Stratego.edgeConstructPattern(
+              /*varRefDef =*/ Stratego.none,
+              /*copyPattern =*/ Stratego.none,
+              /*groupDeclaration =*/ Stratego.none,
+              /*objConstrPattern =*/ Stratego.objectConstructPattern(Stratego.none, Stratego.none))
+          )
+        )
+      )
+    )
+  }
+
   override val rule: RewriteFuncType =
-    varDefUnnamedNode orElse varDefUnnamedEdge orElse varDefUnnamedConn
+    varDefUnnamedNode orElse
+      varDefUnnamedEdge orElse
+      varDefUnnamedConn orElse
+      varDefUnnamedPathObjectified
 }

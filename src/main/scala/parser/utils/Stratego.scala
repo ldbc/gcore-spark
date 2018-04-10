@@ -15,6 +15,17 @@ object Stratego {
       /*storageType = */ 0)
   }
 
+  def objectConstructPattern(labelAssignments: IStrategoTerm,
+                             propAssignments: IStrategoTerm): IStrategoTerm = {
+    new StrategoAppl(
+      /*ctor = */ new StrategoConstructor(
+        /*name = */ "ObjectConstructPattern",
+        /*arity = */ 2),
+      /*kids = */ Array(labelAssignments, propAssignments),
+      /*annotations = */ null,
+      /*storageType = */ 0)
+  }
+
   def none: IStrategoTerm = {
     new StrategoAppl(
       /*ctor = */ new StrategoConstructor(
@@ -45,6 +56,16 @@ object Stratego {
       /*storageType = */ 0)
   }
 
+  def varRefDef(str: IStrategoTerm): IStrategoTerm = {
+    new StrategoAppl(
+      /*ctor = */ new StrategoConstructor(
+        /*name = */ "VarRefDef",
+        /*arity = */ 1),
+      /*kids = */ Array(str),
+      /*annotations = */ null,
+      /*storageType = */ 0)
+  }
+
   def string(value: String): IStrategoTerm = {
     new StrategoString(
       /*value = */ value,
@@ -52,35 +73,12 @@ object Stratego {
       /*storageType = */ 0)
   }
 
-  def edge(edgeMatchPattern: IStrategoTerm): IStrategoTerm = {
+  def edge(edgePattern: IStrategoTerm): IStrategoTerm = {
     new StrategoAppl(
       /*ctor = */ new StrategoConstructor(
         /*name = */ "Edge",
         /*arity = */ 1),
-      /*kids = */ Array(edgeMatchPattern),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def path(pathType: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "Path",
-        /*arity = */ 1),
-      /*kids = */ Array(pathType),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def vpath(pathQuantifier: IStrategoTerm,
-            varDef: IStrategoTerm,
-            pathExpression: IStrategoTerm,
-            costVarDef: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "Virtual",
-        /*arity = */ 4),
-      /*kids = */ Array(pathQuantifier, varDef, pathExpression, costVarDef),
+      /*kids = */ Array(edgePattern),
       /*annotations = */ null,
       /*storageType = */ 0)
   }
@@ -95,119 +93,35 @@ object Stratego {
       /*storageType = */ 0)
   }
 
+  def edgeConstructPattern(varRefDef: IStrategoTerm,
+                           copyPattern: IStrategoTerm,
+                           groupDeclaration: IStrategoTerm,
+                           objConstructPattern: IStrategoTerm): IStrategoTerm = {
+    new StrategoAppl(
+      /*ctor = */ new StrategoConstructor(
+        /*name = */ "EdgeConstructPattern",
+        /*arity = */ 4),
+      /*kids = */ Array(varRefDef, copyPattern, groupDeclaration, objConstructPattern),
+      /*annotations = */ null,
+      /*storageType = */ 0)
+  }
+
+  def groupDeclaration(exprs: Seq[IStrategoTerm]): IStrategoTerm = {
+    new StrategoAppl(
+      /*ctor = */ new StrategoConstructor(
+        /*name = */ "GroupDeclaration",
+        /*arity = */ 1),
+      /*kids = */ Array(createStrategoList(exprs)),
+      /*annotations = */ null,
+      /*storageType = */ 0)
+  }
+
   def conn(name: String, child: IStrategoTerm): IStrategoTerm = {
     new StrategoAppl(
       /*ctor = */ new StrategoConstructor(
         /*name = */ name,
         /*arity = */ 1),
       /*kids = */ Array(child),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def conn(name: String): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ name,
-        /*arity = */ 1),
-      /*kids = */ Array.empty,
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def edgeVertexMatchPattern(conn: IStrategoTerm, vertex: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "EdgeVertexMatchPattern",
-        /*arity = */ 2),
-      /*kids = */ Array(conn, vertex),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def query(pathClause: IStrategoTerm,
-            constructClause: IStrategoTerm,
-            matchClause: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "BasicQuery",
-        /*arity = */ 3),
-      /*kids = */ Array(pathClause, constructClause, matchClause),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def matchClause(fullGraphPatternCondition: IStrategoTerm,
-                  optionalClause: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "Match",
-        /*arity = */ 2),
-      /*kids = */ Array(fullGraphPatternCondition, optionalClause),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def fullGraphPatternCondition(fullGraphPattern: IStrategoTerm,
-                                where: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "FullGraphPatternCondition",
-        /*arity = */ 2),
-      /*kids = */ Array(fullGraphPattern, where),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def fullGraphPattern(basicGraphPatternLocations: Seq[IStrategoTerm]): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "FullGraphPattern",
-        /*arity = */ 1),
-      /*kids = */ Array(createStrategoList(basicGraphPatternLocations)),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def basicGraphPatternLocation(basicGraphPattern: IStrategoTerm,
-                                location: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "BasicGraphPatternLocation",
-        /*arity = */ 2),
-      /*kids = */ Array(basicGraphPattern, location),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def basicGraphPattern(vertexMatchPattern: IStrategoTerm,
-                        edgeVertexMatchPatterns: Seq[IStrategoTerm]): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "BasicGraphPattern",
-        /*arity = */ 2),
-      /*kids = */ Array(vertexMatchPattern, createStrategoList(edgeVertexMatchPatterns)),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def vertexMatchPattern(varDef: IStrategoTerm,
-                         objectMatchPattern: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "Vertex",
-        /*arity = */ 2),
-      /*kids = */ Array(varDef, objectMatchPattern),
-      /*annotations = */ null,
-      /*storageType = */ 0)
-  }
-
-  def location(graph: IStrategoTerm): IStrategoTerm = {
-    new StrategoAppl(
-      /*ctor = */ new StrategoConstructor(
-        /*name = */ "Location",
-        /*arity = */ 1),
-      /*kids = */ Array(graph),
       /*annotations = */ null,
       /*storageType = */ 0)
   }

@@ -4,6 +4,17 @@ import common.trees.TreeNode
 import org.spoofax.interpreter.terms.IStrategoTerm.{APPL, INT, LIST, STRING}
 import org.spoofax.interpreter.terms.{IStrategoAppl, IStrategoInt, IStrategoString, IStrategoTerm}
 
+import scala.reflect.ClassTag
+
+object SpoofaxBaseTreeNode {
+
+  /**
+    * Handy extractor for easier pattern matching [[SpoofaxBaseTreeNode]]s. This will skip the
+    * Stratego terms and compare directly on name.
+    */
+  def unapply(arg: SpoofaxBaseTreeNode): Option[String] = Some(arg.name)
+}
+
 /** A node in a Spoofax parse tree. */
 abstract class SpoofaxBaseTreeNode(term: IStrategoTerm) extends TreeNode[SpoofaxBaseTreeNode] {
 
@@ -35,6 +46,7 @@ case class SpoofaxTreeNode(term: IStrategoTerm) extends SpoofaxBaseTreeNode(term
 }
 
 case class SpoofaxLeaf[ValueType](term: IStrategoTerm, leafValue: ValueType)
+                                 (implicit tag: ClassTag[ValueType])
   extends SpoofaxBaseTreeNode(term) {
 
   children = List.empty

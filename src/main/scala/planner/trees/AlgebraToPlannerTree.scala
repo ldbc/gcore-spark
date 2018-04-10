@@ -13,7 +13,7 @@ import planner.operators.{BindingTableOp, EdgeScan, EntityScan, PathScan, Vertex
 case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewriter[AlgebraTreeNode] {
 
   private val query: RewriteFuncType = {
-    case q: Query => q.children.head
+    case q: Query => q.getMatchClause
   }
 
   private val simpleMatchRelation: RewriteFuncType = {

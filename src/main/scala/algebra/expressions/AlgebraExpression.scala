@@ -44,3 +44,23 @@ case class ObjectPattern(labelsPred: AlgebraExpression, propsPred: AlgebraExpres
   extends AlgebraExpression {
   children = List(labelsPred, propsPred)
 }
+
+/**
+  * A construct pattern of a variable used in the construct query. It is different from the
+  * predicates used in the when sub-clause.
+  *
+  * For example, for the construct clause
+  *
+  * > CONSTRUCT (n:Person) WHEN n.strProp = "foo"
+  *
+  * n is the variable being built (a node) and its [[ObjectConstructPattern]] is the label
+  * assignment "Person". The when sub-clause contains further filtering predicates for the matched
+  * nodes, but the condition on the "strProp" attribute is not part of n's pattern.
+  *
+  * When constructing a new object, we can assign it new labels or use property values based on the
+  * properties of matched patterns.
+  */
+case class ObjectConstructPattern(labelAssignments: AlgebraExpression,
+                                  propAssignments: AlgebraExpression) extends AlgebraExpression {
+  children = List(labelAssignments, propAssignments)
+}

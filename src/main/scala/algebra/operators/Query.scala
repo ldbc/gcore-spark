@@ -1,14 +1,20 @@
 package algebra.operators
 
+import algebra.trees.AlgebraTreeNode
 import common.compiler.Context
 
 /**
   * The root of the algebraic tree between the parsing and full conversion into a relational tree.
   */
-case class Query(matchClause: MatchClause) extends GcoreOperator {
+case class Query(constructClause: ConstructClause, matchClause: MatchClause) extends GcoreOperator {
 
-  children = List(matchClause)
+  children = List(constructClause, matchClause)
 
-  override def checkWithContext(context: Context): Unit =
+  def getConstructClause: AlgebraTreeNode = children.head
+  def getMatchClause: AlgebraTreeNode = children.last
+
+  override def checkWithContext(context: Context): Unit = {
+    constructClause.checkWithContext(context)
     matchClause.checkWithContext(context)
+  }
 }

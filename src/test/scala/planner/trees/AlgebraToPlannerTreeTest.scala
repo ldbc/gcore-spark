@@ -106,9 +106,15 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
     }
   }
 
-  test("Query becomes its first child (before we enable CONSTRUCT and/or PATH clause)") {
+  test("Query becomes the match clause (before we enable CONSTRUCT and/or PATH clause)") {
+    val constructClause =
+      ConstructClause(
+        GraphUnion(Seq.empty),
+        CondConstructClause(Seq.empty),
+        SetClause(Seq.empty),
+        RemoveClause(Seq.empty, Seq.empty))
     val matchClause = MatchClause(CondMatchClause(Seq.empty, True), Seq.empty)
-    val rel = Query(matchClause)
+    val rel = Query(constructClause, matchClause)
     val actual = rewriter rewriteTree rel
     assert(actual == matchClause)
   }

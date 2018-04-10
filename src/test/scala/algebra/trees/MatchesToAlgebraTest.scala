@@ -22,7 +22,7 @@ class MatchesToAlgebraTest extends FunSuite
 
   test("CondMatchClause becomes a Select") {
     val query = "CONSTRUCT () MATCH (c:Cat) WHERE c.weight > 4"
-    val select = rewrite(query).children.head
+    val select = rewrite(query).asInstanceOf[Query].getMatchClause
 
     select should matchPattern {
       case Select(
@@ -101,12 +101,12 @@ class MatchesToAlgebraTest extends FunSuite
   }
 
   private def extractRelationUnderSelect(query: String): RelationLike = {
-    val select = rewrite(query).children.head
+    val select = rewrite(query).asInstanceOf[Query].getMatchClause
     select.children.head.asInstanceOf[RelationLike]
   }
 
   private def extractRelationUnderExists(query: String): RelationLike = {
-    val select = rewrite(query).children.head
+    val select = rewrite(query).asInstanceOf[Query].getMatchClause
     val exists = select.children.last
     exists.children.head.asInstanceOf[RelationLike]
   }

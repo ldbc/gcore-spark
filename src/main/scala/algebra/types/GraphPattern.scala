@@ -54,13 +54,6 @@ case class GraphPattern(topology: Seq[Connection]) extends AlgebraType {
   children = topology
 }
 
-/** Where does the edge point? */
-abstract class ConnectionType extends AlgebraType
-case object InConn extends ConnectionType
-case object OutConn extends ConnectionType
-case object InOutConn extends ConnectionType
-case object UndirectedConn extends ConnectionType
-
 /** Type of path to query for. */
 abstract class PathQuantifier extends AlgebraType
 case class Shortest(qty: Integer, isDistinct: Boolean) extends PathQuantifier {
