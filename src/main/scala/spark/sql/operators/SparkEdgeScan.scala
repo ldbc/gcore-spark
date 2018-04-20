@@ -7,8 +7,9 @@ import planner.operators.Column.{fromIdColumn, idColumn, tableLabelColumn, toIdC
 import planner.operators.EdgeScan
 import planner.target_api.{BindingTable, PhysEdgeScan}
 import schema.Table
+import spark.sql.operators.SqlQueryGen._
 
-case class SparkEdgeScan(edgeScan: EdgeScan) extends PhysEdgeScan(edgeScan) with SqlQueryGen {
+case class SparkEdgeScan(edgeScan: EdgeScan) extends PhysEdgeScan(edgeScan) {
 
   private val edgeBinding: Reference = edgeScan.edgeBinding
   private val fromBinding: Reference = edgeScan.fromBinding
@@ -40,39 +41,34 @@ case class SparkEdgeScan(edgeScan: EdgeScan) extends PhysEdgeScan(edgeScan) with
 
     val addLabelFrom: String =
       s"""
-         | SELECT
-         | "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
-         | ${selectAllPrependRef(fromTable, fromBinding)}
-         | FROM global_temp.$fromTableRef
-       """.stripMargin
+      SELECT
+      "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
+      ${selectAllPrependRef(fromTable, fromBinding)}
+      FROM global_temp.$fromTableRef"""
 
     val addLabelTo: String =
       s"""
-         | SELECT
-         | "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
-         | ${selectAllPrependRef(toTable, toBinding)}
-         | FROM global_temp.$toTableRef
-       """.stripMargin
+      SELECT
+      "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
+      ${selectAllPrependRef(toTable, toBinding)}
+      FROM global_temp.$toTableRef"""
 
     val addLabelEdge: String =
       s"""
-         | SELECT
-         | "$edgeTableRef" AS `$edgeRef$$${tableLabelColumn.columnName}`,
-         | ${selectAllPrependRef(edgeTable, edgeBinding)}
-         | FROM global_temp.$edgeTableRef
-       """.stripMargin
+      SELECT
+      "$edgeTableRef" AS `$edgeRef$$${tableLabelColumn.columnName}`,
+      ${selectAllPrependRef(edgeTable, edgeBinding)}
+      FROM global_temp.$edgeTableRef"""
 
     val joinEdgeOnFrom: String =
       s"""
-         | SELECT * FROM ($addLabelEdge) INNER JOIN ($addLabelFrom) ON
-         | `$edgeRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`
-       """.stripMargin
+      SELECT * FROM ($addLabelEdge) INNER JOIN ($addLabelFrom) ON
+      `$edgeRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`"""
 
     val joinEdgeOnFromAndTo: String =
       s"""
-         | SELECT * FROM ($joinEdgeOnFrom) INNER JOIN ($addLabelTo) ON
-         | `$edgeRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`
-       """.stripMargin
+      SELECT * FROM ($joinEdgeOnFrom) INNER JOIN ($addLabelTo) ON
+      `$edgeRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`"""
 
     SqlQuery(resQuery = joinEdgeOnFromAndTo)
   }

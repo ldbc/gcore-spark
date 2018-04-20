@@ -17,7 +17,7 @@ object PatternsToRelations extends BottomUpRewriter[AlgebraTreeNode] {
       case omp @ ObjectPattern(True, _) =>
         VertexRelation(
           ref = ref,
-          labelRelation = AllRelations(),
+          labelRelation = AllRelations,
           expr = objPattern.children.last.asInstanceOf[AlgebraExpression])
 
       case _ =>
@@ -34,7 +34,7 @@ object PatternsToRelations extends BottomUpRewriter[AlgebraTreeNode] {
       val leftEndpointRel: VertexRelation = e.children(1).asInstanceOf[VertexRelation]
       val rightEndpointRel: VertexRelation = e.children(2).asInstanceOf[VertexRelation]
       val edgeRel: RelationLike = objPattern match {
-        case omp @ ObjectPattern(True, _) => AllRelations()
+        case omp @ ObjectPattern(True, _) => AllRelations
         case _ =>
           val hasLabel: HasLabel = objPattern.children.head.asInstanceOf[HasLabel]
           Relation(label = hasLabel.children.head.asInstanceOf[Label])
@@ -62,7 +62,7 @@ object PatternsToRelations extends BottomUpRewriter[AlgebraTreeNode] {
       val leftEndpointRel: VertexRelation = p.children(1).asInstanceOf[VertexRelation]
       val rightEndpointRel: VertexRelation = p.children(2).asInstanceOf[VertexRelation]
       val pathRel: RelationLike = objPattern match {
-        case omp @ ObjectPattern(True, _) => AllRelations()
+        case omp @ ObjectPattern(True, _) => AllRelations
         case _ =>
           val hasLabel: HasLabel = objPattern.children.head.asInstanceOf[HasLabel]
           Relation(label = hasLabel.children.head.asInstanceOf[Label])

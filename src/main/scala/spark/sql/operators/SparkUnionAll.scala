@@ -3,9 +3,10 @@ package spark.sql.operators
 import org.apache.spark.sql.types.StructType
 import planner.target_api.{BindingTable, PhysUnionAll}
 import planner.trees.TargetTreeNode
+import spark.sql.operators.SqlQueryGen._
 
 case class SparkUnionAll(lhs: TargetTreeNode, rhs: TargetTreeNode)
-  extends PhysUnionAll(lhs, rhs) with SqlQueryGen {
+  extends PhysUnionAll(lhs, rhs) {
 
   override val bindingTable: BindingTable = {
     val lhsBtable: SparkBindingTable = lhs.bindingTable.asInstanceOf[SparkBindingTable]
@@ -16,20 +17,17 @@ case class SparkUnionAll(lhs: TargetTreeNode, rhs: TargetTreeNode)
 
     val unionQuery: String =
       s"""
-         | SELECT ${orderColumnsForUnion(lhsSchema, mergedSchemas)}
-         | FROM (${lhsBtable.btable.resQuery})
-         | UNION ALL
-         | SELECT ${orderColumnsForUnion(rhsSchema, mergedSchemas)}
-         | FROM (${rhsBtable.btable.resQuery})
-       """.stripMargin
+      SELECT ${orderColumnsForUnion(lhsSchema, mergedSchemas)}
+      FROM (${lhsBtable.btable.resQuery})
+      UNION ALL
+      SELECT ${orderColumnsForUnion(rhsSchema, mergedSchemas)}
+      FROM (${rhsBtable.btable.resQuery})"""
 
     val sqlUnionAll: SqlQuery = SqlQuery(resQuery = unionQuery)
 
-    val unifiedSchema: StructType = new StructType(mergedSchemas.toArray)
-
     SparkBindingTable(
       sparkSchemaMap = lhsBtable.schemaMap ++ rhsBtable.schemaMap,
-      sparkBtableSchema = unifiedSchema,
+      sparkBtableSchema = mergedSchemas,
       btableOps = sqlUnionAll)
   }
 }

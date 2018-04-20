@@ -131,10 +131,10 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
       (agg, child) => agg.append(child.treeString(depth + 1))
     }
 
-    s"${prefix(depth)}$self\n$subTrees"
+    s"${prefix(depth)}+ $self\n$subTrees"
   }
 
   def printTree(): Unit = println(treeString())
 
-  protected def prefix(depth: Int): String = "· " * depth
+  protected def prefix(depth: Int): String = "| " * depth
 }

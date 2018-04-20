@@ -3,9 +3,10 @@ package spark.sql.operators
 import org.apache.spark.sql.types.StructType
 import planner.target_api.{BindingTable, PhysJoin}
 import planner.trees.TargetTreeNode
+import spark.sql.operators.SqlQueryGen._
 
 abstract class SparkJoin(lhs: TargetTreeNode, rhs: TargetTreeNode)
-  extends PhysJoin(lhs, rhs) with SqlQueryGen {
+  extends PhysJoin(lhs, rhs) {
 
   def joinTypeSql: String
   def joinCondition: String
@@ -20,10 +21,9 @@ abstract class SparkJoin(lhs: TargetTreeNode, rhs: TargetTreeNode)
 
     val joinQuery: String =
       s"""
-         | SELECT * FROM (${lhsBtable.btable.resQuery})
-         | $joinTypeSql (${rhsBtable.btable.resQuery})
-         | $joinCondition
-       """.stripMargin
+      SELECT * FROM (${lhsBtable.btable.resQuery})
+      $joinTypeSql (${rhsBtable.btable.resQuery})
+      $joinCondition"""
 
     val sqlJoinQuery: SqlQuery = SqlQuery(resQuery = joinQuery)
 

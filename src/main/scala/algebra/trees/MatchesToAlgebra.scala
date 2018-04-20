@@ -25,8 +25,6 @@ import scala.collection.mutable
   * (as per the language specification).
   *
   * A [[CondMatchClause]] is then transformed into a [[Select]] clause.
-  *
-  * // TODO: Add info about other clauses, as they are implemented.
   */
 object MatchesToAlgebra extends BottomUpRewriter[AlgebraTreeNode] {
 

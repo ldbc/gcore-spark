@@ -11,7 +11,7 @@ class RelationLikeTest extends FunSuite {
   }
 
   test("Empty BindingSet for AllRelations") {
-    val relation = AllRelations()
+    val relation = AllRelations
     assert(relation.getBindingSet.refSet.isEmpty)
   }
 

@@ -142,6 +142,90 @@ class ExpressionTreeBuilderTest extends FunSuite
     runTest(query, expected)
   }
 
+  test("WHERE count(*) => Count(Star)") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE count(*)"
+    val expected = Count(distinct = false, Star)
+    runTest(query, expected)
+  }
+
+  test("WHERE count(distinct *) => Count(distinct = true, Star") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE count(distinct *)"
+    val expected = Count(distinct = true, Star)
+    runTest(query, expected)
+  }
+
+  test("WHERE collect(u.prop) => Collect(PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE collect(u.prop)"
+    val expected = Collect(distinct = false, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE collect(distinct u.prop) => Collect(distinct = true, PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE collect(distinct u.prop)"
+    val expected = Collect(distinct = true, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE min(u.prop) => Min(PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE min(u.prop)"
+    val expected = Min(distinct = false, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE min(distinct u.prop) => Min(distinct = true, PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE min(distinct u.prop)"
+    val expected = Min(distinct = true, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE max(u.prop) => Max(PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE max(u.prop)"
+    val expected = Max(distinct = false, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE max(distinct u.prop) => Max(distinct = true, PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE max(distinct u.prop)"
+    val expected = Max(distinct = true, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE avg(u.prop) => Avg(PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE avg(u.prop)"
+    val expected = Avg(distinct = false, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE avg(distinct u.prop) => Avg(distinct = true, PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE avg(distinct u.prop)"
+    val expected = Avg(distinct = true, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE sum(u.prop) => Sum(PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE sum(u.prop)"
+    val expected = Sum(distinct = false, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE sum(distinct u.prop) => Sum(distinct = true, PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE sum(distinct u.prop)"
+    val expected = Sum(distinct = true, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE group_concat(u.prop) => GroupConcat(PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE group_concat(u.prop)"
+    val expected = GroupConcat(distinct = false, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
+  test("WHERE group_concat(distinct u.prop) => GroupConcat(distinct = true, PropRef(u, prop))") {
+    val query = "CONSTRUCT (u) MATCH (u) WHERE group_concat(distinct u.prop)"
+    val expected = GroupConcat(distinct = true, PropertyRef(Reference("u"), PropertyKey("prop")))
+    runTest(query, expected)
+  }
+
   def runTest(query: String, expected: AlgebraExpression): Unit = {
     val algebraTree = parse(query)
 

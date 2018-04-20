@@ -64,3 +64,6 @@ case class ObjectConstructPattern(labelAssignments: AlgebraExpression,
                                   propAssignments: AlgebraExpression) extends AlgebraExpression {
   children = List(labelAssignments, propAssignments)
 }
+
+/** The aggregation start (*) symbol. */
+case object Star extends AlgebraExpression

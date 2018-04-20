@@ -36,7 +36,7 @@ object ConstructTreeBuilder {
       case remove: SpoofaxTreeNode
         if (remove.name == "Property") || (remove.name == "Labels") =>
 
-        val update: GraphUpdate = extractRemoveClause(remove)
+        val update: AlgebraExpression = extractRemoveClause(remove)
         update match {
           case propRemove: PropertyRemove => propRemoves += propRemove
           case labelRemove: LabelRemove => labelRemoves += labelRemove
@@ -70,15 +70,17 @@ object ConstructTreeBuilder {
   private def extractPropertySet(from: SpoofaxBaseTreeNode): PropertySet = {
     from.name match {
       case "SetClause" =>
+        val propertyRef = extractExpression(from.children.head).asInstanceOf[PropertyRef]
+        val expr = extractExpression(from.children.last)
         PropertySet(
-          propertyRef = extractExpression(from.children.head).asInstanceOf[PropertyRef],
-          expr = extractExpression(from.children.last))
+          ref = propertyRef.ref,
+          propAssignment = PropAssignment(propertyRef.propKey, expr))
       case _ => throw QueryParseException(s"Cannot extract SetClause from node type ${from.name}")
     }
   }
 
   /** Extracts a [[PropertyRemove]] or a [[LabelRemove]] from a remove clause node. */
-  private def extractRemoveClause(from: SpoofaxBaseTreeNode): GraphUpdate = {
+  private def extractRemoveClause(from: SpoofaxBaseTreeNode): AlgebraExpression = {
     from.name match {
       case "Property" =>
         PropertyRemove(extractExpression(from.children.head).asInstanceOf[PropertyRef])

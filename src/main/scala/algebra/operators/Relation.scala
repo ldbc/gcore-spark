@@ -7,7 +7,7 @@ import common.compiler.Context
 /**
   * A logical table in the algebraic tree. It is the binding table produced by any
   * [[RelationalOperator]]. All [[RelationLike]]s have a [[BindingSet]] that represents the header
-  * the table.
+  * of the table.
   */
 abstract class RelationLike(bindingSet: BindingSet) extends RelationalOperator {
 
@@ -37,7 +37,13 @@ case class Relation(label: Label) extends RelationLike(BindingSet.empty) {
   * Given that not all variables are labeled upfront in the query, they cannot be assigned a strict
   * [[Relation]] and instead can be any relation in the database.
   */
-case class AllRelations() extends RelationLike(BindingSet.empty)
+case object AllRelations extends RelationLike(BindingSet.empty)
+
+/**
+  * Placeholder for the binding table materialized from the MATCH clause. During the rewriting phase
+  * of the algebraic tree, we don't have access to the actual matched data.
+  */
+case class BindingTable(bset: BindingSet) extends RelationLike(bset)
 
 /**
   * The logical table that contains data for a vertex. It is essentially a wrapper over the G-CORE-

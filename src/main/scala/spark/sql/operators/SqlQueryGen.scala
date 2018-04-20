@@ -7,14 +7,12 @@ import org.apache.commons.text.RandomStringGenerator
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import planner.operators.Column
-import planner.operators.Column.tableLabelColumn
+import planner.operators.Column.{idColumn, tableLabelColumn}
 import planner.trees.TargetTreeNode
 import schema.Table
 
-object SqlQueryGen extends SqlQueryGen
-
 /** Helper methods to create parts of a SQL query. */
-trait SqlQueryGen {
+object SqlQueryGen {
 
   val randomStringLength: Int = 5
   val randomStringGenerator: RandomStringGenerator =
@@ -77,8 +75,8 @@ trait SqlQueryGen {
     * Creates the string for selecting all columns in a schema, except for those that belong to a
     * certain binding.
     */
-  def allColumnsExceptForRef(ref: Reference, mergeSchemas: StructType): String = {
-    mergeSchemas.fields
+  def allColumnsExceptForRef(ref: Reference, schema: StructType): String = {
+    schema.fields
       .map(_.name)
       .filter(!_.startsWith(ref.refName))
       .map(col => s"`$col`")
@@ -106,8 +104,10 @@ trait SqlQueryGen {
     expr match {
       /** Expression leaves */
       case propRef: PropertyRef => s"`${propRef.ref.refName}$$${propRef.propKey.key}`"
-      case StringLiteral(value) => s"'$value'"
+      case StringLiteral(value) =>
+        if (value.startsWith("'") && value.endsWith("'")) value else s"'$value'"
       case IntLiteral(value) => value.toString
+      case Star => "*"
       case True => "True"
       case False => "False"
 
@@ -122,24 +122,46 @@ trait SqlQueryGen {
           selectSchemaMap.keys.toSet.intersect(existsSchemaMap.keys.toSet)
 
         val tempName: String = tempViewAlias
-        val id: String = Column.idColumn.columnName
+        val id: String = idColumn.columnName
         val selectConds: String =
           commonBindings
             .map(ref => s"$selectAlias.`${ref.refName}$$$id` = $tempName.`${ref.refName}$$$id`")
             .mkString(" AND ")
 
         s"""
-           | EXISTS
-           | (SELECT * FROM (${existsBtable.btable.resQuery}) $tempName WHERE $selectConds)
-           """.stripMargin
+        EXISTS
+        (SELECT * FROM (${existsBtable.btable.resQuery}) $tempName WHERE $selectConds)"""
 
-      /** Basic expressions. */
+      /** Particular cases that need to be treated before generic Binary-/UnaryExpression. */
       case e: MathExpression =>
         s"${e.getSymbol}(" +
           s"${expressionToSelectionPred(e.getLhs, selectSchemaMap, selectAlias)}, " +
           s"${expressionToSelectionPred(e.getRhs, selectSchemaMap, selectAlias)})"
       case e: PredicateExpression =>
         s"${expressionToSelectionPred(e.getOperand, selectSchemaMap, selectAlias)} ${e.getSymbol}"
+      // Treat GroupConcat separately, there is no direct Spark equivalent for it.
+      case GroupConcat(distinct, operand) =>
+        if (distinct)
+          s"concat_ws(" +
+            s"',', " +
+            s"collect_list(" +
+            s"DISTINCT ${expressionToSelectionPred(operand, selectSchemaMap, selectAlias)}))"
+        else
+          s"concat_ws(" +
+            s"',', " +
+            s"collect_list(${expressionToSelectionPred(operand, selectSchemaMap, selectAlias)})" +
+            s")"
+      case e: AggregateExpression =>
+        if (e.isDistinct)
+          s"${e.getSymbol}(" +
+            s"DISTINCT ${expressionToSelectionPred(e.getOperand, selectSchemaMap, selectAlias)}" +
+            s")"
+        else
+          s"${e.getSymbol}(" +
+            s"${expressionToSelectionPred(e.getOperand, selectSchemaMap, selectAlias)}" +
+            s")"
+
+      /** Basic expressions. */
       case e: BinaryExpression =>
         s"${expressionToSelectionPred(e.getLhs, selectSchemaMap, selectAlias)} " +
           s"${e.getSymbol} " +
@@ -153,4 +175,7 @@ trait SqlQueryGen {
           s"expression:\n${other.treeString()}")
     }
   }
+
+  def expandExpression(expr: AlgebraTreeNode): String =
+    expressionToSelectionPred(expr, Map.empty, "")
 }

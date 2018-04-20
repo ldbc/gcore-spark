@@ -97,3 +97,13 @@ case class PropAssignments(props: Seq[PropAssignment]) extends AlgebraExpression
 case class PropAssignment(propKey: PropertyKey, expr: AlgebraExpression) extends AlgebraExpression {
   children = List(propKey, expr)
 }
+
+/** Updates the graph by creating a new property for a variable. */
+case class PropertySet(ref: Reference, propAssignment: PropAssignment) extends AlgebraExpression {
+  children = List(ref, propAssignment)
+}
+
+/** Updates the graph by removing a property from a variable. */
+case class PropertyRemove(propertyRef: PropertyRef) extends AlgebraExpression {
+  children = List(propertyRef)
+}

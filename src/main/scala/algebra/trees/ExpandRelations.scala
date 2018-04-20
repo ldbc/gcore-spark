@@ -318,7 +318,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           changed = true
         }
       // Try to update fromRel.ref binding depending on the edge bindings.
-      case AllRelations() =>
+      case AllRelations =>
         val currentBindings: mutable.Set[Label] = restrictedBindings(fromRel.ref)
         val newBindings: mutable.Set[Label] =
           mutable.Set(
@@ -350,7 +350,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           changed = true
         }
       // Try to update this edge's bindings based on the bindings of left and right endpoints.
-      case AllRelations() =>
+      case AllRelations =>
         val currentBindings: mutable.Set[Label] = restrictedBindings(ref)
         val newBindings: mutable.Set[Label] =
           mutable.Set(
@@ -382,7 +382,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           changed = true
         }
       // Try to update toRel.ref binding depending on the edge bindings.
-      case AllRelations() =>
+      case AllRelations =>
         val currentBindings: mutable.Set[Label] = restrictedBindings(toRel.ref)
         val newBindings: mutable.Set[Label] =
           mutable.Set(

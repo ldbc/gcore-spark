@@ -53,7 +53,36 @@ object ExpressionTreeBuilder {
 
       /* TODO: List expressions. */
 
-      /* TODO: Aggregate expressions. */
+      /* Aggregate expressions. */
+      case "Star" => Star
+      case "collect" =>
+        Collect(
+          distinct = from.children.head.name == "Some",
+          expr = extractExpression(from.children.last))
+      case "count" =>
+        Count(
+          distinct = from.children.head.name == "Some",
+          expr = extractExpression(from.children.last))
+      case "min" =>
+        Min(
+          distinct = from.children.head.name == "Some",
+          expr = extractExpression(from.children.last))
+      case "max" =>
+        Max(
+          distinct = from.children.head.name == "Some",
+          expr = extractExpression(from.children.last))
+      case "sum" =>
+        Sum(
+          distinct = from.children.head.name == "Some",
+          expr = extractExpression(from.children.last))
+      case "avg" =>
+        Avg(
+          distinct = from.children.head.name == "Some",
+          expr = extractExpression(from.children.last))
+      case "group-concat" =>
+        GroupConcat(
+          distinct = from.children.head.name == "Some",
+          expr = extractExpression(from.children.last))
 
       /* TODO: Function calls. */
 

@@ -1,6 +1,6 @@
 package algebra.operators
 
-import algebra.expressions.{AlgebraExpression, LabelAssignments, PropertyRef, Reference}
+import algebra.expressions.{LabelRemove, PropertyRemove, PropertySet}
 import common.compiler.Context
 
 /**
@@ -22,22 +22,4 @@ case class RemoveClause(propRemoves: Seq[PropertyRemove], labelRemoves: Seq[Labe
   extends GraphUpdate {
 
   children = propRemoves ++ labelRemoves
-}
-
-/**
-  * Updates the graph by creating a new property for a variable with a value given as an
-  * [[AlgebraExpression]].
-  */
-case class PropertySet(propertyRef: PropertyRef, expr: AlgebraExpression) extends GraphUpdate {
-  children = List(propertyRef, expr)
-}
-
-/** Updates the graph by removing a property from a variable. */
-case class PropertyRemove(propertyRef: PropertyRef) extends GraphUpdate {
-  children = List(propertyRef)
-}
-
-/** Updates the graph by removing a label from a variable. */
-case class LabelRemove(ref: Reference, labelAssignments: LabelAssignments) extends GraphUpdate {
-  children = List(ref, labelAssignments)
 }

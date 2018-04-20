@@ -1,11 +1,11 @@
 package planner.trees
 
-import algebra.expressions.{Label, Reference, True}
+import algebra.expressions.{Label, ObjectConstructPattern, Reference, True}
 import algebra.operators._
 import algebra.types.DefaultGraph
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.FunSuite
-import planner.operators.{BindingTableOp, EdgeScan, PathScan, VertexScan}
+import planner.operators._
 import planner.target_api.TargetPlanner
 import schema.GraphDb
 
@@ -76,5 +76,43 @@ class PlannerToTargetTreeTest extends FunSuite with MockFactory {
     val btableOp = BindingTableOp(select)
     rewriter rewriteTree btableOp
     (mockedTargetPlanner.createPhysSelect _).verify(select).once
+  }
+
+  test("createPhysProject is called for BindingTableOp(Project)") {
+    val project = Project(RelationLike.empty, attributes = Set.empty)
+    val btableOp = BindingTableOp(project)
+    rewriter rewriteTree btableOp
+    (mockedTargetPlanner.createPhysProject _).verify(project).once
+  }
+
+  test("createPhysGroupBy is called for BindingTableOp(GroupBy)") {
+    val groupBy =
+      GroupBy(
+        Reference("foo"),
+        RelationLike.empty,
+        groupingAttributes = Seq.empty,
+        aggregateFunctions = Seq.empty,
+        having = None)
+    val btableOp = BindingTableOp(groupBy)
+    rewriter rewriteTree btableOp
+    (mockedTargetPlanner.createPhysGroupBy _).verify(groupBy).once
+  }
+
+  test("createPhysBindingTable is called for BindingTable") {
+    val bindingTable = BindingTable(bset = BindingSet.empty)
+    rewriter rewriteTree bindingTable
+    (mockedTargetPlanner.createPhysBindingTable _).verify().once
+  }
+
+  test("createPhysVertexCreate is called for VertexCreate") {
+    val bindingTable = BindingTableOp(Select(RelationLike.empty, expr = True))
+    val create =
+      VertexCreate(
+        Reference("v"),
+        bindingTable,
+        expr = ObjectConstructPattern(True, True),
+        setClause = None, removeClause = None)
+    rewriter rewriteTree create
+    (mockedTargetPlanner.createPhysVertexCreate _).verify(create).once
   }
 }

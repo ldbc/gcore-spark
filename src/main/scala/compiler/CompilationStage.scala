@@ -1,6 +1,7 @@
 package compiler
 
 import algebra.trees.AlgebraTreeNode
+import org.apache.spark.sql.DataFrame
 import planner.trees.PlannerTreeNode
 
 /**
@@ -54,8 +55,10 @@ trait PlanningStage extends CompilationStage[AlgebraTreeNode, PlannerTreeNode] {
 /**
   * The step in the compilation pipeline that produces a physical plan from the logical plan and
   * then runs it on the target backend.
+  *
+  * TODO: We need to return a PathPropertyGraph from this stage.
   */
-trait RunTargetCodeStage extends CompilationStage[PlannerTreeNode, Unit] {
+trait RunTargetCodeStage extends CompilationStage[PlannerTreeNode, Seq[DataFrame]] {
 
-  override def runStage(input: PlannerTreeNode): Unit
+  override def runStage(input: PlannerTreeNode): Seq[DataFrame]
 }

@@ -7,9 +7,9 @@ import planner.operators.Column.tableLabelColumn
 import planner.operators.VertexScan
 import planner.target_api.{BindingTable, PhysVertexScan}
 import schema.Table
+import spark.sql.operators.SqlQueryGen._
 
-case class SparkVertexScan(vertexScan: VertexScan)
-  extends PhysVertexScan(vertexScan) with SqlQueryGen {
+case class SparkVertexScan(vertexScan: VertexScan) extends PhysVertexScan(vertexScan) {
 
   private val binding: Reference = vertexScan.binding
   private val tableName: Label = vertexScan.tableName
@@ -20,11 +20,10 @@ case class SparkVertexScan(vertexScan: VertexScan)
     physTable.data.createOrReplaceGlobalTempView(tableName.value)
     val scanQuery: String =
       s"""
-         | SELECT
-         | "${tableName.value}" AS `${binding.refName}$$${tableLabelColumn.columnName}`,
-         | ${selectAllPrependRef(physTable, binding)}
-         | FROM global_temp.${tableName.value}
-       """.stripMargin
+      SELECT
+      "${tableName.value}" AS `${binding.refName}$$${tableLabelColumn.columnName}`,
+      ${selectAllPrependRef(physTable, binding)}
+      FROM global_temp.${tableName.value}"""
     SqlQuery(resQuery = scanQuery)
   }
 

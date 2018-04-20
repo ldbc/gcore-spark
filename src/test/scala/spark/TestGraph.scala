@@ -122,7 +122,7 @@ case class Enemy(id: Int, since: String, fights: Int, fromId: Int, toId: Int)
 case class MadeIn(id: Int, fromId: Int, toId: Int)
 case class ToGourmand(id: Int, hops: Int, fromId: Int, toId: Int, edges: Seq[Int])
 
-/** Helpers to build expected tables in tests. */
+/** Helpers to build expected tables in match tests. */
 case class CatEatsFood(catId: Int, name: String, age: Double, weight: Int, onDiet: Boolean,
                        foodId: Int, brand: String,
                        eatsId: Int, gramsPerDay: Double, fromId: Int, toId: Int)

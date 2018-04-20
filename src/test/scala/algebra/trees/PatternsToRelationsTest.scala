@@ -18,7 +18,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
     val relation = PatternsToRelations rewriteTree vertex
 
     relation should matchPattern {
-      case VertexRelation(Reference("v"), AllRelations(), _) =>
+      case VertexRelation(Reference("v"), AllRelations, _) =>
     }
   }
 
@@ -50,13 +50,13 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
     val relationInConn = PatternsToRelations rewriteTree edgeInConn
 
     relationOutConn should matchPattern {
-      case EdgeRelation(Reference("e"), AllRelations(), _,
+      case EdgeRelation(Reference("e"), AllRelations, _,
       /*fromRel = */ VertexRelation(Reference("v"), _, _),
       /*toRel = */ VertexRelation(Reference("w"), _, _)) =>
     }
 
     relationInConn should matchPattern {
-      case EdgeRelation(Reference("e"), AllRelations(), _,
+      case EdgeRelation(Reference("e"), AllRelations, _,
       /*fromRel = */ VertexRelation(Reference("w"), _, _),
       /*toRel = */ VertexRelation(Reference("v"), _, _)) =>
     }
@@ -116,14 +116,14 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
     val relationInConn = PatternsToRelations rewriteTree pathInConn
 
     relationOutConn should matchPattern {
-      case StoredPathRelation(Reference("p"), /*isReachableTest =*/ false, AllRelations(), _,
+      case StoredPathRelation(Reference("p"), /*isReachableTest =*/ false, AllRelations, _,
       /*fromRel = */ VertexRelation(Reference("v"), _, _),
       /*toRel = */ VertexRelation(Reference("w"), _, _),
       /*costVarDef =*/ None, /*quantifier = */ None) =>
     }
 
     relationInConn should matchPattern {
-      case StoredPathRelation(Reference("p"), /*isReachableTest =*/ false, AllRelations(), _,
+      case StoredPathRelation(Reference("p"), /*isReachableTest =*/ false, AllRelations, _,
       /*fromRel = */ VertexRelation(Reference("w"), _, _),
       /*toRel = */ VertexRelation(Reference("v"), _, _),
       /*costVarDef =*/ None, /*quantifier = */ None) =>

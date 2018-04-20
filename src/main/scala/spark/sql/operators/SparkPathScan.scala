@@ -7,8 +7,9 @@ import planner.operators.Column._
 import planner.operators.PathScan
 import planner.target_api.{BindingTable, PhysPathScan}
 import schema.Table
+import spark.sql.operators.SqlQueryGen._
 
-case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with SqlQueryGen {
+case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) {
 
   private val pathBinding: Reference = pathScan.pathBinding
   private val fromBinding: Reference = pathScan.fromBinding
@@ -51,46 +52,40 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
 
     val addLabelFrom: String =
       s"""
-         | SELECT
-         | "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
-         | ${selectAllPrependRef(fromTable, fromBinding)}
-         | FROM global_temp.$fromTableRef
-       """.stripMargin
+      SELECT
+      "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
+      ${selectAllPrependRef(fromTable, fromBinding)}
+      FROM global_temp.$fromTableRef"""
 
     val addLabelTo: String =
       s"""
-         | SELECT
-         | "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
-         | ${selectAllPrependRef(toTable, toBinding)}
-         | FROM global_temp.$toTableRef
-       """.stripMargin
+      SELECT
+      "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
+      ${selectAllPrependRef(toTable, toBinding)}
+      FROM global_temp.$toTableRef"""
 
     val addLabelPath: String =
       s"""
-         | SELECT
-         | "$pathTableRef" AS `$pathRef$$${tableLabelColumn.columnName}`,
-         | ${selectAllPrependRef(pathTable, pathBinding)}
-         | FROM global_temp.$pathTableRef
-       """.stripMargin
+      SELECT
+      "$pathTableRef" AS `$pathRef$$${tableLabelColumn.columnName}`,
+      ${selectAllPrependRef(pathTable, pathBinding)}
+      FROM global_temp.$pathTableRef"""
 
     val joinPathOnFrom: String =
       s"""
-         | SELECT * FROM ($addLabelPath) INNER JOIN ($addLabelFrom) ON
-         | `$pathRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`
-       """.stripMargin
+      SELECT * FROM ($addLabelPath) INNER JOIN ($addLabelFrom) ON
+      `$pathRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`"""
 
     val joinPathOnFromAndTo: String = {
       if (pathScan.isReachableTest) {
         val reachableTestTempView: String =
           s"""
-             | SELECT * FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
-             | `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`
-          """.stripMargin
+          SELECT * FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
+          `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`"""
 
         s"""
-           | SELECT ${allColumnsExceptForRef(pathBinding, mergedSchemas)}
-           | FROM ($reachableTestTempView)
-         """.stripMargin
+        SELECT ${allColumnsExceptForRef(pathBinding, mergedSchemas)}
+        FROM ($reachableTestTempView)"""
 
       } else {
         val columns: String = {
@@ -102,9 +97,8 @@ case class SparkPathScan(pathScan: PathScan) extends PhysPathScan(pathScan) with
         }
 
         s"""
-           | SELECT $columns FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
-           | `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`
-          """.stripMargin
+        SELECT $columns FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
+        `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`"""
       }
     }
 

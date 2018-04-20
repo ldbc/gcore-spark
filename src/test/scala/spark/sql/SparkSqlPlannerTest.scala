@@ -2,15 +2,19 @@ package spark.sql
 
 import algebra.expressions._
 import algebra.operators._
-import algebra.types.{DefaultGraph, GcoreInteger}
-import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.lit
+import algebra.trees.AlgebraTreeNode
+import algebra.trees.CreateGroupingSets._
+import algebra.types.{DefaultGraph, GroupDeclaration}
+import org.apache.spark.sql.functions.{expr, lit}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import planner.operators.Column._
-import planner.operators.{BindingTableOp, EdgeScan, PathScan, VertexScan}
-import planner.trees.PlannerContext
+import planner.operators._
+import planner.trees.{AlgebraToPlannerTree, PlannerContext}
 import spark._
+
+import scala.collection.immutable
 
 /**
   * Verifies that the [[SparkSqlPlanner]] creates correct [[DataFrame]] binding tables. The tests
@@ -27,11 +31,33 @@ class SparkSqlPlannerTest extends FunSuite
   val graph: SparkGraph = catsGraph(spark)
   val sparkPlanner: SparkSqlPlanner = SparkSqlPlanner(spark)
 
+  val algebraRewriter: AlgebraToPlannerTree = AlgebraToPlannerTree(PlannerContext(db))
+
   val idCol: String = idColumn.columnName
   val fromIdCol: String = fromIdColumn.columnName
   val toIdCol: String = toIdColumn.columnName
   val labelCol: String = tableLabelColumn.columnName
   val edgesCol: String = edgeSeqColumn.columnName
+
+  /** MATCH (c:Cat) */
+  val bindingTableSchema: StructType =
+    StructType(List(
+      StructField(s"c$$$idCol", IntegerType, nullable = false),
+      StructField(s"c$$$labelCol", StringType, nullable = false),
+      StructField("c$name", StringType, nullable = false),
+      StructField("c$age", DoubleType, nullable = false),
+      StructField("c$weight", IntegerType, nullable = false),
+      StructField("c$onDiet", BooleanType, nullable = false)
+    ))
+  val bindingTableData: Seq[Cat] = Seq(coby, hosico, maru, grumpy)
+  val bindingTableRows: Seq[Row] =
+    bindingTableData.map {
+      case Cat(id, name, age, weight, onDiet) => Row(id, "Cat", name, age, weight, onDiet)
+    }
+  val bindingTable: DataFrame =
+    spark.createDataFrame(
+      spark.sparkContext.parallelize(bindingTableRows),
+      bindingTableSchema)
 
   override def beforeAll() {
     super.beforeAll()
@@ -39,12 +65,303 @@ class SparkSqlPlannerTest extends FunSuite
     db.setDefaultGraph("cats graph")
   }
 
+  /************************************ CONSTRUCT *************************************************/
+  test("VertexCreate of bound variable - CONSTRUCT (c) MATCH (c)") {
+    val vertex =
+      vertexCreate(
+        reference = Reference("c"),
+        objConstructPattern = ObjectConstructPattern(True, True),
+        groupingAttributes = Seq(Reference("c")),
+        projectAttributes = Set(Reference("c")),
+        aggregateFunctions = Seq.empty,
+        when = True,
+        setClause =None,
+        removeClause = None)
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val expectedHeader: Seq[String] =
+      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+    compareHeaders(expectedHeader, actualDf)
+
+    val expectedDf =
+      Seq(coby, hosico, maru, grumpy).toDF.withColumn(tableLabelColumn.columnName, lit("Cat"))
+    compareDfs(
+      actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
+      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
+  }
+
+  test("VertexCreate of bound variable, new properties (expr, const, inline, SET) - " +
+    "CONSTRUCT (c {dw := 2 * c.weight}) SET c.constInt := 1 MATCH (c)") {
+    val vertex =
+      vertexCreate(
+        reference = Reference("c"),
+        objConstructPattern =
+          ObjectConstructPattern(
+            labelAssignments = True,
+            propAssignments =
+              PropAssignments(Seq(
+                PropAssignment(
+                  PropertyKey("dw"),
+                  Mul(IntLiteral(2), PropertyRef(Reference("c"), PropertyKey("weight"))))))
+          ),
+        groupingAttributes = Seq(Reference("c")),
+        projectAttributes = Set(Reference("c")),
+        aggregateFunctions = Seq.empty,
+        when = True,
+        setClause =
+          Some(
+            SetClause(Seq(
+              PropertySet(Reference("c"), PropAssignment(PropertyKey("constInt"), IntLiteral(1))))
+            )
+          ),
+        removeClause = None)
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val existingProps: Seq[String] =
+      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+    val newProps: Seq[String] = Seq("c$dw", "c$constInt")
+    val expectedHeader: Seq[String] = existingProps ++ newProps
+
+    compareHeaders(expectedHeader, actualDf)
+
+    val expectedDf =
+      Seq(coby, hosico, maru, grumpy).toDF
+        .withColumn(tableLabelColumn.columnName, lit("Cat"))
+        .withColumn("constInt", lit(1))
+        .withColumn("dw", expr("2 * weight"))
+
+    compareDfs(
+      actualDf.select(
+        s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet",
+        "c$dw", "c$constInt"),
+      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet", "dw", "constInt"))
+  }
+
+  test("VertexCreate of bound variable, remove property and label - " +
+    "CONSTRUCT (c) REMOVE c.onDiet REMOVE c:Cat MATCH (c)") {
+    val vertex =
+      vertexCreate(
+        reference = Reference("c"),
+        objConstructPattern = ObjectConstructPattern(True, True),
+        groupingAttributes = Seq(Reference("c")),
+        projectAttributes = Set(Reference("c")),
+        aggregateFunctions = Seq.empty,
+        when = True,
+        setClause =None,
+        removeClause =
+          Some(
+            RemoveClause(
+              propRemoves = Seq(PropertyRemove(PropertyRef(Reference("c"), PropertyKey("onDiet")))),
+              labelRemoves = Seq(LabelRemove(Reference("c"), LabelAssignments(Seq(Label("Cat")))))
+            )
+          )
+      )
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val expectedHeader: Seq[String] = Seq(s"c$$$idCol", "c$name", "c$age", "c$weight")
+    compareHeaders(expectedHeader, actualDf)
+
+    val expectedDf = Seq(coby, hosico, maru, grumpy).toDF.drop("onDiet")
+    compareDfs(
+      actualDf.select(s"c$$$idCol", "c$name", "c$age", "c$weight"),
+      expectedDf.select(idCol, "name", "age", "weight"))
+  }
+
+  test("VertexCreate of bound variable, filter binding table - " +
+    "CONSTRUCT (c) WHEN c.age >= 5 MATCH (c)") {
+    val vertex =
+      vertexCreate(
+        reference = Reference("c"),
+        objConstructPattern = ObjectConstructPattern(True, True),
+        groupingAttributes = Seq(Reference("c")),
+        projectAttributes = Set(Reference("c")),
+        aggregateFunctions = Seq.empty,
+        when =
+          Gt(
+            PropertyRef(Reference("c"), PropertyKey("age")),
+            IntLiteral(5)),
+        setClause = None,
+        removeClause = None)
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val expectedHeader: Seq[String] =
+      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+    compareHeaders(expectedHeader, actualDf)
+
+    val expectedDf = Seq(maru).toDF.withColumn(tableLabelColumn.columnName, lit("Cat"))
+    compareDfs(
+      actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
+      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
+  }
+
+  test("VertexCreate of unbound variable - CONSTRUCT (x) MATCH (c)") {
+    val vertex =
+      vertexCreate(
+        reference = Reference("x"),
+        objConstructPattern = ObjectConstructPattern(True, True),
+        groupingAttributes = Seq.empty,
+        projectAttributes = Set(Reference("x")),
+        aggregateFunctions = Seq.empty,
+        when = True,
+        setClause =None,
+        removeClause = None)
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val expectedHeader: Seq[String] = Seq(s"x$$$idCol")
+    compareHeaders(expectedHeader, actualDf)
+
+    // Cannot directly compare df's contents, because the monotonically increasing id's are not
+    // necessarily contiguous numbers.
+    assert(actualDf.collect().length == bindingTableData.size)
+  }
+
+  test("VertexCreate of unbound variable, add prop and label - " +
+    "CONSTRUCT (x :XLabel {constInt := 1}) MATCH (c)") {
+    val vertex =
+      vertexCreate(
+        reference = Reference("x"),
+        objConstructPattern =
+          ObjectConstructPattern(
+            labelAssignments = LabelAssignments(Seq(Label("XLabel"))),
+            propAssignments =
+              PropAssignments(Seq(
+                PropAssignment(
+                  PropertyKey("constInt"),
+                  IntLiteral(1))))
+          ),
+        groupingAttributes = Seq.empty,
+        projectAttributes = Set(Reference("x")),
+        aggregateFunctions = Seq.empty,
+        when = True,
+        setClause = None,
+        removeClause = None)
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", s"x$$$labelCol", "x$constInt")
+    compareHeaders(expectedHeader, actualDf)
+
+    val expectedDf =
+      bindingTable
+        .drop(tableLabelColumn.columnName)
+        .withColumn(tableLabelColumn.columnName, lit("XLabel"))
+        .withColumn("constInt", lit(1))
+    compareDfs(
+      actualDf.select(s"x$$$labelCol", "x$constInt"),
+      expectedDf.select(labelCol, "constInt"))
+  }
+
+  test("VertexCreate of unbound variable, GROUP binding table - " +
+    "CONSTRUCT (x GROUP c.onDiet) MATCH (c)") {
+    val vertex =
+      vertexCreate(
+        reference = Reference("x"),
+        objConstructPattern = ObjectConstructPattern(True, True),
+        groupingAttributes = Seq(
+          GroupDeclaration(
+            groupingSets = Seq(PropertyRef(Reference("c"), PropertyKey("onDiet")))
+          )),
+        projectAttributes = Set(Reference("x")),
+        aggregateFunctions = Seq.empty,
+        when = True,
+        setClause =None,
+        removeClause = None)
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val expectedHeader: Seq[String] = Seq(s"x$$$idCol")
+    compareHeaders(expectedHeader, actualDf)
+
+    // Cannot directly compare df's contents, because the monotonically increasing id's are not
+    // necessarily contiguous numbers.
+    assert(actualDf.collect().length == bindingTableData.groupBy(_.onDiet).size)
+  }
+
+  test("VertexCreate of unbound variable, GROUP binding table, aggregate prop - " +
+    "CONSTRUCT (x GROUP c.onDiet {avgw := AVG(c.weight)}) MATCH (c)") {
+    val aggPropName = s"$PROP_AGG_BASENAME-AVG"
+    val vertex =
+      vertexCreate(
+        reference = Reference("x"),
+        objConstructPattern =
+          ObjectConstructPattern(
+            labelAssignments = True,
+            propAssignments =
+              PropAssignments(Seq(
+                PropAssignment(
+                  PropertyKey("avgw"),
+                  PropertyRef(Reference("x"), PropertyKey(aggPropName)))))
+          ),
+        groupingAttributes = Seq(
+          GroupDeclaration(
+            groupingSets = Seq(PropertyRef(Reference("c"), PropertyKey("onDiet")))
+          )),
+        projectAttributes = Set(Reference("x")),
+        aggregateFunctions = Seq(
+          PropertySet(
+            ref = Reference("x"),
+            propAssignment =
+              PropAssignment(
+                PropertyKey(aggPropName),
+                Avg(distinct = false, PropertyRef(Reference("c"), PropertyKey("weight")))
+              ))
+        ),
+        when = True,
+        setClause = None,
+        removeClause =
+          Some(
+            RemoveClause(
+              propRemoves = Seq(
+                PropertyRemove(PropertyRef(Reference("x"), PropertyKey(aggPropName)))),
+              labelRemoves = Seq.empty))
+      )
+    val actualDf = sparkPlanner.constructGraph(bindingTable, Seq(vertex)).head
+
+    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", "x$avgw")
+    compareHeaders(expectedHeader, actualDf)
+
+    val expectedData =
+      bindingTableData
+        .groupBy(_.onDiet)
+        .map {
+          case (_, cats) => cats.map(_.weight).sum / cats.size.toDouble
+        }
+    val actualData =
+      actualDf
+        .select("x$avgw")
+        .collect()
+        .map(row => row(0))
+
+    assert(expectedData.size == actualData.length)
+    assert(expectedData.toSet == actualData.toSet)
+  }
+
+  private def vertexCreate(reference: Reference,
+                           objConstructPattern: ObjectConstructPattern,
+                           groupingAttributes: Seq[AlgebraTreeNode],
+                           projectAttributes: Set[Reference],
+                           aggregateFunctions: Seq[PropertySet],
+                           when: AlgebraExpression,
+                           setClause: Option[SetClause],
+                           removeClause: Option[RemoveClause]): VertexCreate = {
+    val vertexConstructRelation =
+      VertexConstructRelation(
+        reference,
+        relation =
+          processBindingTable(
+            reference, BindingTable(new BindingSet(Reference("c"))), when,
+            groupingAttributes, aggregateFunctions, projectAttributes),
+        expr = objConstructPattern,
+        setClause = setClause,
+        removeClause = removeClause)
+    (algebraRewriter rewriteTree vertexConstructRelation).asInstanceOf[VertexCreate]
+  }
+
+  /************************************** MATCH ***************************************************/
   test("Binding table of VertexScan - (c:Cat)") {
     val scan =
       VertexScan(
         VertexRelation(Reference("c"), Relation(Label("Cat")), True),
         DefaultGraph, PlannerContext(db))
-    val actualDf = sparkPlanner.createBindingTable(scan)
+    val actualDf = sparkPlanner.solveBindingTable(scan)
 
     val expectedHeader: Seq[String] =
       Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
@@ -65,7 +382,7 @@ class SparkSqlPlannerTest extends FunSuite
           fromRel = VertexRelation(Reference("c"), Relation(Label("Cat")), True),
           toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True)),
         DefaultGraph, PlannerContext(db))
-    val actualDf = sparkPlanner.createBindingTable(scan)
+    val actualDf = sparkPlanner.solveBindingTable(scan)
 
     val expectedHeader: Seq[String] =
       Seq(
@@ -101,7 +418,7 @@ class SparkSqlPlannerTest extends FunSuite
           toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True),
           costVarDef = None, quantifier = None),
         DefaultGraph, PlannerContext(db))
-    val actualDf = sparkPlanner.createBindingTable(scan)
+    val actualDf = sparkPlanner.solveBindingTable(scan)
 
     /** isReachableTest = true => p's attributes are not included in the result. */
     val expectedHeader: Seq[String] =
@@ -134,7 +451,7 @@ class SparkSqlPlannerTest extends FunSuite
           toRel = VertexRelation(Reference("f"), Relation(Label("Food")), True),
           costVarDef = Some(Reference("cost")), quantifier = None),
         DefaultGraph, PlannerContext(db))
-    val actualDf = sparkPlanner.createBindingTable(scan)
+    val actualDf = sparkPlanner.solveBindingTable(scan)
 
     /**
       * isReachableTest = false => p's attributes are included in the result
@@ -186,7 +503,7 @@ class SparkSqlPlannerTest extends FunSuite
     val edgeScan2 = EdgeScan(rhs, DefaultGraph, PlannerContext(db))
     val union = UnionAll(lhs, rhs)
     union.children = List(edgeScan1, edgeScan2)
-    val actualDf = sparkPlanner.createBindingTable(BindingTableOp(union))
+    val actualDf = sparkPlanner.solveBindingTable(BindingTableOp(union))
 
     /**
       * [[tableLabelColumn]], [[idColumn]], [[fromIdColumn]], [[toIdColumn]] and "since" are common
@@ -229,7 +546,7 @@ class SparkSqlPlannerTest extends FunSuite
     val vertexScan = VertexScan(rhs, DefaultGraph, PlannerContext(db))
     val join = InnerJoin(lhs, rhs)
     join.children = List(edgeScan, vertexScan)
-    val actualDf = sparkPlanner.createBindingTable(BindingTableOp(join))
+    val actualDf = sparkPlanner.solveBindingTable(BindingTableOp(join))
 
     val expectedHeader: Seq[String] =
       Seq(
@@ -264,7 +581,7 @@ class SparkSqlPlannerTest extends FunSuite
     val rhsScan = VertexScan(rhs, DefaultGraph, PlannerContext(db))
     val join = CrossJoin(lhs, rhs)
     join.children = List(lhsScan, rhsScan)
-    val actualDf = sparkPlanner.createBindingTable(BindingTableOp(join))
+    val actualDf = sparkPlanner.solveBindingTable(BindingTableOp(join))
 
     val expectedHeader: Seq[String] =
       Seq(s"f$$$labelCol", s"f$$$idCol", "f$brand", s"c$$$labelCol", s"c$$$idCol", "c$name")
@@ -296,7 +613,7 @@ class SparkSqlPlannerTest extends FunSuite
     val edgeScan = EdgeScan(rhs, DefaultGraph, PlannerContext(db))
     val join = LeftOuterJoin(lhs, rhs)
     join.children = List(vertexScan, edgeScan)
-    val actualDf = sparkPlanner.createBindingTable(BindingTableOp(join))
+    val actualDf = sparkPlanner.solveBindingTable(BindingTableOp(join))
 
     val expectedHeader: Seq[String] =
       Seq(
@@ -330,7 +647,7 @@ class SparkSqlPlannerTest extends FunSuite
     val scan = VertexScan(relation, DefaultGraph, PlannerContext(db))
     val select = Select(relation, expr)
     select.children = List(scan, expr)
-    val actualDf = sparkPlanner.createBindingTable(BindingTableOp(select))
+    val actualDf = sparkPlanner.solveBindingTable(BindingTableOp(select))
 
     val expectedHeader: Seq[String] =
       Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")

@@ -1,19 +1,19 @@
 package spark.sql
 
 import algebra.expressions._
-import algebra.types.{GcoreInteger, GcoreString, GraphPattern}
+import algebra.types.GraphPattern
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import planner.operators.VertexScan
 import planner.target_api.BindingTable
 import planner.trees.TargetTreeNode
 import spark.SparkSessionTestWrapper
-import spark.sql.operators.{SparkBindingTable, SparkVertexScan, SqlQuery, SqlQueryGen}
+import spark.sql.operators.SqlQueryGen.{expandExpression, expressionToSelectionPred}
+import spark.sql.operators.{SparkBindingTable, SqlQuery, SqlQueryGen}
 
 /**
   * Validates that the SQL filtering expressions built by
-  * [[SqlQueryGen.expressionToSelectionPred()]] can be run through a Spark SQL query. We use a dummy
+  * [[SqlQueryGen.expandExpression]] can be run through a Spark SQL query. We use a dummy
   * [[DataFrame]] table to test the expressions, whose header mimics that of a binding table's
   * (column names begin with variable name followed by a dollar sign) - this allows us to test the
   * [[PropertyRef]] expression as well.
@@ -80,6 +80,7 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
   testsFor(mathExpressions())
   testsFor(predicateExpressions())
   testsFor(logicalExpressions())
+  testsFor(aggregateExpressions())
   testsFor(unaryExpressions())
   testsFor(exists())
 
@@ -207,6 +208,50 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
     gcoreExpressions foreach { testCase => testCase.runTestCase() }
   }
 
+  def aggregateExpressions(): Unit = {
+    val gcoreExpressions: Seq[AggTestCase] =
+      Seq(
+        AggTestCase(
+          "[Collect] group_by(v.aBool), collect(v.aString)",
+          Collect(distinct = false, PropertyRef(Reference("v"), PropertyKey("aString"))),
+          Seq(/*true, null omitted =>*/ Seq("foo"), /*false => */ Seq("bar", "baz"))),
+        AggTestCase(
+          "[Count] group_by(v.aBool), count(*)",
+          Count(distinct = false, Star),
+          Seq(/*true, null counted =>*/ 2, /*false => */ 2)),
+        AggTestCase(
+          "[Count distinct] group_by(v.aBool), count(distinct v.anInt)",
+          Count(distinct = true, PropertyRef(Reference("v"), PropertyKey("anInt"))),
+          Seq(/*true =>*/ 2, /*false => */ 2)),
+        AggTestCase(
+          "[Min] group_by(v.aBool), min(v.anInt)",
+          Min(distinct = false, PropertyRef(Reference("v"), PropertyKey("anInt"))),
+          Seq(/*true =>*/ 0, /*false => */ 1)),
+        AggTestCase(
+          "[Max] group_by(v.aBool), max(v.anInt)",
+          Max(distinct = false, PropertyRef(Reference("v"), PropertyKey("anInt"))),
+          Seq(/*true =>*/ 3, /*false => */ 2)),
+        AggTestCase(
+          "[Sum] group_by(v.aBool), sum(v.anInt)",
+          Sum(distinct = false, PropertyRef(Reference("v"), PropertyKey("anInt"))),
+          Seq(/*true =>*/ 3, /*false => */ 3)),
+        AggTestCase(
+          "[Avg] group_by(v.aBool), avg(v.anInt)",
+          Avg(distinct = false, PropertyRef(Reference("v"), PropertyKey("anInt"))),
+          Seq(/*true =>*/ 1.5, /*false => */ 1.5)),
+        AggTestCase(
+          "[GroupConcat] group_by(v.aBool), group_concat(v.aString)",
+          GroupConcat(distinct = false, PropertyRef(Reference("v"), PropertyKey("aString"))),
+          Seq(/*true =>*/ "foo", /*false => */ "bar,baz")),
+        AggTestCase(
+          "[GroupConcat distinct] group_by(v.aBool), group_concat(distinct v.aString)",
+          GroupConcat(distinct = true, PropertyRef(Reference("v"), PropertyKey("aString"))),
+          Seq(/*true =>*/ "foo", /*false => */ "bar,baz"))
+      )
+
+    gcoreExpressions foreach { testCase => testCase.runTestCase() }
+  }
+
   def unaryExpressions(): Unit = {
     val gcoreExpressions: Seq[TestCase] =
       Seq(
@@ -277,8 +322,7 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
 
     def runTestCase(): Unit = {
       test(s"Validate expressionToSelectionPred - $strExpr") {
-        val exprStr =
-          SqlQueryGen.expressionToSelectionPred(expr, Map(Reference("v") -> vschema), "v")
+        val exprStr = expressionToSelectionPred(expr, Map(Reference("v") -> vschema), "v")
         val queryExpr = s"SELECT * FROM vTable v WHERE $exprStr"
         val actualDf = spark.sql(queryExpr)
         val expectedDf =
@@ -287,6 +331,20 @@ class SqlQueryGenTest extends FunSuite with BeforeAndAfterAll with SparkSessionT
         compareDfs(
           actualDf.select("v$id", "v$aString", "v$anInt", "v$aBool"),
           expectedDf.select("v$id", "v$aString", "v$anInt", "v$aBool"))
+      }
+    }
+  }
+
+  sealed case class AggTestCase(strExpr: String, expr: AlgebraExpression, expected: Seq[Any]) {
+
+    def runTestCase(): Unit = {
+      test(s"Validate expressionToSelectionPred - $strExpr") {
+        val exprStr = expandExpression(expr)
+        val queryExpr = s"SELECT $exprStr AS resCol FROM vTable v GROUP BY `v$$aBool`"
+        val actual = spark.sql(queryExpr).collect().map(_(0))
+
+        assert(actual.length == expected.size)
+        assert(actual.toSet == expected.toSet)
       }
     }
   }

@@ -26,7 +26,9 @@ object GcoreRunner {
     val compiler: Compiler = GcoreCompiler(CompileContext(graphDb, spark.newSession()))
     compiler.compile(
       """
-        | CONSTRUCT () MATCH (c:Cat)
+        | CONSTRUCT (x GROUP c.onDiet {avgWeight := AVG(c.weight)})
+        | SET x.numCats := COUNT(*)
+        | MATCH (c:Cat)
       """.stripMargin)
   }
 }

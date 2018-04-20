@@ -93,3 +93,10 @@ case class LabelAssignments(labels: Seq[Label]) extends AlgebraExpression {
 
   children = labels
 }
+
+/** Updates the graph by removing a label from a variable. */
+case class LabelRemove(ref: Reference, labelAssignments: LabelAssignments)
+  extends AlgebraExpression {
+
+  children = List(ref, labelAssignments)
+}

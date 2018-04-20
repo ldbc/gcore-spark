@@ -151,11 +151,11 @@ class ConstructTreeBuilderTest extends FunSuite
         assert(propSets.toSet ==
           Set(
             PropertySet(
-              PropertyRef(Reference("n"), PropertyKey("prop1")),
-              Reference("value1")),
+              Reference("n"),
+              PropAssignment(PropertyKey("prop1"), Reference("value1"))),
             PropertySet(
-              PropertyRef(Reference("n"), PropertyKey("prop2")),
-              Reference("value2"))
+              Reference("n"),
+              PropAssignment(PropertyKey("prop2"), Reference("value2")))
           ))
     }
   }
