@@ -21,7 +21,7 @@ case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewrite
 
       val condConstruct = q.getConstructClause.children(1)
       CreateGraph(
-        matchClause = q.getMatchClause,
+        matchClause = q.getMatchClause.asInstanceOf[PlannerTreeNode],
         constructClauses = condConstruct.children.map(_.asInstanceOf[PlannerTreeNode]))
   }
 

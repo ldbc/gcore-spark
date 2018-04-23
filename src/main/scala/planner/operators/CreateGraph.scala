@@ -8,7 +8,7 @@ import planner.trees.PlannerTreeNode
   * The operation of building a new graph from a rewritten [[MatchClause]] clause and all the
   * rewritten [[BasicConstructClause]]s.
   */
-case class CreateGraph(matchClause: AlgebraTreeNode,
+case class CreateGraph(matchClause: PlannerTreeNode,
                        constructClauses: Seq[PlannerTreeNode]) extends PlannerTreeNode {
 
   children = matchClause +: constructClauses

@@ -168,7 +168,10 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
         SetClause(Seq.empty),
         RemoveClause(Seq.empty, Seq.empty))
     val matchClause = MatchClause(CondMatchClause(Seq.empty, True), Seq.empty)
+    val bindingTableOp =
+      BindingTableOp(Select(relation = RelationLike.empty, expr = True, bindingSet = None))
     val query = Query(constructClause, matchClause)
+    query.children = List(constructClause, bindingTableOp)
 
     val vertexCreate =
       VertexCreate(
@@ -177,7 +180,7 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
         expr = ObjectConstructPattern(True, True),
         setClause = None, removeClause = None)
 
-    val createGraph = CreateGraph(matchClause, constructClauses = Seq(vertexCreate))
+    val createGraph = CreateGraph(bindingTableOp, constructClauses = Seq(vertexCreate))
     val actual = rewriter rewriteTree query
     assert(actual == createGraph)
   }
