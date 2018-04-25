@@ -272,7 +272,7 @@ object ConstructTreeBuilder {
   private def extractObjectConstructPattern(from: SpoofaxBaseTreeNode): ObjectConstructPattern = {
     from.name match {
       case "Some" => extractObjectConstructPattern(from.children.head)
-      case "None" => ObjectConstructPattern(True, True)
+      case "None" => ObjectConstructPattern(LabelAssignments(Seq.empty), PropAssignments(Seq.empty))
       case "ObjectConstructPattern" =>
         val labelAssignments = from.children.head
         val propAssignments = from.children.last
@@ -285,9 +285,9 @@ object ConstructTreeBuilder {
     }
   }
 
-  private def extractLabelAssignments(from: SpoofaxBaseTreeNode): AlgebraExpression = {
+  private def extractLabelAssignments(from: SpoofaxBaseTreeNode): LabelAssignments = {
     from.name match {
-      case "None" => True
+      case "None" => LabelAssignments(Seq.empty)
       case "Some" => extractLabelAssignments(from.children.head)
       case "Labels" => LabelAssignments(from.children.map(extractExpression(_).asInstanceOf[Label]))
       case _ =>
@@ -295,9 +295,9 @@ object ConstructTreeBuilder {
     }
   }
 
-  private def extractPropAssignments(from: SpoofaxBaseTreeNode): AlgebraExpression = {
+  private def extractPropAssignments(from: SpoofaxBaseTreeNode): PropAssignments = {
     from.name match {
-      case "None" => True
+      case "None" => PropAssignments(Seq.empty)
       case "Some" => extractPropAssignments(from.children.head)
       case "Props" =>
         /** The first and last child of the Props node are { and }, respectively. */

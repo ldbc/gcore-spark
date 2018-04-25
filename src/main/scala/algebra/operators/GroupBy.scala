@@ -30,7 +30,8 @@ case class GroupBy(reference: Reference, // The entity for which we group
                    groupingAttributes: Seq[AlgebraTreeNode], // Reference or GroupDeclaration
                    aggregateFunctions: Seq[PropertySet],
                    having: Option[AlgebraExpression] = None)
-  extends UnaryOperator(relation, bindingSet = Some(new BindingSet(reference))) {
+  extends UnaryOperator(
+    relation, bindingSet = Some(relation.getBindingSet ++ new BindingSet(reference))) {
 
   children = (reference +: relation +: groupingAttributes) ++ aggregateFunctions ++ having.toList
 

@@ -3,35 +3,32 @@ package algebra.trees
 import algebra.expressions._
 import algebra.operators._
 import algebra.trees.CreateGroupingSets.PROP_AGG_BASENAME
-import algebra.types.{ConstructPattern, GroupDeclaration, VertexConstruct}
-import org.scalatest.{FunSuite, Inside, Matchers}
+import algebra.types._
+import org.scalatest.{FunSuite, Matchers}
 import parser.utils.VarBinder
 import schema.GraphDb
 
-class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
+class CreateGroupingSetsTest extends FunSuite with Matchers {
 
   /**
-    *                 +---+
-    *                 | c |
-    * bindingTable =  +---+
-    *                 |...|
+    *                 +---+---+---+
+    *                 | c | e | f |
+    * bindingTable =  +---+---+---+
+    *                 |...|...|...|
     */
-  private val bindingTable: BindingTable = BindingTable(new BindingSet(Reference("c")))
+  private val bindingTable: BindingTable =
+    BindingTable(new BindingSet(Reference("c"), Reference("e"), Reference("f")))
 
   private val bindingContext: BindingContext =
     BindingContext(
-      vertexBindings = Set(Reference("c")),
-      edgeBindings = Set.empty,
+      vertexBindings = Set(Reference("c"), Reference("f")),
+      edgeBindings = Set(ReferenceTuple(Reference("e"), Reference("c"), Reference("f"))),
       pathBindings = Set.empty)
 
   private val rewriter: CreateGroupingSets =
     CreateGroupingSets(
       AlgebraContext(GraphDb.empty, bindingToGraph = None, bindingContext = Some(bindingContext)))
 
-  private val emptyObjConstruct: ObjectConstructPattern =
-    ObjectConstructPattern(
-      propAssignments = PropAssignments(Seq.empty),
-      labelAssignments = LabelAssignments(Seq.empty))
   private val emptySetClause: SetClause = SetClause(Seq.empty)
   private val emptyRemoveClause: RemoveClause =
     RemoveClause(labelRemoves = Seq.empty, propRemoves = Seq.empty)
@@ -41,28 +38,12 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
       vertexConstruct(
         reference = Reference("c"),
         groupDeclaration = None,
-        objConstructPattern = emptyObjConstruct,
+        objConstructPattern = ObjectConstructPattern.empty,
         when = True,
         setClause = emptySetClause,
         removeClause = emptyRemoveClause)
 
-    val expected =
-      VertexConstructRelation(
-        Reference("c"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("c"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq(Reference("c")),
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("c"))),
-        expr = emptyObjConstruct,
-        setClause = None,
-        removeClause = None)
-
+    val expected = matchedVertex(reference = Reference("c"))
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
   }
@@ -86,21 +67,9 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
         removeClause = emptyRemoveClause)
 
     val expected =
-      VertexConstructRelation(
-        Reference("c"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("c"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq(Reference("c")),
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("c"))),
-        expr = objectConstructPattern,
-        setClause = None,
-        removeClause = None)
+      matchedVertex(
+        reference = Reference("c"),
+        objectConstructPattern = objectConstructPattern)
 
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
@@ -115,27 +84,16 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
       vertexConstruct(
         reference = Reference("c"),
         groupDeclaration = None,
-        objConstructPattern = emptyObjConstruct,
+        objConstructPattern = ObjectConstructPattern.empty,
         when = True,
         setClause = SetClause(Seq(prop1, prop2, prop3)),
         removeClause = emptyRemoveClause)
 
     val expected =
-      VertexConstructRelation(
-        Reference("c"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("c"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq(Reference("c")),
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("c"))),
-        expr = emptyObjConstruct,
-        setClause = Some(SetClause(Seq(prop1, prop2))),
-        removeClause = None)
+      matchedVertex(
+        reference = Reference("c"),
+        setClause = Some(SetClause(Seq(prop1, prop2)))
+      )
 
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
@@ -151,7 +109,7 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
       vertexConstruct(
         reference = Reference("c"),
         groupDeclaration = None,
-        objConstructPattern = emptyObjConstruct,
+        objConstructPattern = ObjectConstructPattern.empty,
         when = True,
         setClause = emptySetClause,
         removeClause =
@@ -161,25 +119,10 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
       )
 
     val expected =
-      VertexConstructRelation(
-        Reference("c"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("c"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq(Reference("c")),
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("c"))),
-        expr = emptyObjConstruct,
-        setClause = None,
-        removeClause = Some(
-          RemoveClause(
-            propRemoves = Seq(prop1),
-            labelRemoves = Seq(label1))
-        ))
+      matchedVertex(
+        reference = Reference("c"),
+        removeClause = Some(RemoveClause(propRemoves = Seq(prop1), labelRemoves = Seq(label1)))
+      )
 
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
@@ -192,27 +135,15 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
       vertexConstruct(
         reference = Reference("c"),
         groupDeclaration = None,
-        objConstructPattern = emptyObjConstruct,
+        objConstructPattern = ObjectConstructPattern.empty,
         when = condition,
         setClause = emptySetClause,
         removeClause = emptyRemoveClause)
 
     val expected =
-      VertexConstructRelation(
-        Reference("c"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("c"),
-                relation = Select(bindingTable, condition),
-                groupingAttributes = Seq(Reference("c")),
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("c"))),
-        expr = emptyObjConstruct,
-        setClause = None,
-        removeClause = None)
+      matchedVertex(
+        reference = Reference("c"),
+        when = condition)
 
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
@@ -223,27 +154,12 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
       vertexConstruct(
         reference = Reference("x"),
         groupDeclaration = None,
-        objConstructPattern = emptyObjConstruct,
+        objConstructPattern = ObjectConstructPattern.empty,
         when = True,
         setClause = emptySetClause,
         removeClause = emptyRemoveClause)
 
-    val expected =
-      VertexConstructRelation(
-        Reference("x"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("x"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq.empty,
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("x"))),
-        expr = emptyObjConstruct,
-        setClause = None,
-        removeClause = None)
+    val expected = unmatchedVertexNoGrouping(reference = Reference("x"))
 
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
@@ -251,32 +167,20 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
 
   test("Create vertex from unbound variable, GROUPing attributes are passed to GroupBy - " +
     "CONSTRUCT (x GROUP c.prop1)") {
-    val groupDeclaration = GroupDeclaration(Seq(PropertyRef(Reference("c"), PropertyKey("prop1"))))
+    val groupingProps = Seq(PropertyRef(Reference("c"), PropertyKey("prop1")))
     val algebraTree =
       vertexConstruct(
         reference = Reference("x"),
-        groupDeclaration = Some(groupDeclaration),
-        objConstructPattern = emptyObjConstruct,
+        groupDeclaration = Some(GroupDeclaration(groupingProps)),
+        objConstructPattern = ObjectConstructPattern.empty,
         when = True,
         setClause = emptySetClause,
         removeClause = emptyRemoveClause)
 
     val expected =
-      VertexConstructRelation(
-        Reference("x"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("x"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq(groupDeclaration),
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("x"))),
-        expr = emptyObjConstruct,
-        setClause = None,
-        removeClause = None)
+      unmatchedVertexGrouping(
+        reference = Reference("x"),
+        groupingProps = groupingProps)
 
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
@@ -311,21 +215,10 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
         removeClause = emptyRemoveClause)
 
     val expected =
-      VertexConstructRelation(
-        Reference("x"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("x"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq.empty,
-                aggregateFunctions = Seq.empty,
-                having = None),
-            attributes = Set(Reference("x"), Reference("c"), Reference("f"))),
-        expr = objConstructPattern,
-        setClause = Some(setClause),
-        removeClause = None)
+      unmatchedVertexNoGrouping(
+        reference = Reference("x"),
+        objectConstructPattern = objConstructPattern,
+        setClause = Some(setClause))
 
     val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
     assert(actual == expected)
@@ -333,14 +226,15 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
 
   test("Create vertex from unbound variable, aggregates are passed to GroupBy and replaced with " +
     "a PropertyRef inline or in SET - " +
-    "CONSTRUCT (x {prop1 := AVG(c.prop1)}) SET x.prop2 := MIN(c.prop2)") {
+    "CONSTRUCT (x GROUP c.prop3 {prop1 := AVG(c.prop1)}) SET x.prop2 := MIN(c.prop2)") {
     VarBinder.reset()
+    val groupingProps = Seq(PropertyRef(Reference("c"), PropertyKey("prop3")))
     val avg = Avg(distinct = false, PropertyRef(Reference("c"), PropertyKey("prop1")))
     val min = Min(distinct = false, PropertyRef(Reference("c"), PropertyKey("prop2")))
     val algebraTree =
       vertexConstruct(
         reference = Reference("x"),
-        groupDeclaration = None,
+        groupDeclaration = Some(GroupDeclaration(groupingProps)),
         objConstructPattern =
           ObjectConstructPattern(
             labelAssignments = LabelAssignments(Seq.empty),
@@ -354,28 +248,19 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
     val avgPropAlias = PropertyKey(s"${PROP_AGG_BASENAME}_0")
     val minPropAlias = PropertyKey(s"${PROP_AGG_BASENAME}_1")
     val expected =
-      VertexConstructRelation(
-        Reference("x"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("x"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq.empty,
-                aggregateFunctions = Seq(
-                  PropertySet(Reference("x"), PropAssignment(avgPropAlias, avg)),
-                  PropertySet(Reference("x"), PropAssignment(minPropAlias, min))),
-                having = None),
-            attributes = Set(Reference("x"))),
-        expr =
+      unmatchedVertexGrouping(
+        reference = Reference("x"),
+        groupingProps = groupingProps,
+        aggregateFunctions = Seq(
+          PropertySet(Reference("x"), PropAssignment(avgPropAlias, avg)),
+          PropertySet(Reference("x"), PropAssignment(minPropAlias, min))),
+        objectConstructPattern =
           ObjectConstructPattern(
             labelAssignments = LabelAssignments(Seq.empty),
             propAssignments =
               PropAssignments(Seq(
                 PropAssignment(PropertyKey("prop1"), PropertyRef(Reference("x"), avgPropAlias))
-              ))
-          ),
+              ))),
         setClause = Some(
           SetClause(Seq(
             PropertySet(
@@ -395,8 +280,10 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
   }
 
   test("Create vertex from unbound variable, nested aggregations are passed to the GroupBy - " +
-    "CONSTRUCT (x {prop0 := COUNT(*), prop1 := 1 + COUNT(*)}) SET x.prop2 := COUNT(*)") {
+    "CONSTRUCT (x GROUP c.prop3 {prop0 := COUNT(*), prop1 := 1 + COUNT(*)}) " +
+    "SET x.prop2 := COUNT(*)") {
     VarBinder.reset()
+    val groupingProps = Seq(PropertyRef(Reference("c"), PropertyKey("prop3")))
     val prop0 = PropertyKey("prop0")
     val prop1 = PropertyKey("prop1")
     val prop2 = PropertyKey("prop2")
@@ -411,7 +298,7 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
     val algebraTree =
       vertexConstruct(
         reference = Reference("x"),
-        groupDeclaration = None,
+        groupDeclaration = Some(GroupDeclaration(groupingProps)),
         objConstructPattern =
           ObjectConstructPattern(
             labelAssignments = LabelAssignments(Seq.empty),
@@ -425,22 +312,14 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
         removeClause = emptyRemoveClause)
 
     val expected =
-      VertexConstructRelation(
-        Reference("x"),
-        relation =
-          Project(
-            relation =
-              GroupBy(
-                reference = Reference("x"),
-                relation = Select(bindingTable, True),
-                groupingAttributes = Seq.empty,
-                aggregateFunctions = Seq(
-                  PropertySet(Reference("x"), PropAssignment(aggProp0, count)),
-                  PropertySet(Reference("x"), PropAssignment(aggProp1, onePlusCount)),
-                  PropertySet(Reference("x"), PropAssignment(aggProp2, count))),
-                having = None),
-            attributes = Set(Reference("x"))),
-        expr =
+      unmatchedVertexGrouping(
+        reference = Reference("x"),
+        groupingProps = groupingProps,
+        aggregateFunctions = Seq(
+          PropertySet(Reference("x"), PropAssignment(aggProp0, count)),
+          PropertySet(Reference("x"), PropAssignment(aggProp1, onePlusCount)),
+          PropertySet(Reference("x"), PropAssignment(aggProp2, count))),
+        objectConstructPattern =
           ObjectConstructPattern(
             labelAssignments = LabelAssignments(Seq.empty),
             propAssignments =
@@ -469,32 +348,191 @@ class CreateGroupingSetsTest extends FunSuite with Inside with Matchers {
     assert(actual == expected)
   }
 
+  test("Edge is created from inner-joining the binding table with endpoints' constructs. Edge " +
+    "and endpoints are unbound, to simplify their relations.") {
+    val algebraTree =
+      edgeConstruct(
+        reference = Reference("e_0"), // unmatched
+        leftConstruct =
+          VertexConstruct(
+            ref = Reference("c_0"), // unmatched
+            copyPattern = None,
+            groupDeclaration = None,
+            expr = ObjectConstructPattern.empty),
+        rightConstruct =
+          VertexConstruct(
+            ref = Reference("f_0"), // unmatched
+            copyPattern = None,
+            groupDeclaration = None,
+            expr = ObjectConstructPattern.empty),
+        groupDeclaration = None,
+        objConstructPattern = ObjectConstructPattern.empty,
+        when = True,
+        setClause = emptySetClause,
+        removeClause = emptyRemoveClause)
+
+    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+
+    actual should matchPattern {
+      case
+        EdgeConstructRelation(
+          Reference("e_0"),
+          Project(
+            EntityConstructRelation(
+              Reference("e_0"),
+              /*isMatchedRef =*/ _,
+              AddColumn(
+                Reference("e_0"),
+                InnerJoin(
+                  InnerJoin(
+                    /*lhs =*/ Select(`bindingTable`, _, _),
+                    /*rhs =*/ EntityConstructRelation(Reference("c_0"), _, _, _, _, _, _),
+                    /*bset =*/ _),
+                  /*rhs =*/ EntityConstructRelation(Reference("f_0"), _, _, _, _, _, _),
+                  /*bset =*/ _)),
+              /*groupedAttributes =*/ _,
+              /*expr =*/ _,
+              /*setClause =*/ _,
+              /*removeClause =*/ _),
+            /*attributes =*/ _),
+          /*leftReference =*/ Reference("c_0"),
+          /*rightReference =*/ Reference("f_0"),
+          /*connType =*/ OutConn) =>
+    }
+  }
+
   private def vertexConstruct(reference: Reference,
                               groupDeclaration: Option[GroupDeclaration],
                               objConstructPattern: ObjectConstructPattern,
                               when: AlgebraExpression,
                               setClause: SetClause,
                               removeClause: RemoveClause): ConstructClause = {
+    constructClauseWithTopology(
+      topology = Seq(
+        VertexConstruct(
+          reference,
+          copyPattern = None,
+          groupDeclaration,
+          expr = objConstructPattern)),
+      when, setClause, removeClause)
+  }
+
+  private def edgeConstruct(reference: Reference,
+                            leftConstruct: VertexConstruct,
+                            rightConstruct: VertexConstruct,
+                            groupDeclaration: Option[GroupDeclaration],
+                            objConstructPattern: ObjectConstructPattern,
+                            when: AlgebraExpression,
+                            setClause: SetClause,
+                            removeClause: RemoveClause): ConstructClause = {
+    constructClauseWithTopology(
+      topology = Seq(
+        EdgeConstruct(
+          connName = reference,
+          connType = OutConn,
+          leftEndpoint = leftConstruct,
+          rightEndpoint = rightConstruct,
+          copyPattern = None,
+          groupDeclaration,
+          expr = objConstructPattern)),
+      when, setClause, removeClause)
+  }
+
+  private def constructClauseWithTopology(topology: Seq[ConnectionConstruct],
+                                          when: AlgebraExpression,
+                                          setClause: SetClause,
+                                          removeClause: RemoveClause): ConstructClause = {
     ConstructClause(
       graphs = GraphUnion(Seq.empty),
       CondConstructClause(
         condConstructs = Seq(
           BasicConstructClause(
-            constructPattern =
-              ConstructPattern(
-                topology = Seq(
-                  VertexConstruct(
-                    reference,
-                    copyPattern = None,
-                    groupDeclaration,
-                    expr = objConstructPattern))),
+            ConstructPattern(topology),
             when
           ))
       ),
       setClause, removeClause)
   }
 
+  private def matchedVertex(reference: Reference,
+                            objectConstructPattern: ObjectConstructPattern =
+                            ObjectConstructPattern.empty,
+                            setClause: Option[SetClause] = None,
+                            removeClause: Option[RemoveClause] = None,
+                            when: AlgebraExpression = True): VertexConstructRelation = {
+    VertexConstructRelation(
+      reference,
+      Project(
+        EntityConstructRelation(
+          reference,
+          isMatchedRef = true,
+          GroupBy(
+            reference,
+            relation = Select(bindingTable, when),
+            groupingAttributes = Seq(reference),
+            aggregateFunctions = Seq.empty,
+            having = None),
+          groupedAttributes = Seq.empty,
+          expr = objectConstructPattern,
+          setClause,
+          removeClause),
+        attributes = Set(reference)))
+  }
+
+  private def unmatchedVertexNoGrouping(reference: Reference,
+                                        objectConstructPattern: ObjectConstructPattern =
+                                        ObjectConstructPattern.empty,
+                                        setClause: Option[SetClause] = None,
+                                        removeClause: Option[RemoveClause] = None,
+                                        when: AlgebraExpression = True): VertexConstructRelation = {
+    VertexConstructRelation(
+      reference,
+      Project(
+        EntityConstructRelation(
+          reference,
+          isMatchedRef = false,
+          AddColumn(
+            reference,
+            Select(bindingTable, when)),
+          groupedAttributes = Seq.empty,
+          expr = objectConstructPattern,
+          setClause,
+          removeClause),
+        attributes = Set(reference)))
+  }
+
+  private def unmatchedVertexGrouping(reference: Reference,
+                                      groupingProps: Seq[PropertyRef],
+                                      aggregateFunctions: Seq[PropertySet] = Seq.empty,
+                                      objectConstructPattern: ObjectConstructPattern =
+                                      ObjectConstructPattern.empty,
+                                      setClause: Option[SetClause] = None,
+                                      removeClause: Option[RemoveClause] = None,
+                                      when: AlgebraExpression = True): VertexConstructRelation = {
+    VertexConstructRelation(
+      reference,
+      Project(
+        EntityConstructRelation(
+          reference,
+          isMatchedRef = false,
+          AddColumn(
+            reference,
+            GroupBy(
+              reference,
+              relation = Select(bindingTable, when),
+              groupingAttributes = Seq(GroupDeclaration(groupingProps)),
+              aggregateFunctions,
+              having = None)),
+          groupedAttributes = groupingProps,
+          expr = objectConstructPattern,
+          setClause,
+          removeClause),
+        attributes = Set(reference)))
+  }
+
   private def extractConstructRelations(constructTree: AlgebraTreeNode): Seq[AlgebraTreeNode] = {
-    constructTree.children(1).children
+    val condConstructClause = constructTree.children(1)
+    val constructRelations = condConstructClause.children
+    constructRelations
   }
 }

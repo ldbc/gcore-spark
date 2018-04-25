@@ -60,9 +60,16 @@ case class ObjectPattern(labelsPred: AlgebraExpression, propsPred: AlgebraExpres
   * When constructing a new object, we can assign it new labels or use property values based on the
   * properties of matched patterns.
   */
-case class ObjectConstructPattern(labelAssignments: AlgebraExpression,
-                                  propAssignments: AlgebraExpression) extends AlgebraExpression {
+case class ObjectConstructPattern(labelAssignments: LabelAssignments,
+                                  propAssignments: PropAssignments) extends AlgebraExpression {
   children = List(labelAssignments, propAssignments)
+}
+
+object ObjectConstructPattern {
+  val empty: ObjectConstructPattern =
+    ObjectConstructPattern(
+      labelAssignments = LabelAssignments(Seq.empty),
+      propAssignments = PropAssignments(Seq.empty))
 }
 
 /** The aggregation start (*) symbol. */

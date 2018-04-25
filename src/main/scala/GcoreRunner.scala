@@ -2,7 +2,7 @@ import compiler.{CompileContext, Compiler, GcoreCompiler}
 import org.apache.spark.sql.SparkSession
 import org.slf4j.{Logger, LoggerFactory}
 import spark.SparkGraphDb
-import spark.examples.DummyGraph
+import spark.examples.{DummyGraph, PeopleGraph}
 
 /** Main entry point of the interpreter. */
 object GcoreRunner {
@@ -19,16 +19,15 @@ object GcoreRunner {
     val graphDb: SparkGraphDb = SparkGraphDb(spark)
 
     graphDb.registerGraph(DummyGraph(spark))
-    graphDb.setDefaultGraph("dummy_graph")
-
-    println(graphDb.graph("dummy_graph"))
+    graphDb.registerGraph(PeopleGraph(spark))
+    graphDb.setDefaultGraph("people_graph")
 
     val compiler: Compiler = GcoreCompiler(CompileContext(graphDb, spark.newSession()))
     compiler.compile(
       """
-        | CONSTRUCT (x GROUP c.onDiet {avgWeight := AVG(c.weight)})
-        | SET x.numCats := COUNT(*)
-        | MATCH (c:Cat)
+        | CONSTRUCT (x GROUP p.employer)-(p {newProp := p.name})
+        | MATCH (c:Company)<-[e]-(p:Person)
+        | WHERE c.name = p.employer
       """.stripMargin)
   }
 }

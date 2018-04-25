@@ -45,7 +45,7 @@ import spark._
   * 303: ToGourmand(hops = 2)(207, 204)
   * 304: ToGourmand(hops = 1)(204)
   */
-final case class DummyGraph(spark: SparkSession) extends SparkGraph {
+case class DummyGraph(spark: SparkSession) extends SparkGraph {
   val coby = Cat(101, "Coby", 3, 6, onDiet = false)
   val hosico = Cat(102, "Hosico", 4, 7, onDiet = true)
   val maru = Cat(103, "Maru", 8, 8, onDiet = true)

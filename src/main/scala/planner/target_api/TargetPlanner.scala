@@ -2,7 +2,7 @@ package planner.target_api
 
 import algebra.operators._
 import org.apache.spark.sql.DataFrame
-import planner.operators.{EdgeScan, PathScan, VertexCreate, VertexScan}
+import planner.operators._
 import planner.trees.{PlannerTreeNode, TargetTreeNode}
 
 /**
@@ -36,6 +36,8 @@ abstract class TargetPlanner {
 
   def createPhysGroupBy(groupByOp: GroupBy): PhysGroupBy
 
+  def createPhysAddColumn(addColumnOp: AddColumn): PhysAddColumn
+
   /**
     * Replaces the algebraic [[algebra.operators.BindingTable]] in the construct sub-clause. We need
     * this abstraction in the target tree, because we only want to create the physical table
@@ -49,5 +51,9 @@ abstract class TargetPlanner {
     */
   def createPhysBindingTable: PhysBindingTable
 
+  def createPhysEntityConstruct(entityConstructOp: EntityConstruct): PhysEntityConstruct
+
   def createPhysVertexCreate(vertexCreateOp: VertexCreate): PhysVertexCreate
+
+  def createPhysEdgeCreate(edgeCreateOp: EdgeCreate): PhysEdgeCreate
 }

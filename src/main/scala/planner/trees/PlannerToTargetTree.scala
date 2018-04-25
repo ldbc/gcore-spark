@@ -26,11 +26,14 @@ case class PlannerToTargetTree(targetPlanner: TargetPlanner)
         case select: Select => targetPlanner.createPhysSelect(select)
         case project: Project => targetPlanner.createPhysProject(project)
         case groupBy: GroupBy => targetPlanner.createPhysGroupBy(groupBy)
+        case addColumn: AddColumn => targetPlanner.createPhysAddColumn(addColumn)
         case other =>
           throw UnsupportedOperation("Binding table operator with the following plan tree is not " +
             s"supported at the moment:\n${other.treeString()}")
       }
     case btable: BindingTable => targetPlanner.createPhysBindingTable
+    case ec: EntityConstruct => targetPlanner.createPhysEntityConstruct(ec)
     case vc: VertexCreate => targetPlanner.createPhysVertexCreate(vc)
+    case ec: EdgeCreate => targetPlanner.createPhysEdgeCreate(ec)
   }
 }

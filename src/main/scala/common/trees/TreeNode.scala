@@ -136,5 +136,5 @@ abstract class TreeNode[T <: TreeNode[T]: ClassTag] {
 
   def printTree(): Unit = println(treeString())
 
-  protected def prefix(depth: Int): String = "| " * depth
+  private def prefix(depth: Int): String = "| " * depth
 }

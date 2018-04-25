@@ -2,7 +2,7 @@ package planner.trees
 
 import algebra.expressions.{Label, ObjectConstructPattern, Reference, True}
 import algebra.operators._
-import algebra.types.DefaultGraph
+import algebra.types.{DefaultGraph, OutConn}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.FunSuite
 import planner.operators._
@@ -98,6 +98,13 @@ class PlannerToTargetTreeTest extends FunSuite with MockFactory {
     (mockedTargetPlanner.createPhysGroupBy _).verify(groupBy).once
   }
 
+  test("createPhysAddColumn is called for BindingTableOp(AddColumn)") {
+    val addColumn = AddColumn(reference = Reference("v"), RelationLike.empty)
+    val btableOp = BindingTableOp(addColumn)
+    rewriter rewriteTree btableOp
+    (mockedTargetPlanner.createPhysAddColumn _).verify(addColumn).once
+  }
+
   test("createPhysBindingTable is called for BindingTable") {
     val bindingTable = BindingTable(bset = BindingSet.empty)
     rewriter rewriteTree bindingTable
@@ -106,13 +113,32 @@ class PlannerToTargetTreeTest extends FunSuite with MockFactory {
 
   test("createPhysVertexCreate is called for VertexCreate") {
     val bindingTable = BindingTableOp(Select(RelationLike.empty, expr = True))
-    val create =
-      VertexCreate(
-        Reference("v"),
-        bindingTable,
-        expr = ObjectConstructPattern(True, True),
-        setClause = None, removeClause = None)
+    val create = VertexCreate(Reference("v"), bindingTable)
     rewriter rewriteTree create
     (mockedTargetPlanner.createPhysVertexCreate _).verify(create).once
+  }
+
+  test("createPhysEdgeCreate is called for EdgeCreate") {
+    val bindingTable = BindingTableOp(Select(RelationLike.empty, expr = True))
+    val create = EdgeCreate(
+      Reference("e"),
+      leftReference = Reference("v"), rightReference = Reference("w"), connType = OutConn,
+      bindingTable)
+    rewriter rewriteTree create
+    (mockedTargetPlanner.createPhysEdgeCreate _).verify(create).once
+  }
+
+  test("createPhysEntityConstruct is called for EntityConstruct") {
+    val bindingTable = BindingTableOp(Select(RelationLike.empty, expr = True))
+    val create =
+      EntityConstruct(
+        reference = Reference("v"),
+        isMatchedRef = true,
+        bindingTable,
+        groupedAttributes = Seq.empty,
+        expr = ObjectConstructPattern.empty,
+        setClause = None, removeClause = None)
+    rewriter rewriteTree create
+    (mockedTargetPlanner.createPhysEntityConstruct _).verify(create).once
   }
 }

@@ -2,10 +2,8 @@ package spark.sql
 
 import algebra.expressions.ObjectConstructPattern
 import algebra.operators._
-import algebra.trees.AlgebraTreeNode
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.slf4j.{Logger, LoggerFactory}
-import planner.operators.{EdgeScan, PathScan, VertexCreate, VertexScan}
+import planner.operators._
 import planner.target_api._
 import planner.trees.{PlannerToTargetTree, PlannerTreeNode, TargetTreeNode}
 import spark.sql.SparkSqlPlanner.BINDING_TABLE_GLOBAL_VIEW
@@ -20,12 +18,10 @@ case class SparkSqlPlanner(sparkSession: SparkSession) extends TargetPlanner {
 
   override type StorageType = DataFrame
 
-  val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   val rewriter: PlannerToTargetTree = PlannerToTargetTree(this)
 
   override def solveBindingTable(matchClause: PlannerTreeNode): DataFrame = {
-    val sparkTree: TargetTreeNode =
-      rewriter.rewriteTree(matchClause).asInstanceOf[TargetTreeNode]
+    val sparkTree: TargetTreeNode = rewriter.rewriteTree(matchClause).asInstanceOf[TargetTreeNode]
     val btable: SparkBindingTable = sparkTree.bindingTable.asInstanceOf[SparkBindingTable]
     btable.solveBtableOps(sparkSession)
   }
@@ -39,14 +35,21 @@ case class SparkSqlPlanner(sparkSession: SparkSession) extends TargetPlanner {
     val sparkTrees: Seq[TargetTreeNode] =
       constructClauses.map(clause => rewriter.rewriteTree(clause).asInstanceOf[TargetTreeNode])
 
-    sparkTrees.map(sparkTree => {
-      // The root of each tree is SparVertexCreate or SparkEdgeCreate
-      val btable: SparkBindingTable = sparkTree.bindingTable.asInstanceOf[SparkBindingTable]
-      val entityData: DataFrame = btable.solveBtableOps(sparkSession)
-      entityData.show()
+    sparkTrees.flatMap {
+      case vertexTree: SparkVertexCreate =>
+        val btable: SparkBindingTable = vertexTree.bindingTable.asInstanceOf[SparkBindingTable]
+        val entityData: DataFrame = btable.solveBtableOps(sparkSession)
+        entityData.show()
 
-      entityData
-    })
+        Seq(entityData)
+
+      case edgeTree: SparkEdgeCreate =>
+        val btable: SparkBindingTable = edgeTree.bindingTable.asInstanceOf[SparkBindingTable]
+        val entityData: DataFrame = btable.solveBtableOps(sparkSession)
+        entityData.show()
+
+        Seq(entityData)
+    }
   }
 
   override def createPhysVertexScan(vertexScanOp: VertexScan): PhysVertexScan =
@@ -87,12 +90,38 @@ case class SparkSqlPlanner(sparkSession: SparkSession) extends TargetPlanner {
       aggregateFunctions = groupByOp.getAggregateFunction,
       having = groupByOp.getHaving)
 
-  override def createPhysVertexCreate(vertexCreateOp: VertexCreate): PhysVertexCreate = {
+  override def createPhysAddColumn(addColumnOp: AddColumn): PhysAddColumn =
+    SparkAddColumn(
+      reference = addColumnOp.reference,
+      relation =
+        SparkProject(
+          relation = addColumnOp.children.last.asInstanceOf[TargetTreeNode],
+          attributes =
+            (addColumnOp.relation.getBindingSet.refSet ++ Set(addColumnOp.reference)).toSeq))
+
+  override def createPhysEntityConstruct(entityConstructOp: EntityConstruct)
+  : PhysEntityConstruct = {
+
+    SparkEntityConstruct(
+      reference = entityConstructOp.reference,
+      isMatchedRef = entityConstructOp.isMatchedRef,
+      relation = entityConstructOp.children(1).asInstanceOf[TargetTreeNode],
+      groupedAttributes = entityConstructOp.groupedAttributes,
+      expr = entityConstructOp.expr,
+      setClause = entityConstructOp.setClause,
+      removeClause = entityConstructOp.removeClause)
+  }
+
+  override def createPhysVertexCreate(vertexCreateOp: VertexCreate): PhysVertexCreate =
     SparkVertexCreate(
       reference = vertexCreateOp.reference,
-      relation = vertexCreateOp.children(1).asInstanceOf[TargetTreeNode],
-      expr = vertexCreateOp.children(2).asInstanceOf[ObjectConstructPattern],
-      setClause = vertexCreateOp.getSetClause,
-      removeClause = vertexCreateOp.getRemoveClause)
-  }
+      relation = vertexCreateOp.children.last.asInstanceOf[TargetTreeNode])
+
+  override def createPhysEdgeCreate(edgeCreateOp: EdgeCreate): PhysEdgeCreate =
+    SparkEdgeCreate(
+      reference = edgeCreateOp.reference,
+      leftReference = edgeCreateOp.leftReference,
+      rightReference = edgeCreateOp.rightReference,
+      connType = edgeCreateOp.connType,
+      relation = edgeCreateOp.children.last.asInstanceOf[TargetTreeNode])
 }

@@ -34,14 +34,33 @@ case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewrite
       }
   }
 
+  private val entityConstructRelation: RewriteFuncType = {
+    case construct: EntityConstructRelation =>
+      EntityConstruct(
+        reference = construct.reference,
+        isMatchedRef = construct.isMatchedRef,
+        bindingTable = construct.children(1).asInstanceOf[PlannerTreeNode],
+        groupedAttributes = construct.groupedAttributes,
+        expr = construct.expr,
+        setClause = construct.setClause,
+        removeClause = construct.removeClause)
+  }
+
   private val vertexConstructRelation: RewriteFuncType = {
     case vertex: VertexConstructRelation =>
       VertexCreate(
-        vertex.reference,
-        vertex.children(1).asInstanceOf[PlannerTreeNode],
-        vertex.expr,
-        vertex.setClause,
-        vertex.removeClause)
+        reference = vertex.reference,
+        bindingTable = vertex.children.last.asInstanceOf[PlannerTreeNode])
+  }
+
+  private val edgeConstructRelation: RewriteFuncType = {
+    case edge: EdgeConstructRelation =>
+      EdgeCreate(
+        reference = edge.reference,
+        leftReference = edge.leftReference,
+        rightReference = edge.rightReference,
+        connType = edge.connType,
+        bindingTable = edge.children(1).asInstanceOf[PlannerTreeNode])
   }
 
   private val bindingTableOp: RewriteFuncType = {
@@ -52,8 +71,10 @@ case class AlgebraToPlannerTree(context: PlannerContext) extends BottomUpRewrite
     case op: Select => BindingTableOp(op)
     case op: GroupBy => BindingTableOp(op)
     case op: Project => BindingTableOp(op)
+    case op: AddColumn => BindingTableOp(op)
   }
 
   override val rule: RewriteFuncType =
-    query orElse simpleMatchRelation orElse bindingTableOp orElse vertexConstructRelation
+    query orElse simpleMatchRelation orElse bindingTableOp orElse
+      edgeConstructRelation orElse vertexConstructRelation orElse entityConstructRelation
 }

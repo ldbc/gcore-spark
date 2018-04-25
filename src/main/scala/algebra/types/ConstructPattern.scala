@@ -1,6 +1,6 @@
 package algebra.types
 
-import algebra.expressions.{AlgebraExpression, ObjectConstructPattern, Reference, True}
+import algebra.expressions._
 import algebra.operators.{RemoveClause, SetClause}
 
 /**
@@ -56,6 +56,7 @@ abstract class ConnectionConstruct(ref: Reference,
 
   def getRef: Reference = ref
   def getExpr: ObjectConstructPattern = expr
+  def getGroupDeclaration: Option[GroupDeclaration] = groupDeclaration
 }
 
 abstract class SingleEndpointConstruct(ref: Reference,
@@ -117,4 +118,4 @@ case class VirtualPathConstruct(connName: Reference,
   extends DoubleEndpointConstruct(
     connName, connType, leftEndpoint, rightEndpoint,
     copyPattern = None, groupDeclaration = None,
-    expr = ObjectConstructPattern(True, True))
+    expr = ObjectConstructPattern(LabelAssignments(Seq.empty), PropAssignments(Seq.empty)))

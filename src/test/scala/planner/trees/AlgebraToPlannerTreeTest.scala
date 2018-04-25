@@ -128,63 +128,6 @@ class AlgebraToPlannerTreeTest extends FunSuite with Matchers with Inside {
     }
   }
 
-  test("VertexConstructRelation becomes VertexCreate") {
-    val bindingTableProject = Project(RelationLike.empty, attributes = Set.empty)
-    val vertexConstructRelation =
-      VertexConstructRelation(
-        reference = Reference("v"),
-        relation = bindingTableProject,
-        expr = ObjectConstructPattern(True, True),
-        setClause = None, removeClause = None)
-
-    val expected =
-      VertexCreate(
-        reference = Reference("v"),
-        bindingTable = BindingTableOp(bindingTableProject),
-        expr = ObjectConstructPattern(True, True),
-        setClause = None, removeClause = None)
-
-    val actual = rewriter rewriteTree vertexConstructRelation
-
-    assert(actual == expected)
-  }
-
-  test("Query becomes a CreateGraph, if GraphUnion is empty in the CONSTRUCT clause. The " +
-    "construct clauses in CreateGraph are the children of the CondConstructClause node.") {
-    val bindingTableProject = Project(RelationLike.empty, attributes = Set.empty)
-    val vertexConstructRelation =
-      VertexConstructRelation(
-        reference = Reference("v"),
-        relation = bindingTableProject,
-        expr = ObjectConstructPattern(True, True),
-        setClause = None, removeClause = None)
-    val condConstructClause = CondConstructClause(Seq.empty)
-    condConstructClause.children = Seq(vertexConstructRelation)
-
-    val constructClause =
-      ConstructClause(
-        GraphUnion(Seq.empty),
-        condConstructClause,
-        SetClause(Seq.empty),
-        RemoveClause(Seq.empty, Seq.empty))
-    val matchClause = MatchClause(CondMatchClause(Seq.empty, True), Seq.empty)
-    val bindingTableOp =
-      BindingTableOp(Select(relation = RelationLike.empty, expr = True, bindingSet = None))
-    val query = Query(constructClause, matchClause)
-    query.children = List(constructClause, bindingTableOp)
-
-    val vertexCreate =
-      VertexCreate(
-        reference = Reference("v"),
-        bindingTable = BindingTableOp(bindingTableProject),
-        expr = ObjectConstructPattern(True, True),
-        setClause = None, removeClause = None)
-
-    val createGraph = CreateGraph(bindingTableOp, constructClauses = Seq(vertexCreate))
-    val actual = rewriter rewriteTree query
-    assert(actual == createGraph)
-  }
-
   private type BtableBinOpType = (RelationLike, RelationLike, Option[BindingSet]) => RelationLike
 
   private def testBtableBinOp(op: BtableBinOpType): Unit = {

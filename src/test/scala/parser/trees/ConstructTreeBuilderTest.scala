@@ -52,7 +52,7 @@ class ConstructTreeBuilderTest extends FunSuite
     val algebraTree = extractConstructPattern("CONSTRUCT (u) MATCH (u)")
     algebraTree should matchPattern {
       case ConstructPattern(Seq(
-        VertexConstruct(Reference("u"), None, None, ObjectConstructPattern(True, True)))) =>
+        VertexConstruct(Reference("u"), None, None, ObjectConstructPattern.empty))) =>
     }
   }
 
@@ -64,7 +64,7 @@ class ConstructTreeBuilderTest extends FunSuite
           Reference("e"),
           OutConn,
           VertexConstruct(Reference("u"), _, _, _), VertexConstruct(Reference("v"), _, _, _),
-          None, None, ObjectConstructPattern(True, True)))) =>
+          None, None, ObjectConstructPattern.empty))) =>
     }
   }
 
