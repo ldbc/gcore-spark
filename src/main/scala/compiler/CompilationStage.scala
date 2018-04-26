@@ -2,7 +2,6 @@ package compiler
 
 import algebra.trees.AlgebraTreeNode
 import org.apache.spark.sql.DataFrame
-import planner.trees.PlannerTreeNode
 
 /**
   * A step in the compilation process of a G-CORE query. Extending [[Function1]] makes any
@@ -43,22 +42,12 @@ trait RewriteStage extends CompilationStage[AlgebraTreeNode, AlgebraTreeNode] {
 }
 
 /**
-  * The step in the compilation pipeline that produces the logical plan from the algebraic tree.
-  */
-trait PlanningStage extends CompilationStage[AlgebraTreeNode, PlannerTreeNode] {
-
-  def plan(tree: AlgebraTreeNode): PlannerTreeNode
-
-  override def runStage(input: AlgebraTreeNode): PlannerTreeNode = plan(input)
-}
-
-/**
   * The step in the compilation pipeline that produces a physical plan from the logical plan and
   * then runs it on the target backend.
   *
   * TODO: We need to return a PathPropertyGraph from this stage.
   */
-trait RunTargetCodeStage extends CompilationStage[PlannerTreeNode, Seq[DataFrame]] {
+trait RunTargetCodeStage extends CompilationStage[AlgebraTreeNode, Seq[DataFrame]] {
 
-  override def runStage(input: PlannerTreeNode): Seq[DataFrame]
+  override def runStage(input: AlgebraTreeNode): Seq[DataFrame]
 }

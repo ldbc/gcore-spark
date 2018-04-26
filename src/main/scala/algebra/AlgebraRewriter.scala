@@ -30,6 +30,10 @@ case class AlgebraRewriter(context: AlgebraContext) extends RewriteStage {
     val groupingSets = CreateGroupingSets(enrichedContext) rewriteTree matchesToAlgebra
     logger.info("\n{}", groupingSets.treeString())
 
-    groupingSets
+    // Query rewrite
+    val createGraph = BasicQueriesToGraphs rewriteTree groupingSets
+    logger.info("\n{}", createGraph.treeString())
+
+    createGraph
   }
 }
