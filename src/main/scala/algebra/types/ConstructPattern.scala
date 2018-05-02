@@ -83,6 +83,7 @@ abstract class DoubleEndpointConstruct(connName: Reference,
 
   def getLeftEndpoint: SingleEndpointConstruct = leftEndpoint
   def getRightEndpoint: SingleEndpointConstruct = rightEndpoint
+  def getConnType: ConnectionType = connType
 }
 
 case class VertexConstruct(ref: Reference,

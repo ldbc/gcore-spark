@@ -1,11 +1,9 @@
 package spark.sql
 
 import algebra.AlgebraRewriter
-import algebra.expressions._
 import algebra.operators.Column._
 import algebra.operators._
 import algebra.trees.{AlgebraContext, AlgebraTreeNode}
-import algebra.types.DefaultGraph
 import compiler.CompileContext
 import org.apache.spark.sql.functions.{expr, lit}
 import org.apache.spark.sql.types._
@@ -77,6 +75,33 @@ class SqlPlannerTest extends FunSuite
     spark.createDataFrame(
       spark.sparkContext.parallelize(bindingTableRows),
       bindingTableSchema)
+
+  /**
+    * btable1 = SELECT c1 = c, f1 = f, e1 = e WHERE c IN {101, 102}
+    * btable2 = SELECT c2 = c, f2 = f, e2 = e WHERE c IN {103, 104}
+    *
+    *                               +-----+-----+-----+-----+-----+-----+
+    *                               |c1$id|f1$id|e1$id|c2$id|f2$id|e2$id|
+    *                               +-----+-----+-----+-----+-----+-----+
+    *                               |  101|  105|  201|  103|  106|  203|
+    * btable1 CROSS JOIN btable2 => |  101|  105|  201|  104|  107|  204|
+    *                               |  102|  107|  202|  103|  106|  203|
+    *                               |  102|  107|  202|  104|  107|  204|
+    *                               +-----+-----+-----+-----+-----+-----+
+    */
+  val bindingTableDuplicateData: DataFrame = {
+    val btable1: DataFrame =
+      bindingTable
+        .select(s"c$$$idCol", s"f$$$idCol", s"e$$$idCol")
+        .where(s"`c$$$idCol` IN (101, 102)")
+        .toDF(s"c1$$$idCol", s"f1$$$idCol", s"e1$$$idCol")
+    val btable2: DataFrame =
+      bindingTable
+        .select(s"c$$$idCol", s"f$$$idCol", s"e$$$idCol")
+        .where(s"`c$$$idCol` IN (103, 104)")
+        .toDF(s"c2$$$idCol", s"f2$$$idCol", s"e2$$$idCol")
+    btable1.crossJoin(btable2)
+  }
 
   override def beforeAll() {
     super.beforeAll()
@@ -159,12 +184,19 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (x) MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val expectedHeader: Seq[String] = Seq(s"x$$$idCol")
+    // Columns of c from the binding table are also preserved in the result in this case.
+    val bindingTableColumns: Seq[String] =
+      bindingTableSchema.fields
+        .map(_.name)
+        .filter(fieldName => fieldName.startsWith("c"))
+    val expectedHeader: Seq[String] = Seq(s"x$$$idCol") ++ bindingTableColumns
     compareHeaders(expectedHeader, actualDf)
 
     // Cannot directly compare df's contents, because the monotonically increasing id's are not
-    // necessarily contiguous numbers.
-    assert(actualDf.collect().length == bindingTableData.size)
+    // necessarily contiguous numbers. We assert here that each new vertex receives a unique id.
+    assert(
+      actualDf.select(s"x$$$idCol").collect().map(_(0)).toSet.size ==
+        bindingTableData.size)
   }
 
   test("VertexCreate of unbound variable, add prop and label - " +
@@ -172,7 +204,13 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (x :XLabel {constInt := 1}) MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", s"x$$$labelCol", "x$constInt")
+    // Columns of c from the binding table are also preserved in the result in this case.
+    val bindingTableColumns: Seq[String] =
+      bindingTableSchema.fields
+        .map(_.name)
+        .filter(fieldName => fieldName.startsWith("c"))
+    val newColumns: Seq[String] = Seq(s"x$$$idCol", s"x$$$labelCol", "x$constInt")
+    val expectedHeader: Seq[String] = bindingTableColumns ++ newColumns
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -190,12 +228,17 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (x GROUP c.onDiet) MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val expectedHeader: Seq[String] = Seq(s"x$$$idCol")
+    // Only column onDiet of c from the binding table is preserved in the result in this case,
+    // because it was used in an aggregation. This being a new variable with grouping, we will use
+    // the grouping column for joining in a GroupConstruct. The other columns are removed in the
+    // EntityConstruct.
+    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", "c$onDiet")
     compareHeaders(expectedHeader, actualDf)
 
     // Cannot directly compare df's contents, because the monotonically increasing id's are not
-    // necessarily contiguous numbers.
-    assert(actualDf.collect().length == bindingTableData.groupBy(_.onDiet).size)
+    // necessarily contiguous numbers. We assert here that for each group in the binding table
+    // the new vertex x receives a unique id.
+    assert(actualDf.collect().map(_(0)).toSet.size == bindingTableData.groupBy(_.onDiet).size)
   }
 
   test("VertexCreate of unbound variable, GROUP binding table, aggregate prop - " +
@@ -204,7 +247,9 @@ class SqlPlannerTest extends FunSuite
       extractConstructClauses("CONSTRUCT (x GROUP c.onDiet {avgw := AVG(c.weight)}) MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", "x$avgw")
+    // Only column onDiet of c from the binding table is preserved in the result in this case,
+    // because it was used in an aggregation. The other columns are removed in the EntityConstruct.
+    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", "x$avgw", "c$onDiet")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedData =
@@ -227,6 +272,8 @@ class SqlPlannerTest extends FunSuite
     val edge = extractConstructClauses("CONSTRUCT (c)-[e]->(f) MATCH (c)-[e]->(f)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, edge).head
 
+    // The binding table remains exactly the same as it is now. All of its fields and all of its
+    // rows should be present in the result.
     val expectedHeader: Seq[String] = bindingTableSchema.fields.map(_.name)
     compareHeaders(expectedHeader, actualDf)
 
@@ -241,18 +288,14 @@ class SqlPlannerTest extends FunSuite
     val edge = extractConstructClauses("CONSTRUCT (c)-[e]->(b) MATCH (c)-[e]->(f)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, edge).head
 
-    // Attributes from the binding table that belong to c and e.
-    val bindingTableColumns: Seq[String] =
-      bindingTableSchema.fields
-        .map(_.name)
-        .filter(fieldName => fieldName.startsWith("c") || fieldName.startsWith("e"))
+    // All the attributes of the binding table are preserved in the result.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
 
-    // + The new endpoint b, which only receives an id. f is not part of the result.
+    // + The new endpoint b, which only receives an id.
     val expectedHeader: Seq[String] = bindingTableColumns ++ Seq(s"b$$$idCol")
     compareHeaders(expectedHeader, actualDf)
 
-    // First, compare the part of the binding table that stays constant. These are the attributes
-    // of c and e only.
+    // First, compare the part of the binding table that stays constant.
     val expectedDf = bindingTable.select(bindingTableColumns.head, bindingTableColumns.tail: _*)
     compareDfs(
       actualDf.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
@@ -270,18 +313,14 @@ class SqlPlannerTest extends FunSuite
     val edge = extractConstructClauses("CONSTRUCT (a)-[e]->(b) MATCH (c)-[e]->(f)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, edge).head
 
-    // Attributes from the binding table that belong to e.
-    val bindingTableColumns: Seq[String] =
-      bindingTableSchema.fields
-        .map(_.name)
-        .filter(fieldName => fieldName.startsWith("e"))
+    // All the attributes of the binding table are preserved in the result.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
 
-    // + The two new endpoints a and b, which only receive an id. f and c are not part of the result
+    // + The two new endpoints a and b, which only receive an id.
     val expectedHeader: Seq[String] = bindingTableColumns ++ Seq(s"a$$$idCol", s"b$$$idCol")
     compareHeaders(expectedHeader, actualDf)
 
-    // First, compare the part of the binding table that stays constant. These are the attributes
-    // of e only.
+    // First, compare the part of the binding table that stays constant.
     val expectedDf = bindingTable.select(bindingTableColumns.head, bindingTableColumns.tail: _*)
     compareDfs(
       actualDf.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
@@ -300,18 +339,14 @@ class SqlPlannerTest extends FunSuite
     val edge = extractConstructClauses("CONSTRUCT (c)-[x]-(f) MATCH (c)-[e]->(f)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, edge).head
 
-    // Attributes from the binding table that belong to c and f.
-    val bindingTableColumns: Seq[String] =
-      bindingTableSchema.fields
-        .map(_.name)
-        .filter(fieldName => fieldName.startsWith("c") || fieldName.startsWith("f"))
+    // All attributes of the binding table are preserved.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
 
-    // + The new edge x, which only receives an id. e is not part of the result.
+    // + The new edge x, which only receives an id.
     val expectedHeader: Seq[String] = bindingTableColumns ++ Seq(s"x$$$idCol")
     compareHeaders(expectedHeader, actualDf)
 
-    // First, compare the part of the binding table that stays constant. These are the attributes
-    // of c and f only.
+    // First, compare the part of the binding table that stays constant.
     val expectedDf = bindingTable.select(bindingTableColumns.head, bindingTableColumns.tail: _*)
     compareDfs(
       actualDf.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
@@ -327,9 +362,19 @@ class SqlPlannerTest extends FunSuite
     val edge = extractConstructClauses("CONSTRUCT (a)-[x]-(b) MATCH (c)-[e]->(f)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, edge).head
 
-    // No variables come from the binding table, x, a and b only receive an id each.
-    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", s"a$$$idCol", s"b$$$idCol")
+    // All attributes of the binding table are preserved.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
+
+    // + The new edge x and endpoints a and b, which only receive an id.
+    val expectedHeader: Seq[String] =
+      bindingTableColumns ++ Seq(s"x$$$idCol", s"a$$$idCol", s"b$$$idCol")
     compareHeaders(expectedHeader, actualDf)
+
+    // Compare the part of the binding table that stays constant.
+    val expectedDf = bindingTable.select(bindingTableColumns.head, bindingTableColumns.tail: _*)
+    compareDfs(
+      actualDf.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
+      expectedDf)
 
     // Check that each new edge x or vertex a or b has received a different id.
     val xids = actualDf.select(s"x$$$idCol").collect().map(_(0))
@@ -342,22 +387,19 @@ class SqlPlannerTest extends FunSuite
     assert(bids.toSet.size == bindingTableRows.length) // no 2 ids are equal
   }
 
-  test("CreateEdge of unbound edge, one bound endpoint, one unbound grouped endpoint - " +
+  test("EdgeCreate of unbound edge, one bound endpoint, one unbound grouped endpoint - " +
     "CONSTRUCT (c)-[x]->(d GROUP c.onDiet) MATCH (c)-[e]->(f)") {
     val edge = extractConstructClauses("CONSTRUCT (c)-[x]->(d GROUP c.onDiet) MATCH (c)-[e]->(f)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, edge).head
 
-    // The only constant attributes from the binding table are those of c's
-    val bindingTableColumns: Seq[String] =
-      bindingTableSchema.fields
-        .map(_.name)
-        .filter(fieldName => fieldName.startsWith("c"))
+    // All attributes of the binding table are preserved.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
 
     // x and d each only receive an id.
     val expectedHeader: Seq[String] = bindingTableColumns ++ Seq(s"x$$$idCol", s"d$$$idCol")
     compareHeaders(expectedHeader, actualDf)
 
-    // Compare the part of the binding table that stays constant - the attributes of c.
+    // Compare the part of the binding table that stays constant.
     val expectedDf = bindingTable.select(bindingTableColumns.head, bindingTableColumns.tail: _*)
     compareDfs(
       actualDf.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
@@ -373,7 +415,7 @@ class SqlPlannerTest extends FunSuite
     assert(dids.toSet.size == bindingTableData.groupBy(_.onDiet).size)
   }
 
-  test("CreateEdge with new properties and labels for endpoints and connection - " +
+  test("EdgeCreate with new properties and labels for endpoints and connection - " +
     "CONSTRUCT (c)-[x :OnDiet]->(d GROUP c.onDiet :Boolean {val := c.onDiet}) " +
     "MATCH (c)-[e]->(f)") {
     val edge =
@@ -382,11 +424,8 @@ class SqlPlannerTest extends FunSuite
           "MATCH (c)-[e]->(f)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, edge).head
 
-    // The only constant attributes from the binding table are those of c's
-    val bindingTableColumns: Seq[String] =
-      bindingTableSchema.fields
-        .map(_.name)
-        .filter(fieldName => fieldName.startsWith("c"))
+    // All attributes of the binding table are preserved.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
 
     // edge x receives a new labels and an id attribute
     val xAttributes = Seq(s"x$$$idCol", s"x$$$labelCol")
@@ -411,9 +450,133 @@ class SqlPlannerTest extends FunSuite
       expectedDf.select(s"x$$$labelCol", s"d$$$labelCol", "d$val"))
   }
 
-  private def extractConstructClauses(query: String): Seq[AlgebraTreeNode] = {
+  test("EdgeCreate from duplicate pairs of endpoints, check implicit grouping is used - " +
+    "CONSTRUCT (c1)-[e0]->(f1) MATCH (c1)-[e1]->(f1), (c2)-[e2]->(f2) (cross-join of patterns)") {
+    val edge =
+      extractConstructClauses("CONSTRUCT (c1)-[e0]->(f1) MATCH (c1)-[e1]->(f1), (c2)-[e2]->(f2)")
+    val actualDf = sparkPlanner.constructGraph(bindingTableDuplicateData, edge).head
+
+    // All attributes of the binding table are preserved.
+    val bindingTableColumns: Seq[String] = bindingTableDuplicateData.schema.fields.map(_.name)
+
+    // Edge e0 receives an id.
+    val expectedHeader: Seq[String] = bindingTableColumns ++ Seq(s"e0$$$idCol")
+    compareHeaders(expectedHeader, actualDf)
+
+    // The number of new edges e0 must be equal to the number of unique pairs (c1, f1).
+    val e0ids = actualDf.select(s"e0$$$idCol").collect().map(_(0))
+    val vertexGroups =
+      bindingTableDuplicateData
+        .select(s"c1$$$idCol", s"f1$$$idCol")
+        .collect()
+        .map(row => (row(0).toString, row(1).toString))
+        .toSet
+    assert(e0ids.toSet.size == vertexGroups.size)
+  }
+
+  test("GroupConstruct of bound endpoints, unbound edges - " +
+    "CONSTRUCT (c)-[e0]->(f)-[e1]->(c) MATCH (c)-[e]->(f)") {
+    val group = extractConstructClauses("CONSTRUCT (c)-[e0]->(f)-[e1]->(c) MATCH (c)-[e]->(f)")
+    val actualDf = sparkPlanner.constructGraph(bindingTable, group).head
+
+    // All columns from the binding table are preserved + the new columns for edges e0 and e1.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
+    val expectedHeader: Seq[String] = bindingTableColumns ++ Seq(s"e0$$$idCol", s"e1$$$idCol")
+    compareHeaders(expectedHeader, actualDf)
+
+    // Compare the part of the binding table that remains constant.
+    compareDfs(
+      actualDf.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
+      bindingTable.select(bindingTableColumns.head, bindingTableColumns.tail: _*))
+
+    // Check that each new edge receives a unique id.
+    val e0ids = actualDf.select(s"e0$$$idCol").collect().map(_(0))
+    assert(e0ids.toSet.size == bindingTableData.size)
+
+    val e1ids = actualDf.select(s"e1$$$idCol").collect().map(_(0))
+    assert(e1ids.toSet.size == bindingTableData.size)
+  }
+
+  test("GroupConstruct, add one vertex between matched endpoints - " +
+    "CONSTRUCT (c)-[e0]->(x)-[e1]->(f) MATCH (c)-[e]->(f)") {
+    val group = extractConstructClauses("CONSTRUCT (c)-[e0]->(x)-[e1]->(f) MATCH (c)-[e]->(f)")
+    val actualDf = sparkPlanner.constructGraph(bindingTable, group).head
+
+    // All columns from the binding table are preserved + the new columns for edges e0 and e1 and
+    // vertex x.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
+    val expectedHeader: Seq[String] =
+      bindingTableColumns ++ Seq(s"e0$$$idCol", s"e1$$$idCol", s"x$$$idCol")
+    compareHeaders(expectedHeader, actualDf)
+
+    // Skip common binding table comparison, as it was tested before. Only check that each new edge
+    // and the new vertex receive a unique id.
+    val e0ids = actualDf.select(s"e0$$$idCol").collect().map(_(0))
+    assert(e0ids.toSet.size == bindingTableData.size)
+
+    val e1ids = actualDf.select(s"e1$$$idCol").collect().map(_(0))
+    assert(e1ids.toSet.size == bindingTableData.size)
+
+    val xids = actualDf.select(s"x$$$idCol").collect().map(_(0))
+    assert(xids.toSet.size == bindingTableData.size)
+  }
+
+  test("GroupConstruct with GROUP-ing - " +
+    "CONSTRUCT (d GROUP c.onDiet)<-(c)->(f) MATCH (c)-[e]->(f)") {
+    val group =
+      extractConstructClauses("CONSTRUCT (d GROUP c.onDiet)<-[e0]-(c)-[e1]->(f) MATCH (c)-[e]->(f)")
+    val actualDf = sparkPlanner.constructGraph(bindingTable, group).head
+
+    // All columns from the binding table are preserved + the new columns for edges e0 and e1 and
+    // vertex d.
+    val bindingTableColumns: Seq[String] = bindingTableSchema.fields.map(_.name)
+    val expectedHeader: Seq[String] =
+      bindingTableColumns ++ Seq(s"e0$$$idCol", s"e1$$$idCol", s"d$$$idCol")
+    compareHeaders(expectedHeader, actualDf)
+
+    // Check that each new edge received a unique id.
+    val e0ids = actualDf.select(s"e0$$$idCol").collect().map(_(0))
+    assert(e0ids.toSet.size == bindingTableData.size)
+
+    val e1ids = actualDf.select(s"e1$$$idCol").collect().map(_(0))
+    assert(e1ids.toSet.size == bindingTableData.size)
+
+    // Check that vertex d only received as many ids as there are groupings by c.onDiet.
+    val xids = actualDf.select(s"d$$$idCol").collect().map(_(0))
+    assert(xids.toSet.size == bindingTableData.groupBy(_.onDiet).size)
+  }
+
+  test("GroupConstruct of two vertices, with filtering - " +
+    "CONSTRUCT (c) WHEN c.age <= 3, (c) WHEN c.age > 3 MATCH (c)") {
+    val group =
+      extractConstructClauses(
+        query = "CONSTRUCT (c) WHEN c.age <= 3, (c) WHEN c.age > 3 MATCH (c)",
+        expectedNumClauses = 2)
+    val actualDfs = sparkPlanner.constructGraph(bindingTable, group)
+
+    // Check that the two tables have the correct elements.
+    val bindingTableColumns: Seq[String] =
+      bindingTableSchema.fields.map(_.name).filter(_.startsWith("c"))
+    val expectedBelowThree = bindingTable.select("*").where("`c$age` <= 3")
+    val expectedAboveThree = bindingTable.select("*").where("`c$age` > 3")
+
+    compareDfs(
+      actualDfs.head.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
+      expectedBelowThree.select(bindingTableColumns.head, bindingTableColumns.tail: _*))
+    compareDfs(
+      actualDfs.last.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
+      expectedAboveThree.select(bindingTableColumns.head, bindingTableColumns.tail: _*))
+  }
+
+  private def extractConstructClauses(query: String, expectedNumClauses: Int = 1)
+  : Seq[AlgebraTreeNode] = {
+
     val createGraph = (parser andThen algebraRewriter) (query)
-    createGraph.asInstanceOf[GraphCreate].constructClauses
+    val constructClauses = createGraph.asInstanceOf[GraphCreate].constructClauses
+
+    assert(constructClauses.size == expectedNumClauses)
+
+    constructClauses
   }
 
   /************************************** MATCH ***************************************************/

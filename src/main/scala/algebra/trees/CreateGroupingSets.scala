@@ -1,9 +1,11 @@
 package algebra.trees
 
 import algebra.expressions._
+import algebra.operators.BinaryOperator.reduceLeft
 import algebra.operators._
 import algebra.trees.CreateGroupingSets._
 import algebra.types._
+import common.RandomNameGenerator._
 import common.trees.BottomUpRewriter
 import parser.utils.VarBinder.createVar
 
@@ -13,57 +15,61 @@ object CreateGroupingSets {
 
   /** Basename of aggregates that participate in a SET clause or inline property set. */
   val PROP_AGG_BASENAME: String = "propset_agg"
+
+  val BTABLE_VIEW: String = s"BindingTable"
+  val BASE_CONSTRUCT_VIEW_PREFIX: String = "BaseConstructView"
+  val VERTEX_CONSTRUCT_VIEW_PREFIX: String = "VertexConstructView"
 }
 
 /**
-  * Rewrites the CONSTRUCT sub-tree, such that each individual [[CondConstructClause]] becomes its
-  * own group construct. TODO: Add reference to the actual class here, once implemented.
+  * Rewrites the CONSTRUCT sub-tree, such that each individual [[BasicConstructClause]] becomes its
+  * own [[GroupConstruct]].
   *
   * The construction process begins with the [[BindingTable]], which is first filtered according to
-  * the WHEN sub-clause of the [[BasicConstructClause]].
+  * the WHEN sub-clause of the [[BasicConstructClause]]. The [[BaseConstructTable]] view is then
+  * used as a placeholder for the result of this filtering, as the restricted table will be used
+  * multiple times in the construction process.
   *
   * An entity can be built from a variable that has been bound in the MATCH sub-clause so is now
   * present in the binding table, or from an unbound variable, that has no equivalent in the
   * binding table. Variables present in the binding table that are used in the CONSTRUCT clause need
   * to keep their original identity.
   *
-  * --- Building a graph entity ---
-  * For an entity built from a matched variable, the filtered binding table is grouped by that
-  * entity's identity ([[Reference]]). No other grouping is allowed in this case, as it would
-  * violate the variable's identity, by replacing properties with their aggregates. In the case of
-  * an edge, grouping by its reference is the same as grouping by its endpoints - the two endpoints
-  * are strictly determined by the edge's identity.
+  * --- Building a vertex ---
+  * For a vertex built from a matched variable, the filtered binding table is grouped by that
+  * vertex's identity ([[Reference]]). No other grouping is allowed in this case, as it would
+  * violate the variable's identity, by replacing properties with their aggregates.
   *
-  * An unbound entity can use a specific [[GroupDeclaration]] to coalesce certain properties of the
+  * An unbound vertex can use a specific [[GroupDeclaration]] to coalesce certain properties of the
   * binding table. However, if no GROUP-ing is specified in this case, no grouping is applied over
   * the binding table.
   *
-  * An unbound entity's column is not present in the binding table, thus, after the grouping (if
-  * this is the case), a new column is added to the processed table, with the entity's
+  * An unbound vertex's column is not present in the binding table, thus, after the grouping (if
+  * this is the case), a new column is added to the processed table, with the vertex's
   * [[Reference]].
   *
   * The above steps can be summarized into three cases:
   * (1) Building an entity that has been matched in the binding table:
   *   -> binding table is filtered;
-  *   -> the result is grouped by entity column.
-  * (2) Building an unmatched entity that has no additional GROUP-ing:
+  *   -> the result is grouped by vertex column (its identity).
+  * (2) Building an unmatched vertex that has no additional GROUP-ing:
   *   -> binding table is filtered;
-  *   -> a new column is added to the binding table, with that entity's reference.
-  * (3) Building an unmatched entity that has an additional GROUP-ing clause:
+  *   -> a new column is added to the binding table, with that vertex's reference.
+  * (3) Building an unmatched vertex that has an additional GROUP-ing clause:
   *   -> binding table is filtered;
-  *   -> the result is grouped is grouped by the GROUP-ing attributes;
-  *   -> a new column is added to the grouped table, with that entity's reference.
+  *   -> the result is grouped by the GROUP-ing attributes;
+  *   -> a new column is added to the grouped table, with that vertex's reference.
   *
-  * New properties and labels can be added or removed from the entity, after the processing of the
-  * binding table. The [[SetClause]] and the [[RemoveClause]] of the entity will contain only those
-  * properties or labels that have been specified for that particular entity. For example, if we
+  * New properties and labels can be added or removed from the vertex, after the processing of the
+  * binding table. The [[SetClause]] and the [[RemoveClause]] of the vertex will contain only those
+  * properties or labels that have been specified for that particular vertex. For example, if we
   * build (c) and (f) and SET prop_c for vertex (c) and prop_f for vertex (f), then only prop_c will
-  * be passed to c's [[EntityConstructRelation]] and only prop_f will be passed to f's
-  * [[EntityConstructRelation]].
+  * be passed to c's [[ConstructRelation]] and only prop_f will be passed to f's
+  * [[ConstructRelation]].
   *
-  * New properties can be the result of an [[AggregateExpression]]. In this case, an
+  * New properties can be the result of an [[AggregateExpression]]. In this case, the
   * [[AggregateExpression]] (or, more specifically, the entire [[AlgebraExpression]] sub-tree that
-  * contains that aggregation) is substituted with a new property assigned to the entity and
+  * contains that aggregation) is substituted with a new property assigned to the vertex and
   * used as a [[GroupBy.aggregateFunctions]] parameter. For example, for the following pattern:
   *
   * > CONSTRUCT (a { avg_prop := AVG(b.prop) }) SET a.count_prop := COUNT(*)
@@ -81,32 +87,32 @@ object CreateGroupingSets {
   * As these two properties are only used as temporary results, they will be added to a's
   * [[RemoveClause]].
   *
+  * -- Building a group of entities --
+  * In case there is only one vertex to be built from a [[BasicConstructClause]], we create a
+  * [[GroupConstruct]] with the [[GroupConstruct.vertexConstructTable]] being that vertex's
+  * construct table, as resulting from the rules above.
   *
-  * --- Building a vertex ---
-  * The vertex construct is represented by a [[VertexConstructRelation]]. The construction starts
-  * from the binding table, which is first processed into an [[EntityConstructRelation]], as
-  * previously described. From this new table, we project the vertex's [[Reference]]. The result is
-  * the vertex's data.
+  * For [[BasicConstructClause]]s that build at least one edge, we use the following steps:
+  * (1) We identify the unbound, ungrouped vertices in the construction topology. Iteratively, we
+  * construct the vertices as in the previous paragraph and add them as new columns to the filtered
+  * binding table.
+  * (2) We identify the grouped vertices - bound vertices grouped by their identity or unbound
+  * vertices, with GROUP-ing attributes. Iteratively, starting from the relation obtained in step
+  * (1), we construct the vertices as described in the previous paragraph and apply an inner-join
+  * with the relation at the preceding step of the iteration.
   *
-  * -- Building an edge --
-  * The edge construct is represented by an [[EdgeConstructRelation]]. We first construct the two
-  * endpoints of the edge by creating an [[EntityConstructRelation]] for each of them. Next, we
-  * join the original binding table with the [[EntityConstructRelation]] of the left endpoint, then
-  * we join to this result the [[EntityConstructRelation]] of the right endpoint. This results in a
-  * binding table containing the new vertices and their respective properties and labels. The edge
-  * is then constructed over this new table, with its own [[EntityConstructRelation]], exactly as
-  * explained above. From this table, we project the edge's [[Reference]], as well as the
-  * [[Reference]]s of its endpoints. The result is the edge's data.
+  * The result of step (2) becomes the [[VertexConstructTable]] view that will be used to build the
+  * edges.
   *
-  * It is important to use correctly trimmed endpoint tables when joining back with the binding
-  * table, otherwise we may end up with no attribute to join on or with too many attributes used for
-  * joining. An [[EntityConstructRelation]] contains all the columns of the original binding table,
-  * plus new columns for the new variables. If an endpoint was an unmatched variable with GROUP-ing
-  * attributes, then its new table will contain less rows than the original binding table and some
-  * of the properties of the matched entities may lose their meaning, due to aggregation. Moreover,
-  * new properties or labels may have been added to matched entities, so a direct comparison between
-  * columns with the same name in the original binding table and the table of the
-  * [[EntityConstructRelation]] may yield false results.
+  * It is important to use correctly trimmed endpoint tables when joining in step (2), otherwise we
+  * may end up with no attribute to join on or with too many attributes used for joining. A
+  * [[ConstructRelation]] contains all the columns of the original binding table, plus new columns
+  * for the new variables. If an endpoint was an unmatched variable with GROUP-ing attributes, then
+  * its new table will contain less rows than the original binding table and some of the properties
+  * of the matched entities may lose their meaning, due to aggregation. Moreover, new properties or
+  * labels may have been added to matched entities, so a direct comparison between columns with the
+  * same name in the original binding table and the table of the [[ConstructRelation]] may yield
+  * false results.
   *
   * For example, let's suppose that after the MATCH (a)-[e]->(b) clause, we obtained the following
   * binding table:
@@ -116,13 +122,13 @@ object CreateGroupingSets {
   * btable =  +---+---+---+
   *           |...|...|...|
   *
-  * (1) We are solving the CONSTRUCT (a {newProp := expr})-[..]-(..) clause. This means we are
+  * (2.1) We are solving the CONSTRUCT (a {newProp := expr})-[..]-(..) clause. This means we are
   * building a new vertex (a') from the matched vertex (a) as the endpoint of an edge, where:
   *   (a') := (a) + {newProp}
   *
-  * When building the [[EntityConstructRelation]] of (a'), we will start from btable and perform all
-  * the steps described for building a graph entity. Then the resulting table will be stripped from
-  * all other variables and we will only keep the new vertex (a'):
+  * When building the [[ConstructRelation]] of (a'), we will start from btable and perform all
+  * the steps described for building a vertex. Then the resulting table will be stripped of all
+  * other variables and we will only keep the new vertex (a'):
   *
   *             +-------------------------+
   *             | (a') := (a) + {newProp} |
@@ -144,7 +150,7 @@ object CreateGroupingSets {
   * and (a') will be "attached" to the pre-existing [e] and (b) columns, under the same relation/
   * order as (a) was.
   *
-  * (2) We are solving the CONSTRUCT (x)-[..]-(..) clause. This means we are building an unbound
+  * (2.2) We are solving the CONSTRUCT (x)-[..]-(..) clause. This means we are building an unbound
   * vertex (x) as the endpoint of an edge. In this case, we add x's new column to the original
   * binding table:
   *
@@ -153,14 +159,14 @@ object CreateGroupingSets {
   * btable_x = +---+---+---+---+
   *            |...|...|...|...|
   *
-  * This will be the [[EntityConstructRelation]] of (x). No joining back with the original binding
-  * table is needed in this case.
+  * This will be the [[ConstructRelation]] of (x). No joining back with the original binding
+  * table was needed in this case, which was treated in step (1).
   *
-  * (3) We are solving the CONSTRUCT (x GROUP a.prop)-[..]-(..). This means we are building an
+  * (2.3) We are solving the CONSTRUCT (x GROUP a.prop)-[..]-(..). This means we are building an
   * unbound vertex (x) with GROUP-ing on a.prop as the endpoint of an edge.
   *
-  * The [[EntityConstructRelation]] of (x) will group the original binding table by the GROUP-ing
-  * attributes. In this case, it will also have the [[EntityConstructRelation.groupedAttributes]]
+  * The [[ConstructRelation]] of (x) will group the original binding table by the GROUP-ing
+  * attributes. In this case, it will also have the [[ConstructRelation.groupedAttributes]]
   * parameter set to the sequence of properties that have been used for grouping - a.prop in this
   * example.
   *
@@ -182,6 +188,21 @@ object CreateGroupingSets {
   *                    | a | e | b | x := GROUP(a.prop) |
   *  btable_join_a' =  +---+---+---+--------------------+
   *                    |...|...|...|         ...        |
+  *
+  * Once the [[VertexConstructTable]] has been built, edges can be added to it. We need to add the
+  * vertices as a first step, because the edges are constructed based on grouped endpoint identity.
+  *
+  * -- Building an edge --
+  * An edge, regardless of whether it has been previously matched, will be constructed by first
+  * grouping the [[VertexConstructTable]] by the edge's endpoints. Properties and labels are
+  * mutated exactly as for a vertex. From the resulting edge table, we project only the edge and its
+  * endpoints. This projection is then joined with the starting table. If the edge had been matched,
+  * then the joining will be performed on the edge identity, as well as on its endpoints' identity.
+  * Otherwise, the joinining will be performed only on the endpoints' identity, as these are the
+  * common variables between the starting table and the edge's table.
+  *
+  * In a [[GroupConstruct]] with multiple edges, the construction happens iteratively, starting from
+  * the [[VertexConstructTable]].
   */
 case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[AlgebraTreeNode] {
 
@@ -202,8 +223,8 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
       val condConstruct: CondConstructClause =
         construct.children(1).asInstanceOf[CondConstructClause]
       val basicConstructs: Seq[AlgebraTreeNode] = condConstruct.children
-      val constructRelations: Seq[RelationLike] =
-        basicConstructs.flatMap(createGroupConstruct(_, bindingToSetClause, bindingToRemoveClause))
+      val constructRelations: Seq[GroupConstruct] =
+        basicConstructs.map(createGroupConstruct(_, bindingToSetClause, bindingToRemoveClause))
 
       condConstruct.children = constructRelations
       construct.children = List(construct.graphs, condConstruct)
@@ -215,97 +236,146 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
   private
   def createGroupConstruct(basicConstruct: AlgebraTreeNode,
                            bindingToSetClause: Map[Reference, SetClause],
-                           bindingToRemoveClause: Map[Reference, RemoveClause])
-  : Seq[RelationLike] = {
+                           bindingToRemoveClause: Map[Reference, RemoveClause]): GroupConstruct = {
 
     val constructPattern: ConstructPattern =
       basicConstruct.children.head.asInstanceOf[ConstructPattern]
     val when: AlgebraExpression = basicConstruct.children.last.asInstanceOf[AlgebraExpression]
-    val restrictedBindingTable: RelationLike = Select(relation = bindingTable, expr = when)
 
-    val entityConstructs: Seq[ConstructRelation] =
-      constructPattern.children.map {
-        case vertex: VertexConstruct =>
-          VertexConstructRelation(
-            reference = vertex.ref,
-            relation = {
-              val vertexConstruct: RelationLike =
-                newConstruct(
-                  vertex, restrictedBindingTable,
-                  bindingToSetClause.get(vertex.ref), bindingToRemoveClause.get(vertex.ref),
-                  matchRefProjectAttrs = Set(vertex.ref))
-              if (vertexConstruct.getBindingSet.refSet.size > 1) // more than the constructed vertex
-                Project(
-                  relation = vertexConstruct,
-                  attributes = Set(vertex.ref))
-              else
-                vertexConstruct
-            }
-          )
+    val baseConstructViewName: String = s"${BASE_CONSTRUCT_VIEW_PREFIX}_${randomString()}"
+    val vertexConstructViewName: String = s"${VERTEX_CONSTRUCT_VIEW_PREFIX}_${randomString()}"
 
-        case edge: EdgeConstruct =>
-          edgeRelation(
-            edge, restrictedBindingTable,
-            leftConstruct =
-              newConstruct(
-                edge.leftEndpoint, restrictedBindingTable,
-                bindingToSetClause.get(edge.leftEndpoint.getRef),
-                bindingToRemoveClause.get(edge.leftEndpoint.getRef),
-                matchRefProjectAttrs = Set(edge.leftEndpoint.getRef)),
-            rightConstruct =
-              newConstruct(
-                edge.rightEndpoint, restrictedBindingTable,
-                bindingToSetClause.get(edge.rightEndpoint.getRef),
-                bindingToRemoveClause.get(edge.rightEndpoint.getRef),
-                matchRefProjectAttrs = Set(edge.rightEndpoint.getRef)),
-            bindingToSetClause.get(edge.connName),
-            bindingToRemoveClause.get(edge.connName))
+    val filteredBindingTable: RelationLike = Select(relation = bindingTable, expr = when)
+    val baseConstructTable: RelationLike =
+      BaseConstructTable(baseConstructViewName, filteredBindingTable.getBindingSet)
+
+    // Dismiss easy case, when we only construct one vertex.
+    val isOnlyVertexConstruct = constructPattern.children.head.isInstanceOf[VertexConstruct]
+    if (isOnlyVertexConstruct) {
+      val vertex: VertexConstruct = constructPattern.children.head.asInstanceOf[VertexConstruct]
+      val entityConstruct: RelationLike =
+        newVertexConstruct(
+          vertex, baseConstructTable,
+          bindingToSetClause.get(vertex.ref), bindingToRemoveClause.get(vertex.ref))
+      GroupConstruct(
+        baseConstructTable = filteredBindingTable,
+        vertexConstructTable = entityConstruct,
+        baseConstructViewName = baseConstructViewName,
+        vertexConstructViewName = vertexConstructViewName,
+        edgeConstructTable = RelationLike.empty,
+        createRules = Seq(VertexCreate(vertex.ref))
+      )
+    } else {
+      // We are constructing one ore more edges.
+      val vertexConstructs: Seq[SingleEndpointConstruct] =
+        constructPattern.children.flatMap {
+          case edge: EdgeConstruct => Seq(edge.leftEndpoint, edge.rightEndpoint)
+        }
+      val edgeConstructs: Seq[DoubleEndpointConstruct] =
+        constructPattern.children.map(_.asInstanceOf[DoubleEndpointConstruct])
+
+      val vertexConstructTable: RelationLike =
+        addVerticesToTable(
+          baseConstructTable, vertexConstructs, bindingToSetClause, bindingToRemoveClause)
+      val vertexConstructTableView: RelationLike =
+        VertexConstructTable(
+          vertexConstructViewName,
+          vertexConstructTable.getBindingSet)
+      val btableWithVerticesAndEdges: RelationLike =
+        addEdgesToTable(
+          vertexConstructTableView, edgeConstructs, bindingToSetClause, bindingToRemoveClause)
+
+      GroupConstruct(
+        baseConstructTable = filteredBindingTable,
+        vertexConstructTable = vertexConstructTable,
+        baseConstructViewName = baseConstructViewName,
+        vertexConstructViewName = vertexConstructViewName,
+        edgeConstructTable = btableWithVerticesAndEdges,
+        createRules = {
+          val vertices: Seq[EntityCreateRule] =
+            vertexConstructs.map(construct => VertexCreate(construct.getRef))
+          val edges: Seq[EntityCreateRule] =
+            edgeConstructs.map(construct =>
+              EdgeCreate(
+                construct.getRef,
+                construct.getLeftEndpoint.getRef,
+                construct.getRightEndpoint.getRef,
+                construct.getConnType))
+
+          vertices ++ edges
+        }
+      )
+    }
+  }
+
+  private def addVerticesToTable(baseBindingTable: RelationLike,
+                                 connectionConstructs: Seq[SingleEndpointConstruct],
+                                 bindingToSetClause: Map[Reference, SetClause],
+                                 bindingToRemoveClause: Map[Reference, RemoveClause])
+  : RelationLike = {
+
+    val constructsGroupingMap: Map[Reference, SingleEndpointConstruct] =
+      connectionConstructs
+        .filter(
+          // grouping on identity or has GROUP
+          construct => isMatchRef(construct.getRef) || construct.getGroupDeclaration.isDefined)
+        .map(construct => construct.getRef -> construct)
+        .toMap
+    val constructsGrouping: Set[SingleEndpointConstruct] = constructsGroupingMap.values.toSet
+    val constructsGroupingRefSet: Set[Reference] = constructsGroupingMap.keySet
+    val constructsNoGrouping: Set[SingleEndpointConstruct] =
+      connectionConstructs
+        .filter(construct => !constructsGroupingRefSet.contains(construct.getRef))
+        .toSet
+
+    // Simply add new columns to the binding table, if the vertices are not grouping it. The
+    // accumulator baseBindingTable is returned, if there are no ungrouped variables.
+    val btableWithConstructsNoGrouping: RelationLike =
+      constructsNoGrouping.foldLeft(baseBindingTable) {
+        (relation, construct) =>
+          newVertexConstruct(
+            construct, relation, // add new construct to previous relation
+            bindingToSetClause.get(construct.getRef),
+            bindingToRemoveClause.get(construct.getRef))
       }
 
-    entityConstructs
+    // If vertices need grouping, then group the btable, then join back. If there had been no
+    // ungrouped variables, then the btableWithConstructNoGrouping = baseBindingTable.
+    val btableWithAllConstructs: RelationLike =
+      reduceLeft(
+        Seq(btableWithConstructsNoGrouping) ++ // start from table with vertices without grouping
+          constructsGrouping.map(construct =>
+            newVertexConstruct(
+              construct, baseBindingTable, // we group the original btable and join back
+              bindingToSetClause.get(construct.getRef),
+              bindingToRemoveClause.get(construct.getRef))
+          ),
+        InnerJoin)
+
+    btableWithAllConstructs
   }
 
-  private def edgeRelation(edge: EdgeConstruct,
-                           bindingTable: RelationLike,
-                           leftConstruct: RelationLike,
-                           rightConstruct: RelationLike,
-                           setClause: Option[SetClause],
-                           removeClause: Option[RemoveClause]): ConstructRelation = {
-
-    val btableWithLeftAttr: RelationLike =
-      InnerJoin(lhs = bindingTable, rhs = leftConstruct)
-    val btableWithEndpoints: RelationLike =
-      InnerJoin(lhs = btableWithLeftAttr, rhs = rightConstruct)
-
-    val edgeConstruct: RelationLike =
-      newConstruct(
-        connectionConstruct = edge,
-        bindingTable = btableWithEndpoints,
-        setClause = setClause,
-        removeClause = removeClause,
-        matchRefProjectAttrs =
-          Set(edge.getRef, edge.leftEndpoint.getRef, edge.rightEndpoint.getRef))
-
-    EdgeConstructRelation(
-      reference = edge.connName,
-      relation =
-        // TODO: Just like for the vertex, this can be done depending on the binding set of the
-        // construct relation or if it was not matched ref (?).
-        Project(
-          relation = edgeConstruct,
-          attributes = Set(edge.connName, edge.leftEndpoint.getRef, edge.rightEndpoint.getRef)),
-      leftReference = edge.leftEndpoint.getRef,
-      rightReference = edge.rightEndpoint.getRef,
-      connType = edge.connType)
+  private def addEdgesToTable(vertexConstructTable: RelationLike,
+                              connectionConstructs: Seq[DoubleEndpointConstruct],
+                              bindingToSetClause: Map[Reference, SetClause],
+                              bindingToRemoveClause: Map[Reference, RemoveClause]): RelationLike = {
+    reduceLeft(
+      Seq(vertexConstructTable) ++
+        connectionConstructs.map(construct =>
+          newEdgeConstruct(
+            construct, vertexConstructTable,
+            bindingToSetClause.get(construct.getRef),
+            bindingToRemoveClause.get(construct.getRef))
+        ),
+      InnerJoin)
   }
 
-  private def newConstruct(connectionConstruct: ConnectionConstruct,
-                           bindingTable: RelationLike,
-                           setClause: Option[SetClause],
-                           removeClause: Option[RemoveClause],
-                           matchRefProjectAttrs: Set[Reference]): RelationLike = {
+  private def newVertexConstruct(vertexConstruct: SingleEndpointConstruct,
+                                 bindingTable: RelationLike,
+                                 setClause: Option[SetClause],
+                                 removeClause: Option[RemoveClause]): RelationLike = {
     val normalizePropertiesRes: (Seq[PropertySet], PropAssignments, Option[SetClause]) =
-      normalizeProperties(connectionConstruct, setClause)
+      normalizeProperties(vertexConstruct, setClause)
     val propAggregates: Seq[PropertySet] = normalizePropertiesRes._1
     val newPropAssignments: PropAssignments = normalizePropertiesRes._2
     val newSetClause: Option[SetClause] = normalizePropertiesRes._3
@@ -315,70 +385,74 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
     val newRemoveClause: Option[RemoveClause] =
       addPropAggToRemoveClause(propAggregates, removeClause)
 
-    if (isMatchRef(connectionConstruct.getRef))
+    if (isMatchRef(vertexConstruct.getRef))
       // We only need to keep the constructed entity, if it has been matched, we can discard the
       // rest of the binding table for now.
       Project(
         relation =
-          matchedRefConstruction(
-            connectionConstruct, bindingTable,
+          matchedVertexConstruction(
+            vertexConstruct, bindingTable,
             propAggregates, newPropAssignments,
             newSetClause, newRemoveClause),
-        attributes = matchRefProjectAttrs)
+        attributes = Set(vertexConstruct.getRef))
     else
-      unmatchedRefConstruction(
-        connectionConstruct, bindingTable,
+      unmatchedVertexConstruction(
+        vertexConstruct, bindingTable,
         propAggregates, newPropAssignments,
         newSetClause, newRemoveClause)
   }
 
-  private def matchedRefConstruction(connectionConstruct: ConnectionConstruct,
-                                     bindingTable: RelationLike,
-                                     propAggregates: Seq[PropertySet],
-                                     propAssignments: PropAssignments,
-                                     setClause: Option[SetClause],
-                                     removeClause: Option[RemoveClause]): ConstructRelation = {
+  private def matchedVertexConstruction(vertexConstruct: SingleEndpointConstruct,
+                                        bindingTable: RelationLike,
+                                        propAggregates: Seq[PropertySet],
+                                        propAssignments: PropAssignments,
+                                        setClause: Option[SetClause],
+                                        removeClause: Option[RemoveClause])
+  : ConstructRelation = {
+
     val btableGrouping: RelationLike =
       GroupBy(
-        connectionConstruct.getRef,
+        vertexConstruct.getRef,
         relation = bindingTable,
-        groupingAttributes = Seq(connectionConstruct.getRef),
+        groupingAttributes = Seq(vertexConstruct.getRef),
         aggregateFunctions = propAggregates)
-    EntityConstructRelation(
-      reference = connectionConstruct.getRef,
+    ConstructRelation(
+      reference = vertexConstruct.getRef,
       isMatchedRef = true,
       relation = btableGrouping,
-      expr = connectionConstruct.getExpr.copy(propAssignments = propAssignments),
+      expr = vertexConstruct.getExpr.copy(propAssignments = propAssignments),
       setClause = setClause,
       removeClause = removeClause)
   }
 
-  private def unmatchedRefConstruction(connectionConstruct: ConnectionConstruct,
-                                       bindingTable: RelationLike,
-                                       propAggregates: Seq[PropertySet],
-                                       propAssignments: PropAssignments,
-                                       setClause: Option[SetClause],
-                                       removeClause: Option[RemoveClause]): ConstructRelation = {
-    val hasGrouping: Boolean = connectionConstruct.getGroupDeclaration.isDefined
-    EntityConstructRelation(
-      reference = connectionConstruct.getRef,
+  private def unmatchedVertexConstruction(vertexConstruct: SingleEndpointConstruct,
+                                          bindingTable: RelationLike,
+                                          propAggregates: Seq[PropertySet],
+                                          propAssignments: PropAssignments,
+                                          setClause: Option[SetClause],
+                                          removeClause: Option[RemoveClause])
+  : ConstructRelation = {
+
+    val hasGrouping: Boolean = vertexConstruct.getGroupDeclaration.isDefined
+    ConstructRelation(
+      reference = vertexConstruct.getRef,
       isMatchedRef = false,
       relation =
         AddColumn(
-          reference = connectionConstruct.getRef,
+          reference = vertexConstruct.getRef,
           relation = {
             if (hasGrouping)
               GroupBy(
-                connectionConstruct.getRef,
+                vertexConstruct.getRef,
                 relation = bindingTable,
-                connectionConstruct.getGroupDeclaration.toList,
+                vertexConstruct.getGroupDeclaration.toList,
                 propAggregates)
             else
               bindingTable
           }),
       groupedAttributes = {
         if (hasGrouping) {
-          val groupDeclaration: GroupDeclaration = connectionConstruct.getGroupDeclaration.get
+          val groupDeclaration: GroupDeclaration = vertexConstruct.getGroupDeclaration.get
           val propertyRefs: Seq[PropertyRef] =
             groupDeclaration.children.map(_.asInstanceOf[PropertyRef])
           propertyRefs
@@ -386,9 +460,56 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
         else
           Seq.empty
       },
-      expr = connectionConstruct.getExpr.copy(propAssignments = propAssignments),
+      expr = vertexConstruct.getExpr.copy(propAssignments = propAssignments),
       setClause = setClause,
       removeClause = removeClause)
+  }
+
+  private def newEdgeConstruct(edgeConstruct: DoubleEndpointConstruct,
+                               bindingTable: RelationLike,
+                               setClause: Option[SetClause],
+                               removeClause: Option[RemoveClause]): RelationLike = {
+    val normalizePropertiesRes: (Seq[PropertySet], PropAssignments, Option[SetClause]) =
+      normalizeProperties(edgeConstruct, setClause)
+    val propAggregates: Seq[PropertySet] = normalizePropertiesRes._1
+    val newPropAssignments: PropAssignments = normalizePropertiesRes._2
+    val newSetClause: Option[SetClause] = normalizePropertiesRes._3
+
+    // If we added any new properties to replace the aggregates, we need to remove them from the
+    // final result.
+    val newRemoveClause: Option[RemoveClause] =
+      addPropAggToRemoveClause(propAggregates, removeClause)
+
+    val btableGrouping: RelationLike =
+      GroupBy(
+        reference = edgeConstruct.getRef,
+        relation = bindingTable,
+        groupingAttributes =
+          Seq(edgeConstruct.getLeftEndpoint.getRef, edgeConstruct.getRightEndpoint.getRef),
+        aggregateFunctions = propAggregates)
+
+    Project(
+      relation =
+        ConstructRelation(
+          reference = edgeConstruct.getRef,
+          isMatchedRef = isMatchRef(edgeConstruct.getRef),
+          relation = {
+            if (isMatchRef(edgeConstruct.getRef))
+              btableGrouping
+            else
+              AddColumn(
+                reference = edgeConstruct.getRef,
+                relation = btableGrouping)
+          },
+          expr = edgeConstruct.getExpr.copy(propAssignments = newPropAssignments),
+          setClause = setClause,
+          removeClause = removeClause),
+      attributes =
+        Set(
+          edgeConstruct.getRef,
+          edgeConstruct.getLeftEndpoint.getRef,
+          edgeConstruct.getRightEndpoint.getRef)
+    )
   }
 
   private def isMatchRef(reference: Reference): Boolean =

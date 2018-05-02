@@ -5,8 +5,8 @@ import algebra.operators.Column
 import algebra.operators.Column._
 import algebra.target_api.TargetTreeNode
 import algebra.trees.AlgebraTreeNode
+import common.RandomNameGenerator
 import common.exceptions.UnsupportedOperation
-import org.apache.commons.text.RandomStringGenerator
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 import schema.Table
@@ -24,14 +24,8 @@ case class SqlQuery(prologue: Seq[String] = Seq.empty,
 
 object SqlQuery {
 
-  val randomStringLength: Int = 5
-  val randomStringGenerator: RandomStringGenerator =
-    new RandomStringGenerator.Builder().selectFrom(('0' to '9') ++ ('a' to 'z'): _*).build()
-
   /** Create a unique alias for a table. */
-  def tempViewAlias: String = {
-    s"${randomStringGenerator.generate(randomStringLength)}"
-  }
+  def tempViewAlias: String = RandomNameGenerator.randomString()
 
   /**
     * Given a [[Table]], creates the string for selecting all columns in that [[Table]] and

@@ -97,31 +97,15 @@ class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
     (mockedTargetPlanner.planAddColumn _).verify(addColumn).once
   }
 
-  test("createBindingTablePlaceholder is called for BindingTable") {
-    val bindingTable = BindingTable(bset = BindingSet.empty)
-    rewriter rewriteTree bindingTable
-    (mockedTargetPlanner.createBindingTablePlaceholder _).verify().once
+  test("createTableView is called for a TableView") {
+    val tableView = new TableView(viewName = "foo", bindingSet = BindingSet.empty) {}
+    rewriter rewriteTree tableView
+    (mockedTargetPlanner.createTableView _).verify("foo").once
   }
 
-  test("planVertexCreate is called for VertexConstructRelation") {
-    val construct = VertexConstructRelation(Reference("v"), RelationLike.empty)
-    rewriter rewriteTree construct
-    (mockedTargetPlanner.planVertexCreate _).verify(construct).once
-  }
-
-  test("planEdgeCreate is called for EdgeConstructRelation") {
+  test("planConstruct is called for ConstructRelation") {
     val construct =
-      EdgeConstructRelation(
-        Reference("e"),
-        relation = RelationLike.empty,
-        leftReference = Reference("v"), rightReference = Reference("w"), connType = OutConn)
-    rewriter rewriteTree construct
-    (mockedTargetPlanner.planEdgeCreate _).verify(construct).once
-  }
-
-  test("planEntityConstruct is called for EntityConstructRelation") {
-    val construct =
-      EntityConstructRelation(
+      ConstructRelation(
         reference = Reference("v"),
         isMatchedRef = true,
         relation = RelationLike.empty,
@@ -129,6 +113,6 @@ class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
         expr = ObjectConstructPattern.empty,
         setClause = None, removeClause = None)
     rewriter rewriteTree construct
-    (mockedTargetPlanner.planEntityConstruct _).verify(construct).once
+    (mockedTargetPlanner.planConstruct _).verify(construct).once
   }
 }

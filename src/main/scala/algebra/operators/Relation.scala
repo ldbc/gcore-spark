@@ -35,9 +35,3 @@ case class Relation(label: Label) extends RelationLike(BindingSet.empty) {
   * [[Relation]] and instead can be any relation in the database.
   */
 case object AllRelations extends RelationLike(BindingSet.empty)
-
-/**
-  * Placeholder for the binding table materialized from the MATCH clause. During the rewriting phase
-  * of the algebraic tree, we don't have access to the actual matched data.
-  */
-case class BindingTable(bset: BindingSet) extends RelationLike(bset)

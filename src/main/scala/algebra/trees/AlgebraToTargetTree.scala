@@ -10,8 +10,7 @@ import schema.GraphDb
   * target-specific operators. Each logical operator op of type OpType is converted into its
   * target-specific equivalent by calling the [[TargetPlanner]]'s planOpType(op) method.
   */
-case class AlgebraToTargetTree(graphDb: GraphDb,
-                               targetPlanner: TargetPlanner)
+case class AlgebraToTargetTree(graphDb: GraphDb, targetPlanner: TargetPlanner)
   extends BottomUpRewriter[AlgebraTreeNode] {
 
   override val rule: RewriteFuncType = {
@@ -32,9 +31,7 @@ case class AlgebraToTargetTree(graphDb: GraphDb,
     case groupBy: GroupBy => targetPlanner.planGroupBy(groupBy)
     case addColumn: AddColumn => targetPlanner.planAddColumn(addColumn)
 
-    case btable: BindingTable => targetPlanner.createBindingTablePlaceholder
-    case ec: EntityConstructRelation => targetPlanner.planEntityConstruct(ec)
-    case vc: VertexConstructRelation => targetPlanner.planVertexCreate(vc)
-    case ec: EdgeConstructRelation => targetPlanner.planEdgeCreate(ec)
+    case tableView: TableView => targetPlanner.createTableView(tableView.getViewName)
+    case ec: ConstructRelation => targetPlanner.planConstruct(ec)
   }
 }

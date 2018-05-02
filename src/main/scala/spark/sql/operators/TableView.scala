@@ -5,19 +5,19 @@ import algebra.target_api
 import algebra.target_api.BindingTableMetadata
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import spark.sql.SqlPlanner.BINDING_TABLE_GLOBAL_VIEW
 import spark.sql.SqlQuery
 
-case class MatchBindingTable(sparkSession: SparkSession) extends target_api.MatchBindingTable {
+case class TableView(viewName: String, sparkSession: SparkSession)
+  extends target_api.TableView(viewName) {
 
   override val bindingTable: BindingTableMetadata = {
 
-    val accessBtableGlobalView: String = s"global_temp.$BINDING_TABLE_GLOBAL_VIEW"
+    val globalView: String = s"global_temp.$viewName"
 
     // Infer binding table's schema from its global view.
-    val globalBtableSchema: DataFrame = sparkSession.sql(s"DESCRIBE TABLE $accessBtableGlobalView")
+    val viewSchema: DataFrame = sparkSession.sql(s"DESCRIBE TABLE $globalView")
     var schema: StructType = new StructType()
-    globalBtableSchema
+    viewSchema
       .collect()
       .foreach(attributes =>
         schema = schema.add(attributes(0).asInstanceOf[String], attributes(1).asInstanceOf[String]))
@@ -37,7 +37,7 @@ case class MatchBindingTable(sparkSession: SparkSession) extends target_api.Matc
     SqlBindingTableMetadata(
       sparkSchemaMap = schemaMap,
       sparkBtableSchema = schema,
-      btableOps = SqlQuery(resQuery = accessBtableGlobalView)
+      btableOps = SqlQuery(resQuery = globalView)
     )
   }
 }

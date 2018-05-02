@@ -40,21 +40,15 @@ abstract class TargetPlanner {
   def planAddColumn(addColumnOp: algebra.operators.AddColumn): AddColumn
 
   /**
-    * Replaces the [[algebra.operators.BindingTable]] in the construct sub-clause. We need this
-    * abstraction in the target tree, because we only want to create the physical table once and
-    * query it multiple times. It would be wasteful to call [[solveBindingTable]] in the target tree
-    * as many times as needed. Instead, we replace the algebraic occurrences with an abstraction and
-    * allow the target to create views over the result of the match sub-clause and use it multiple
-    * times, where needed.
+    * Replaces a table in the construct sub-clause. We need this abstraction in the target tree for
+    * tables for which we want to create the physical table once and query it multiple times. We
+    * replace the algebraic occurrences with an abstraction and allow the target to create views
+    * over the result of the query and use it multiple times, where needed.
     *
-    * [[MatchBindingTable]] remains an abstract class, to allow the target to implement any useful
+    * [[TableView]] remains an abstract class, to allow the target to implement any useful
     * specific methods inside.
     */
-  def createBindingTablePlaceholder: MatchBindingTable
+  def createTableView(viewName: String): TableView
 
-  def planEntityConstruct(entityConstructRelation: EntityConstructRelation): EntityConstruct
-
-  def planVertexCreate(vertexConstructRelation: VertexConstructRelation): VertexCreate
-
-  def planEdgeCreate(edgeConstructRelation: EdgeConstructRelation): EdgeCreate
+  def planConstruct(entityConstructRelation: ConstructRelation): EntityConstruct
 }
