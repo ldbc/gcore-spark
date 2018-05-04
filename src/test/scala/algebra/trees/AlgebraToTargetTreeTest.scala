@@ -111,7 +111,7 @@ class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
         relation = RelationLike.empty,
         groupedAttributes = Seq.empty,
         expr = ObjectConstructPattern.empty,
-        setClause = None, removeClause = None)
+        setClause = None, propAggRemoveClause = None)
     rewriter rewriteTree construct
     (mockedTargetPlanner.planConstruct _).verify(construct).once
   }

@@ -3,7 +3,7 @@ package algebra.trees
 import algebra.expressions._
 import algebra.operators.BinaryOperator.reduceLeft
 import algebra.operators._
-import algebra.trees.CreateGroupingSets._
+import algebra.trees.BasicToGroupConstruct._
 import algebra.types._
 import common.RandomNameGenerator._
 import common.trees.BottomUpRewriter
@@ -11,7 +11,7 @@ import parser.utils.VarBinder.createVar
 
 import scala.collection.mutable
 
-object CreateGroupingSets {
+object BasicToGroupConstruct {
 
   /** Basename of aggregates that participate in a SET clause or inline property set. */
   val PROP_AGG_BASENAME: String = "propset_agg"
@@ -204,7 +204,8 @@ object CreateGroupingSets {
   * In a [[GroupConstruct]] with multiple edges, the construction happens iteratively, starting from
   * the [[VertexConstructTable]].
   */
-case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[AlgebraTreeNode] {
+case class BasicToGroupConstruct(context: AlgebraContext)
+  extends BottomUpRewriter[AlgebraTreeNode] {
 
   assert(context.bindingContext.isDefined,
     "The bindingContext in AlgebraContext needs to be defined for this rewrite stage.")
@@ -237,7 +238,6 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
   def createGroupConstruct(basicConstruct: AlgebraTreeNode,
                            bindingToSetClause: Map[Reference, SetClause],
                            bindingToRemoveClause: Map[Reference, RemoveClause]): GroupConstruct = {
-
     val constructPattern: ConstructPattern =
       basicConstruct.children.head.asInstanceOf[ConstructPattern]
     val when: AlgebraExpression = basicConstruct.children.last.asInstanceOf[AlgebraExpression]
@@ -249,71 +249,55 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
     val baseConstructTable: RelationLike =
       BaseConstructTable(baseConstructViewName, filteredBindingTable.getBindingSet)
 
-    // Dismiss easy case, when we only construct one vertex.
-    val isOnlyVertexConstruct = constructPattern.children.head.isInstanceOf[VertexConstruct]
-    if (isOnlyVertexConstruct) {
-      val vertex: VertexConstruct = constructPattern.children.head.asInstanceOf[VertexConstruct]
-      val entityConstruct: RelationLike =
-        newVertexConstruct(
-          vertex, baseConstructTable,
-          bindingToSetClause.get(vertex.ref), bindingToRemoveClause.get(vertex.ref))
-      GroupConstruct(
-        baseConstructTable = filteredBindingTable,
-        vertexConstructTable = entityConstruct,
-        baseConstructViewName = baseConstructViewName,
-        vertexConstructViewName = vertexConstructViewName,
-        edgeConstructTable = RelationLike.empty,
-        createRules = Seq(VertexCreate(vertex.ref))
-      )
-    } else {
-      // We are constructing one ore more edges.
-      val vertexConstructs: Seq[SingleEndpointConstruct] =
-        constructPattern.children.flatMap {
+    val vertexConstructs: Seq[SingleEndpointConstruct] =
+      constructPattern.children
+        .collect {
+          case vertex: VertexConstruct => Seq(vertex)
           case edge: EdgeConstruct => Seq(edge.leftEndpoint, edge.rightEndpoint)
         }
-      val edgeConstructs: Seq[DoubleEndpointConstruct] =
-        constructPattern.children.map(_.asInstanceOf[DoubleEndpointConstruct])
+        .flatten
+    val edgeConstructs: Seq[DoubleEndpointConstruct] =
+      constructPattern.children.collect {
+        case edge: EdgeConstruct => edge
+      }
 
-      val vertexConstructTable: RelationLike =
-        addVerticesToTable(
-          baseConstructTable, vertexConstructs, bindingToSetClause, bindingToRemoveClause)
-      val vertexConstructTableView: RelationLike =
-        VertexConstructTable(
-          vertexConstructViewName,
-          vertexConstructTable.getBindingSet)
-      val btableWithVerticesAndEdges: RelationLike =
-        addEdgesToTable(
-          vertexConstructTableView, edgeConstructs, bindingToSetClause, bindingToRemoveClause)
+    val vertexConstructTable: RelationLike =
+      addVerticesToTable(baseConstructTable, vertexConstructs, bindingToSetClause)
 
-      GroupConstruct(
-        baseConstructTable = filteredBindingTable,
-        vertexConstructTable = vertexConstructTable,
-        baseConstructViewName = baseConstructViewName,
-        vertexConstructViewName = vertexConstructViewName,
-        edgeConstructTable = btableWithVerticesAndEdges,
-        createRules = {
-          val vertices: Seq[EntityCreateRule] =
-            vertexConstructs.map(construct => VertexCreate(construct.getRef))
-          val edges: Seq[EntityCreateRule] =
-            edgeConstructs.map(construct =>
-              EdgeCreate(
-                construct.getRef,
-                construct.getLeftEndpoint.getRef,
-                construct.getRightEndpoint.getRef,
-                construct.getConnType))
+    GroupConstruct(
+      baseConstructTable = filteredBindingTable,
+      vertexConstructTable = vertexConstructTable,
+      baseConstructViewName = baseConstructViewName,
+      vertexConstructViewName = vertexConstructViewName,
+      edgeConstructTable = {
+        if (edgeConstructs.isEmpty)
+          RelationLike.empty
+        else
+          addEdgesToTable(
+            VertexConstructTable(vertexConstructViewName, vertexConstructTable.getBindingSet),
+            edgeConstructs, bindingToSetClause)
+      },
+      createRules = {
+        val vertices: Seq[EntityCreateRule] =
+          vertexConstructs.map(construct =>
+            VertexCreate(construct.getRef, bindingToRemoveClause.get(construct.getRef)))
+        val edges: Seq[EntityCreateRule] =
+          edgeConstructs.map(construct =>
+            EdgeCreate(
+              construct.getRef,
+              construct.getLeftEndpoint.getRef,
+              construct.getRightEndpoint.getRef,
+              construct.getConnType,
+              bindingToRemoveClause.get(construct.getRef)))
 
-          vertices ++ edges
-        }
-      )
-    }
+        vertices ++ edges
+      }
+    )
   }
 
   private def addVerticesToTable(baseBindingTable: RelationLike,
                                  connectionConstructs: Seq[SingleEndpointConstruct],
-                                 bindingToSetClause: Map[Reference, SetClause],
-                                 bindingToRemoveClause: Map[Reference, RemoveClause])
-  : RelationLike = {
-
+                                 bindingToSetClause: Map[Reference, SetClause]): RelationLike = {
     val constructsGroupingMap: Map[Reference, SingleEndpointConstruct] =
       connectionConstructs
         .filter(
@@ -335,8 +319,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
         (relation, construct) =>
           newVertexConstruct(
             construct, relation, // add new construct to previous relation
-            bindingToSetClause.get(construct.getRef),
-            bindingToRemoveClause.get(construct.getRef))
+            bindingToSetClause.get(construct.getRef))
       }
 
     // If vertices need grouping, then group the btable, then join back. If there had been no
@@ -347,8 +330,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
           constructsGrouping.map(construct =>
             newVertexConstruct(
               construct, baseBindingTable, // we group the original btable and join back
-              bindingToSetClause.get(construct.getRef),
-              bindingToRemoveClause.get(construct.getRef))
+              bindingToSetClause.get(construct.getRef))
           ),
         InnerJoin)
 
@@ -357,23 +339,20 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
 
   private def addEdgesToTable(vertexConstructTable: RelationLike,
                               connectionConstructs: Seq[DoubleEndpointConstruct],
-                              bindingToSetClause: Map[Reference, SetClause],
-                              bindingToRemoveClause: Map[Reference, RemoveClause]): RelationLike = {
+                              bindingToSetClause: Map[Reference, SetClause]): RelationLike = {
     reduceLeft(
       Seq(vertexConstructTable) ++
         connectionConstructs.map(construct =>
           newEdgeConstruct(
             construct, vertexConstructTable,
-            bindingToSetClause.get(construct.getRef),
-            bindingToRemoveClause.get(construct.getRef))
+            bindingToSetClause.get(construct.getRef))
         ),
       InnerJoin)
   }
 
   private def newVertexConstruct(vertexConstruct: SingleEndpointConstruct,
                                  bindingTable: RelationLike,
-                                 setClause: Option[SetClause],
-                                 removeClause: Option[RemoveClause]): RelationLike = {
+                                 setClause: Option[SetClause]): RelationLike = {
     val normalizePropertiesRes: (Seq[PropertySet], PropAssignments, Option[SetClause]) =
       normalizeProperties(vertexConstruct, setClause)
     val propAggregates: Seq[PropertySet] = normalizePropertiesRes._1
@@ -382,8 +361,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
 
     // If we added any new properties to replace the aggregates, we need to remove them from the
     // final result.
-    val newRemoveClause: Option[RemoveClause] =
-      addPropAggToRemoveClause(propAggregates, removeClause)
+    val aggPropRemoveClause: Option[RemoveClause] = propAggToRemoveClause(propAggregates)
 
     if (isMatchRef(vertexConstruct.getRef))
       // We only need to keep the constructed entity, if it has been matched, we can discard the
@@ -393,13 +371,13 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
           matchedVertexConstruction(
             vertexConstruct, bindingTable,
             propAggregates, newPropAssignments,
-            newSetClause, newRemoveClause),
+            newSetClause, aggPropRemoveClause),
         attributes = Set(vertexConstruct.getRef))
     else
       unmatchedVertexConstruction(
         vertexConstruct, bindingTable,
         propAggregates, newPropAssignments,
-        newSetClause, newRemoveClause)
+        newSetClause, aggPropRemoveClause)
   }
 
   private def matchedVertexConstruction(vertexConstruct: SingleEndpointConstruct,
@@ -407,9 +385,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
                                         propAggregates: Seq[PropertySet],
                                         propAssignments: PropAssignments,
                                         setClause: Option[SetClause],
-                                        removeClause: Option[RemoveClause])
-  : ConstructRelation = {
-
+                                        removeClause: Option[RemoveClause]): ConstructRelation = {
     val btableGrouping: RelationLike =
       GroupBy(
         vertexConstruct.getRef,
@@ -422,7 +398,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
       relation = btableGrouping,
       expr = vertexConstruct.getExpr.copy(propAssignments = propAssignments),
       setClause = setClause,
-      removeClause = removeClause)
+      propAggRemoveClause = removeClause)
   }
 
   private def unmatchedVertexConstruction(vertexConstruct: SingleEndpointConstruct,
@@ -430,9 +406,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
                                           propAggregates: Seq[PropertySet],
                                           propAssignments: PropAssignments,
                                           setClause: Option[SetClause],
-                                          removeClause: Option[RemoveClause])
-  : ConstructRelation = {
-
+                                          removeClause: Option[RemoveClause]): ConstructRelation = {
     val hasGrouping: Boolean = vertexConstruct.getGroupDeclaration.isDefined
     ConstructRelation(
       reference = vertexConstruct.getRef,
@@ -462,13 +436,12 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
       },
       expr = vertexConstruct.getExpr.copy(propAssignments = propAssignments),
       setClause = setClause,
-      removeClause = removeClause)
+      propAggRemoveClause = removeClause)
   }
 
   private def newEdgeConstruct(edgeConstruct: DoubleEndpointConstruct,
                                bindingTable: RelationLike,
-                               setClause: Option[SetClause],
-                               removeClause: Option[RemoveClause]): RelationLike = {
+                               setClause: Option[SetClause]): RelationLike = {
     val normalizePropertiesRes: (Seq[PropertySet], PropAssignments, Option[SetClause]) =
       normalizeProperties(edgeConstruct, setClause)
     val propAggregates: Seq[PropertySet] = normalizePropertiesRes._1
@@ -477,8 +450,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
 
     // If we added any new properties to replace the aggregates, we need to remove them from the
     // final result.
-    val newRemoveClause: Option[RemoveClause] =
-      addPropAggToRemoveClause(propAggregates, removeClause)
+    val propAggRemoveClause: Option[RemoveClause] = propAggToRemoveClause(propAggregates)
 
     val btableGrouping: RelationLike =
       GroupBy(
@@ -502,8 +474,8 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
                 relation = btableGrouping)
           },
           expr = edgeConstruct.getExpr.copy(propAssignments = newPropAssignments),
-          setClause = setClause,
-          removeClause = removeClause),
+          setClause = newSetClause,
+          propAggRemoveClause = propAggRemoveClause),
       attributes =
         Set(
           edgeConstruct.getRef,
@@ -515,17 +487,13 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
   private def isMatchRef(reference: Reference): Boolean =
     bindingContext.allRefs.contains(reference)
 
-  private def addPropAggToRemoveClause(propAggregates: Seq[PropertySet],
-                                       removeClause: Option[RemoveClause]): Option[RemoveClause] = {
+  /** Creates a [[RemoveClause]] to discard intermediate properties used for aggregation. */
+  private def propAggToRemoveClause(propAggregates: Seq[PropertySet]): Option[RemoveClause] = {
     val removePropAggregates: Seq[PropertyRemove] =
       propAggregates.map(propertySet =>
         PropertyRemove(PropertyRef(propertySet.ref, propertySet.propAssignment.propKey)))
 
-    if (removeClause.isDefined)
-      Some(
-        removeClause.get
-          .copy(propRemoves = removeClause.get.propRemoves ++ removePropAggregates))
-    else if (removePropAggregates.nonEmpty)
+    if (removePropAggregates.nonEmpty)
       Some(
         RemoveClause(
           propRemoves = removePropAggregates,
@@ -541,8 +509,7 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
     // For inline property assignments, pull out aggregations and replace with new property for this
     // vertex.
     val normalizePropAssignmentsRes: (PropAssignments, Seq[PropertySet]) =
-    normalizePropAssignments(
-      connection.getRef, connection.getExpr.propAssignments)
+      normalizePropAssignments(connection.getRef, connection.getExpr.propAssignments)
     // For SET property assignments, pull out aggregations and replace with new property for this
     // vertex.
     val normalizeSetClauseRes: Option[(SetClause, Seq[PropertySet])] = {
@@ -567,17 +534,6 @@ case class CreateGroupingSets(context: AlgebraContext) extends BottomUpRewriter[
       }
 
     (propAggregates, newPropAssignments, newSetClause)
-  }
-
-  /** Extracts the [[Reference]]s from all the [[PropertyRef]]s in a sub-tree. */
-  private def refsInExpression(expr: AlgebraTreeNode): Seq[Reference] = {
-    expr
-      .preOrderMap {
-        case propRef: PropertyRef => Some(propRef.ref)
-        case _ => None
-      }
-      .filter(_.nonEmpty)
-      .map(_.get)
   }
 
   /**

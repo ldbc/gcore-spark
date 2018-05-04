@@ -12,9 +12,12 @@ import schema.PathPropertyGraph
   *
   * The relation dictates how the entity should be built starting from the binding table. New
   * properties can be added to the entity through its [[ObjectConstructPattern]] or through the
-  * [[SetClause]]. Labels can be added through the [[ObjectConstructPattern]]. The [[RemoveClause]]
-  * can be used to remove properties and/or labels. The [[PropertyRef]]erences used for grouping the
-  * binding table (if there were any) are exposed through the [[groupedAttributes]] parameter.
+  * [[SetClause]]. Labels can be added through the [[ObjectConstructPattern]]. The
+  * [[propAggRemoveClause]] should be used to remove properties that hold intermediate aggregation
+  * results. Other properties or labels that need removing should not be included here, because they
+  * will be discarded by the joins in the construction phase. The [[PropertyRef]]erences used for
+  * grouping the binding table (if there were any) are exposed through the [[groupedAttributes]]
+  * parameter.
   */
 case class ConstructRelation(reference: Reference,
                              isMatchedRef: Boolean,
@@ -22,11 +25,11 @@ case class ConstructRelation(reference: Reference,
                              groupedAttributes: Seq[PropertyRef] = Seq.empty,
                              expr: ObjectConstructPattern,
                              setClause: Option[SetClause],
-                             removeClause: Option[RemoveClause])
+                             propAggRemoveClause: Option[RemoveClause])
   extends UnaryOperator(relation) {
 
   children = List(reference, relation, expr) ++ groupedAttributes ++
-    setClause.toList ++ removeClause.toList
+    setClause.toList ++ propAggRemoveClause.toList
 
   override def name: String = s"${super.name} [isMatchedRef = $isMatchedRef]"
 }
@@ -35,10 +38,14 @@ abstract class EntityCreateRule extends GcoreOperator {
   override def checkWithContext(context: Context): Unit = {}
 }
 
-/** Shows which [[reference]] to use in a construct table to build a new vertex. */
-case class VertexCreate(reference: Reference) extends EntityCreateRule {
+/**
+  * Shows which [[reference]] to use in a construct table to build a new vertex. If properties or
+  * labels need to be removed from the vertex, they should be included in the [[removeClause]].
+  */
+case class VertexCreate(reference: Reference,
+                        removeClause: Option[RemoveClause]) extends EntityCreateRule {
 
-  children = List(reference)
+  children = List(reference) ++ removeClause.toList
 
   override def name: String = s"${super.name} [${reference.refName}]"
 }
@@ -46,14 +53,16 @@ case class VertexCreate(reference: Reference) extends EntityCreateRule {
 /**
   * Shows which [[reference]] to use in a construct table to build a new edge. Given that an edge
   * identity is strictly determined by the identity of its endpoints, this [[EntityCreateRule]] also
-  * holds its endpoin [[Reference]]s, as well as the [[ConnectionType]] between them.
+  * holds its endpoint [[Reference]]s, as well as the [[ConnectionType]] between them. If properties
+  * or labels need to be removed from the vertex, they should be included in the [[removeClause]].
   */
 case class EdgeCreate(reference: Reference,
                       leftReference: Reference,
                       rightReference: Reference,
-                      connType: ConnectionType) extends EntityCreateRule {
+                      connType: ConnectionType,
+                      removeClause: Option[RemoveClause]) extends EntityCreateRule {
 
-  children = List(reference, leftReference, rightReference, connType)
+  children = List(reference, leftReference, rightReference, connType) ++ removeClause.toList
 
   override def name: String =
     s"${super.name} " +

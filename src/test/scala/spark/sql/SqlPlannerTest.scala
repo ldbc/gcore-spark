@@ -114,15 +114,13 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (c) MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val expectedHeader: Seq[String] =
-      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+    // The binding table does not change with this CONSTRUCT query.
+    val expectedHeader: Seq[String] = bindingTableSchema.fields.map(_.name)
     compareHeaders(expectedHeader, actualDf)
 
-    val expectedDf =
-      Seq(coby, hosico, maru, grumpy).toDF.withColumn(tableLabelColumn.columnName, lit("Cat"))
     compareDfs(
-      actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
-      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
+      actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
+      bindingTable.select(expectedHeader.head, expectedHeader.tail: _*))
   }
 
   test("VertexCreate of bound variable, new properties (expr, const, inline, SET) - " +
@@ -131,38 +129,36 @@ class SqlPlannerTest extends FunSuite
       extractConstructClauses("CONSTRUCT (c {dw := 2 * c.weight}) SET c.constInt := 1 MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val existingProps: Seq[String] =
-      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+    val existingProps: Seq[String] = bindingTableSchema.fields.map(_.name)
     val newProps: Seq[String] = Seq("c$dw", "c$constInt")
     val expectedHeader: Seq[String] = existingProps ++ newProps
-
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
-      Seq(coby, hosico, maru, grumpy).toDF
-        .withColumn(tableLabelColumn.columnName, lit("Cat"))
-        .withColumn("constInt", lit(1))
-        .withColumn("dw", expr("2 * weight"))
+      bindingTable
+        .withColumn("c$constInt", lit(1))
+        .withColumn("c$dw", expr("2 * `c$weight`"))
 
     compareDfs(
-      actualDf.select(
-        s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet",
-        "c$dw", "c$constInt"),
-      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet", "dw", "constInt"))
+      actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
+      expectedDf.select(expectedHeader.head, expectedHeader.tail: _*))
   }
 
-  test("VertexCreate of bound variable, remove property and label - " +
+  // TODO: Removing of properties and labels happens at a higher level in the construction phase,
+  // the effects will not be seen at the construct table level. This should be checked after adding
+  // the vertex to a PathPropertyGraph.
+  ignore("VertexCreate of bound variable, remove property and label - " +
     "CONSTRUCT (c) REMOVE c.onDiet REMOVE c:Cat MATCH (c)") {
     val vertex = extractConstructClauses("CONSTRUCT (c) REMOVE c.onDiet REMOVE c:Cat MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val expectedHeader: Seq[String] = Seq(s"c$$$idCol", "c$name", "c$age", "c$weight")
+    val expectedHeader: Seq[String] =
+      bindingTableSchema.fields.map(_.name) diff Seq("c$onDiet", s"c$$$labelCol")
     compareHeaders(expectedHeader, actualDf)
 
-    val expectedDf = Seq(coby, hosico, maru, grumpy).toDF.drop("onDiet")
     compareDfs(
-      actualDf.select(s"c$$$idCol", "c$name", "c$age", "c$weight"),
-      expectedDf.select(idCol, "name", "age", "weight"))
+      actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
+      bindingTable.select(expectedHeader.head, expectedHeader.tail: _*))
   }
 
   test("VertexCreate of bound variable, filter binding table - " +
@@ -170,14 +166,13 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (c) WHEN c.age >= 5 MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    val expectedHeader: Seq[String] =
-      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+    val expectedHeader: Seq[String] = bindingTableSchema.fields.map(_.name)
     compareHeaders(expectedHeader, actualDf)
 
-    val expectedDf = Seq(maru).toDF.withColumn(tableLabelColumn.columnName, lit("Cat"))
+    val expectedDf = bindingTable.filter("`c$age` >= 5")
     compareDfs(
-      actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
-      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
+      actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
+      expectedDf.select(expectedHeader.head, expectedHeader.tail: _*))
   }
 
   test("VertexCreate of unbound variable - CONSTRUCT (x) MATCH (c)") {
@@ -228,17 +223,16 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (x GROUP c.onDiet) MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    // Only column onDiet of c from the binding table is preserved in the result in this case,
-    // because it was used in an aggregation. This being a new variable with grouping, we will use
-    // the grouping column for joining in a GroupConstruct. The other columns are removed in the
-    // EntityConstruct.
-    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", "c$onDiet")
+    // All columns of the binding table are preserved + the column with x's id is added to the
+    // result.
+    val expectedHeader: Seq[String] = bindingTableSchema.fields.map(_.name) ++ Seq(s"x$$$idCol")
     compareHeaders(expectedHeader, actualDf)
 
-    // Cannot directly compare df's contents, because the monotonically increasing id's are not
+    // Cannot directly compare x's ids, because the monotonically increasing id's are not
     // necessarily contiguous numbers. We assert here that for each group in the binding table
     // the new vertex x receives a unique id.
-    assert(actualDf.collect().map(_(0)).toSet.size == bindingTableData.groupBy(_.onDiet).size)
+    assert(actualDf.select(s"x$$$idCol").collect().map(_(0)).toSet.size ==
+      bindingTableData.groupBy(_.onDiet).size)
   }
 
   test("VertexCreate of unbound variable, GROUP binding table, aggregate prop - " +
@@ -247,25 +241,25 @@ class SqlPlannerTest extends FunSuite
       extractConstructClauses("CONSTRUCT (x GROUP c.onDiet {avgw := AVG(c.weight)}) MATCH (c)")
     val actualDf = sparkPlanner.constructGraph(bindingTable, vertex).head
 
-    // Only column onDiet of c from the binding table is preserved in the result in this case,
-    // because it was used in an aggregation. The other columns are removed in the EntityConstruct.
-    val expectedHeader: Seq[String] = Seq(s"x$$$idCol", "x$avgw", "c$onDiet")
+    // All columns of the binding table are preserved + the columns of x are added to the result:
+    // the id and the aggreated prop, avgw.
+    val expectedHeader: Seq[String] =
+      bindingTableSchema.fields.map(_.name) ++ Seq(s"x$$$idCol", "x$avgw")
     compareHeaders(expectedHeader, actualDf)
 
-    val expectedData =
-      bindingTableData
-        .groupBy(_.onDiet)
-        .map {
-          case (_, cats) => cats.map(_.weight).sum / cats.size.toDouble
-        }
-    val actualData =
+    val expectedGroups = bindingTableData.groupBy(_.onDiet)
+    val expectedGroupData =
+      expectedGroups.map {
+        case (key, cats) => key -> (cats.map(_.weight).sum / cats.size.toDouble)
+      }
+    val actualGroupData =
       actualDf
-        .select("x$avgw")
+        .select("c$onDiet", "x$avgw")
         .collect()
-        .map(row => row(0))
+        .map(row => (row(0), row(1)))
 
-    assert(expectedData.size == actualData.length)
-    assert(expectedData.toSet == actualData.toSet)
+    assert(actualGroupData.length == bindingTableData.size)
+    assert(actualGroupData.toSet == expectedGroupData.toSet)
   }
 
   test("EdgeCreate of bound edge and endpoints - CONSTRUCT (c)-[e]->(f) MATCH (c)-[e]->(f)") {
@@ -546,11 +540,21 @@ class SqlPlannerTest extends FunSuite
     assert(xids.toSet.size == bindingTableData.groupBy(_.onDiet).size)
   }
 
-  test("GroupConstruct of two vertices, with filtering - " +
+  test("GroupConstruct of the same vertex with contradicting filtering yields the empty table - " +
     "CONSTRUCT (c) WHEN c.age <= 3, (c) WHEN c.age > 3 MATCH (c)") {
     val group =
       extractConstructClauses(
         query = "CONSTRUCT (c) WHEN c.age <= 3, (c) WHEN c.age > 3 MATCH (c)",
+        expectedNumClauses = 1) // one clause, both BasicConstructs are on the same vertex
+    val actualDfs = sparkPlanner.constructGraph(bindingTable, group)
+    assert(actualDfs.head.rdd.isEmpty())
+  }
+
+  test("GroupConstruct of two vertices, with filtering - " +
+    "CONSTRUCT (c) WHEN c.age <= 3, (f) WHEN c.age <= 3 MATCH (c)-[e]->(f)") {
+    val group =
+      extractConstructClauses(
+        query = "CONSTRUCT (c) WHEN c.age <= 3, (f) WHEN c.age <= 3 MATCH (c)-[e]->(f)",
         expectedNumClauses = 2)
     val actualDfs = sparkPlanner.constructGraph(bindingTable, group)
 
@@ -558,15 +562,15 @@ class SqlPlannerTest extends FunSuite
     val bindingTableColumns: Seq[String] =
       bindingTableSchema.fields.map(_.name).filter(_.startsWith("c"))
     val expectedBelowThree = bindingTable.select("*").where("`c$age` <= 3")
-    val expectedAboveThree = bindingTable.select("*").where("`c$age` > 3")
 
     compareDfs(
       actualDfs.head.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
       expectedBelowThree.select(bindingTableColumns.head, bindingTableColumns.tail: _*))
     compareDfs(
       actualDfs.last.select(bindingTableColumns.head, bindingTableColumns.tail: _*),
-      expectedAboveThree.select(bindingTableColumns.head, bindingTableColumns.tail: _*))
+      expectedBelowThree.select(bindingTableColumns.head, bindingTableColumns.tail: _*))
   }
+
 
   private def extractConstructClauses(query: String, expectedNumClauses: Int = 1)
   : Seq[AlgebraTreeNode] = {

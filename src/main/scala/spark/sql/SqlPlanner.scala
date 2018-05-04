@@ -34,7 +34,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
   override def constructGraph(btable: DataFrame,
                               constructClauses: Seq[AlgebraTreeNode]): Seq[DataFrame] = {
     // Register the resulting binding table as a view, so that each construct clause can reuse it.
-    btable.createOrReplaceGlobalTempView(algebra.trees.CreateGroupingSets.BTABLE_VIEW)
+    btable.createOrReplaceGlobalTempView(algebra.trees.BasicToGroupConstruct.BTABLE_VIEW)
     // The root of each tree is a GroupConstruct.
 
     constructClauses.map(constructClause => {
@@ -49,27 +49,35 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
           .solveBtableOps(sparkSession)
       baseConstructTableData.createOrReplaceGlobalTempView(groupConstruct.baseConstructViewName)
 
-      // Rewrite the vertex table.
-      val vertexConstructTable: TargetTreeNode =
-        rewriter.rewriteTree(groupConstruct.getVertexConstructTable).asInstanceOf[TargetTreeNode]
-      logger.info("\n{}", vertexConstructTable.treeString())
-      val vertexData: DataFrame =
-        vertexConstructTable.bindingTable.asInstanceOf[SqlBindingTableMetadata]
-          .solveBtableOps(sparkSession)
+      if (baseConstructTableData.rdd.isEmpty()) {
+        // It can happen that the GroupConstruct filters on contradictory predicates. Example:
+        // CONSTRUCT (c) WHEN c.prop > 3, (c)-... WHEN c.prop <= 3 ...
+        // In this case, the resulting baseConstructTable will be the empty DataFrame. We should
+        // return here the empty DF as well. No other operations on this table will make sense.
+        sparkSession.emptyDataFrame
+      } else {
+        // Rewrite the vertex table.
+        val vertexConstructTable: TargetTreeNode =
+          rewriter.rewriteTree(groupConstruct.getVertexConstructTable).asInstanceOf[TargetTreeNode]
+        logger.info("\n{}", vertexConstructTable.treeString())
+        val vertexData: DataFrame =
+          vertexConstructTable.bindingTable.asInstanceOf[SqlBindingTableMetadata]
+            .solveBtableOps(sparkSession)
 
-      // For the edge table, if it's not the empty relation, register the vertex table as a global
-      // view and solve the query to create the edge table.
-      groupConstruct.getEdgeConstructTable match {
-        case RelationLike.empty => vertexData
-        case relation @ _ =>
-          vertexData.createOrReplaceGlobalTempView(groupConstruct.vertexConstructViewName)
-          val edgeConstructTable: TargetTreeNode =
-            rewriter.rewriteTree(relation).asInstanceOf[TargetTreeNode]
-          logger.info("\n{}", edgeConstructTable.treeString())
-          val vertexAndEdgeData: DataFrame =
-            edgeConstructTable.bindingTable.asInstanceOf[SqlBindingTableMetadata]
-              .solveBtableOps(sparkSession)
-          vertexAndEdgeData
+        // For the edge table, if it's not the empty relation, register the vertex table as a global
+        // view and solve the query to create the edge table.
+        groupConstruct.getEdgeConstructTable match {
+          case RelationLike.empty => vertexData
+          case relation@_ =>
+            vertexData.createOrReplaceGlobalTempView(groupConstruct.vertexConstructViewName)
+            val edgeConstructTable: TargetTreeNode =
+              rewriter.rewriteTree(relation).asInstanceOf[TargetTreeNode]
+            logger.info("\n{}", edgeConstructTable.treeString())
+            val vertexAndEdgeData: DataFrame =
+              edgeConstructTable.bindingTable.asInstanceOf[SqlBindingTableMetadata]
+                .solveBtableOps(sparkSession)
+            vertexAndEdgeData
+        }
       }
     })
   }
@@ -133,6 +141,6 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
       groupedAttributes = entityConstruct.groupedAttributes,
       expr = entityConstruct.expr,
       setClause = entityConstruct.setClause,
-      removeClause = entityConstruct.removeClause)
+      removeClause = entityConstruct.propAggRemoveClause)
   }
 }

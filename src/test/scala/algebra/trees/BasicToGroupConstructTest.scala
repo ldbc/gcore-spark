@@ -3,7 +3,7 @@ package algebra.trees
 import algebra.expressions._
 import algebra.operators._
 import algebra.trees.CustomMatchers._
-import algebra.trees.CreateGroupingSets.PROP_AGG_BASENAME
+import algebra.trees.BasicToGroupConstruct.PROP_AGG_BASENAME
 import algebra.types._
 import org.scalatest.{FunSuite, Inside, Matchers}
 import parser.utils.VarBinder
@@ -11,7 +11,7 @@ import schema.GraphDb
 
 import scala.collection.mutable
 
-class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
+class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
 
   /**
     *                 +---+---+---+
@@ -28,8 +28,8 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
       edgeBindings = Set(ReferenceTuple(Reference("e"), Reference("c"), Reference("f"))),
       pathBindings = Set.empty)
 
-  private val rewriter: CreateGroupingSets =
-    CreateGroupingSets(
+  private val basicToGroupConstructRewriter: BasicToGroupConstruct =
+    BasicToGroupConstruct(
       AlgebraContext(GraphDb.empty, bindingToGraph = None, bindingContext = Some(bindingContext)))
 
   private val emptySetClause: SetClause = SetClause(Seq.empty)
@@ -37,32 +37,17 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
     RemoveClause(labelRemoves = Seq.empty, propRemoves = Seq.empty)
 
   test("There are as many GroupConstruct as BasicConstructClause") {
-    val vertex1 =
-      VertexConstruct(
-        Reference("v1"),
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
-    val vertex2 = vertex1.copy(ref = Reference("v2"))
-    val constructClause =
-      ConstructClause(
-        graphs = GraphUnion(Seq.empty),
-        CondConstructClause(
-          condConstructs = Seq(
-            BasicConstructClause(ConstructPattern(Seq(vertex1)), when = True),
-            BasicConstructClause(ConstructPattern(Seq(vertex2)), when = True)
-          )
-        ),
-        emptySetClause, emptyRemoveClause)
-
+    val vertex1 = vertexConstruct(Reference("v1"))
+    val vertex2 = vertexConstruct(Reference("v2"))
+    val algebraTree = constructClause(topologies = Seq(Seq(vertex1), Seq(vertex2)))
     extractConstructRelations(
-      constructTree = rewriter rewriteTree constructClause,
+      constructTree = rewrite(algebraTree),
       expectedNumConstructs = 2)
   }
 
   test("Create vertex from bound variable - CONSTRUCT (c)") {
-    val algebraTree = vertexConstruct(reference = Reference("c"))
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val algebraTree = constructClauseVertex(reference = Reference("c"))
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructBoundVertex(reference = Reference("c"))
   }
 
@@ -76,9 +61,9 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
             PropAssignment(PropertyKey("newProp"), IntLiteral(1))))
       )
     val algebraTree =
-      vertexConstruct(reference = Reference("c"), objConstructPattern = objectConstructPattern)
+      constructClauseVertex(Reference("c"), objConstructPattern = objectConstructPattern)
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructBoundVertex(
       reference = Reference("c"),
       objectConstructPattern = objectConstructPattern)
@@ -90,9 +75,9 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
     val prop2 = PropertySet(Reference("c"), PropAssignment(PropertyKey("prop2"), IntLiteral(2)))
     val prop3 = PropertySet(Reference("f"), PropAssignment(PropertyKey("prop1"), IntLiteral(3)))
     val algebraTree =
-      vertexConstruct(reference = Reference("c"), setClause = SetClause(Seq(prop1, prop2, prop3)))
+      constructClauseVertex(Reference("c"), setClause = SetClause(Seq(prop1, prop2, prop3)))
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructBoundVertex(
       reference = Reference("c"),
       setClause = Some(SetClause(Seq(prop1, prop2)))
@@ -106,7 +91,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
     val label1 = LabelRemove(Reference("c"), LabelAssignments(Seq(Label("Label1"))))
     val label2 = LabelRemove(Reference("f"), LabelAssignments(Seq(Label("Label2"))))
     val algebraTree =
-      vertexConstruct(
+      constructClauseVertex(
         reference = Reference("c"),
         removeClause =
           RemoveClause(
@@ -114,7 +99,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
             labelRemoves = Seq(label1, label2))
       )
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructBoundVertex(
       reference = Reference("c"),
       removeClause = Some(RemoveClause(propRemoves = Seq(prop1), labelRemoves = Seq(label1)))
@@ -124,16 +109,16 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
   test("Create vertex from bound variable, WHEN condition filters the binding table - " +
     "CONSTRUCT (c) WHEN f.prop1 > 2") {
     val condition = Gt(PropertyRef(Reference("f"), PropertyKey("prop1")), IntLiteral(2))
-    val algebraTree = vertexConstruct(reference = Reference("c"), when = condition)
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val algebraTree = constructClauseVertex(reference = Reference("c"), when = condition)
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructBoundVertex(
       reference = Reference("c"),
       when = condition)
   }
 
   test("Create vertex from unbound variable - CONSTRUCT (x)") {
-    val algebraTree = vertexConstruct(reference = Reference("x"))
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val algebraTree = constructClauseVertex(reference = Reference("x"))
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructUnboundVertex(reference = Reference("x"))
   }
 
@@ -141,11 +126,11 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
     "CONSTRUCT (x GROUP c.prop1)") {
     val groupingProps = Seq(PropertyRef(Reference("c"), PropertyKey("prop1")))
     val algebraTree =
-      vertexConstruct(
+      constructClauseVertex(
         reference = Reference("x"),
         groupDeclaration = Some(GroupDeclaration(groupingProps)))
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructUnboundGroupedVertex(
       reference = Reference("x"),
       groupingProps = groupingProps)
@@ -171,12 +156,12 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
             PropertyRef(Reference("f"), PropertyKey("prop1"))))
       ))
     val algebraTree =
-      vertexConstruct(
+      constructClauseVertex(
         reference = Reference("x"),
         objConstructPattern = objConstructPattern,
         setClause = setClause)
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructUnboundVertex(
         reference = Reference("x"),
         objectConstructPattern = objConstructPattern,
@@ -191,7 +176,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
     val avg = Avg(distinct = false, PropertyRef(Reference("c"), PropertyKey("prop1")))
     val min = Min(distinct = false, PropertyRef(Reference("c"), PropertyKey("prop2")))
     val algebraTree =
-      vertexConstruct(
+      constructClauseVertex(
         reference = Reference("x"),
         groupDeclaration = Some(GroupDeclaration(groupingProps)),
         objConstructPattern =
@@ -204,7 +189,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
 
     val avgPropAlias = PropertyKey(s"${PROP_AGG_BASENAME}_0")
     val minPropAlias = PropertyKey(s"${PROP_AGG_BASENAME}_1")
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructUnboundGroupedVertex(
       reference = Reference("x"),
       groupingProps = groupingProps,
@@ -224,7 +209,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
             Reference("x"),
             PropAssignment(PropertyKey("prop2"), PropertyRef(Reference("x"), minPropAlias)))
         ))),
-      removeClause = Some(
+      aggPropRemoveClause = Some(
         RemoveClause(
           propRemoves = Seq(
             PropertyRemove(PropertyRef(Reference("x"), avgPropAlias)),
@@ -233,7 +218,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
       ))
   }
 
-  test("Create vertex from unbound variable, nested aggregations are passed to the GroupBy - " +
+  test("Create vertex from unbound variable, aggregation sub-trees are passed to the GroupBy - " +
     "CONSTRUCT (x GROUP c.prop3 {prop0 := COUNT(*), prop1 := 1 + COUNT(*)}) " +
     "SET x.prop2 := COUNT(*)") {
     VarBinder.reset()
@@ -250,7 +235,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
     val aggProp2 = PropertyKey(s"${PROP_AGG_BASENAME}_2")
 
     val algebraTree =
-      vertexConstruct(
+      constructClauseVertex(
         reference = Reference("x"),
         groupDeclaration = Some(GroupDeclaration(groupingProps)),
         objConstructPattern =
@@ -263,7 +248,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
         setClause =
           SetClause(Seq(PropertySet(Reference("x"), PropAssignment(prop2, count)))))
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual should matchGroupConstructUnboundGroupedVertex(
       reference = Reference("x"),
       groupingProps = groupingProps,
@@ -285,7 +270,7 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
               Reference("x"),
               PropAssignment(prop2, PropertyRef(Reference("x"), aggProp2)))))
         ),
-      removeClause =
+      aggPropRemoveClause =
         Some(
           RemoveClause(
             propRemoves = Seq(
@@ -298,78 +283,49 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
   }
 
   test("CreateRules for GroupConstruct of vertex") {
-    val algebraTree = vertexConstruct(reference = Reference("c"))
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val algebraTree = constructClauseVertex(reference = Reference("c"))
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val createRules = actual.asInstanceOf[GroupConstruct].createRules
-    assert(createRules == Seq(VertexCreate(Reference("c"))))
+    assert(createRules == Seq(VertexCreate(Reference("c"), removeClause = None)))
   }
 
   test("CreateRules for GroupConstruct of edges") {
-    val leftEndpoint0 =
-      VertexConstruct(
-        Reference("left_0"),
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
-    val leftEndpoint1 = leftEndpoint0.copy(ref = Reference("left_1"))
-    val rightEndpoint0 =
-      VertexConstruct(
-        Reference("right_0"),
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
-    val rightEndpoint1 = rightEndpoint0.copy(ref = Reference("right_1"))
-    val edge0 =
-      EdgeConstruct(
-        connName = Reference("e_0"),
-        connType = OutConn,
-        leftEndpoint = leftEndpoint0,
-        rightEndpoint = rightEndpoint0,
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
-    val edge1 =
-      edge0.copy(
-        connName = Reference("e_1"), leftEndpoint = leftEndpoint1, rightEndpoint = rightEndpoint1)
-    val algebraTree = constructClauseWithTopology(topology = Seq(edge0, edge1))
+    val leftEndpoint0 = vertexConstruct(Reference("left_0"))
+    val leftEndpoint1 = vertexConstruct(Reference("left_1"))
+    val rightEndpoint0 = vertexConstruct(Reference("right_0"))
+    val rightEndpoint1 = vertexConstruct(Reference("right_1"))
+    val edge0 = edgeConstruct(edgeReference = Reference("e_0"), leftEndpoint0, rightEndpoint0)
+    val edge1 = edgeConstruct(edgeReference = Reference("e_1"), leftEndpoint1, rightEndpoint1)
+    val algebraTree = constructClause(topologies = Seq(Seq(edge0, edge1)))
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val createRules = actual.asInstanceOf[GroupConstruct].createRules
     assert(
       createRules.toSet ==
         Set(
-          VertexCreate(Reference("left_0")), VertexCreate(Reference("right_0")),
-          VertexCreate(Reference("left_1")), VertexCreate(Reference("right_1")),
-          EdgeCreate(Reference("e_0"), Reference("left_0"), Reference("right_0"), OutConn),
-          EdgeCreate(Reference("e_1"), Reference("left_1"), Reference("right_1"), OutConn))
+          VertexCreate(Reference("left_0"), removeClause = None),
+          VertexCreate(Reference("right_0"), removeClause = None),
+          VertexCreate(Reference("left_1"), removeClause = None),
+          VertexCreate(Reference("right_1"), removeClause = None),
+          EdgeCreate(
+            Reference("e_0"), Reference("left_0"), Reference("right_0"), OutConn,
+            removeClause = None),
+          EdgeCreate(
+            Reference("e_1"), Reference("left_1"), Reference("right_1"), OutConn,
+            removeClause = None))
     )
   }
 
   test("GroupConstruct - unbound ungrouped endpoints only AddColumns to the binding table") {
     val algebraTree =
-      edgeConstruct(
+      constructClauseEdge(
         reference = Reference("e_0"), // unmatched
-        leftConstruct =
-          VertexConstruct(
-            ref = Reference("c_0"), // unmatched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        rightConstruct =
-          VertexConstruct(
-            ref = Reference("f_0"), // unmatched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        groupDeclaration = None,
-        objConstructPattern = ObjectConstructPattern.empty,
-        when = True,
-        setClause = emptySetClause,
-        removeClause = emptyRemoveClause)
+        leftConstruct = vertexConstruct(Reference("c_0")), // unmatched
+        rightConstruct = vertexConstruct(Reference("f_0"))) // unmatched
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val vertexConstructTable = actual.asInstanceOf[GroupConstruct].vertexConstructTable
     val baseConstructViewName = actual.asInstanceOf[GroupConstruct].baseConstructViewName
@@ -398,28 +354,17 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
   test("GroupConstruct - bound vertices and unbound grouped vertices are inner-joined with the " +
     "base construct table, if there had been no ungrouped variables") {
     val algebraTree =
-      edgeConstruct(
+      constructClauseEdge(
         reference = Reference("e_0"), // unmatched
-        leftConstruct =
-          VertexConstruct(
-            ref = Reference("c"), // matched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
+        leftConstruct = vertexConstruct(Reference("c")), // matched
         rightConstruct =
-          VertexConstruct(
-            ref = Reference("x"), // unmatched, but grouped
-            copyPattern = None,
+          vertexConstruct(
+            Reference("x"), // unmatched, but grouped
             groupDeclaration =
-              Some(GroupDeclaration(Seq(PropertyRef(Reference("f"), PropertyKey("prop"))))),
-            expr = ObjectConstructPattern.empty),
-        groupDeclaration = None,
-        objConstructPattern = ObjectConstructPattern.empty,
-        when = True,
-        setClause = emptySetClause,
-        removeClause = emptyRemoveClause)
+              Some(GroupDeclaration(Seq(PropertyRef(Reference("f"), PropertyKey("prop"))))))
+      )
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val vertexConstructTable = actual.asInstanceOf[GroupConstruct].vertexConstructTable
 
@@ -446,27 +391,12 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
   test("GroupConstruct - grouped vertices are inner joined with the binding table with ungrouped " +
     "vertices") {
     val algebraTree =
-      edgeConstruct(
+      constructClauseEdge(
         reference = Reference("e_0"), // unmatched
-        leftConstruct =
-          VertexConstruct(
-            ref = Reference("c_0"), // unmatched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        rightConstruct =
-          VertexConstruct(
-            ref = Reference("f"), // matched (grouped by identity)
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        groupDeclaration = None,
-        objConstructPattern = ObjectConstructPattern.empty,
-        when = True,
-        setClause = emptySetClause,
-        removeClause = emptyRemoveClause)
+        leftConstruct = vertexConstruct(Reference("c_0")), // unmatched
+        rightConstruct = vertexConstruct(Reference("f"))) // matched (grouped by identity)
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val vertexConstructTable = actual.asInstanceOf[GroupConstruct].vertexConstructTable
 
@@ -483,26 +413,13 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
 
   test("GroupConstruct - endpoints are only constructed once, even if they appear multiple times " +
     "in the construct pattern - CONSTRUCT (c)->(f)->(c)") {
-    val c =
-      VertexConstruct(
-        Reference("c"),
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
-    val f = c.copy(ref = Reference("f"))
-    val edge0 =
-      EdgeConstruct(
-        connName = Reference("e_0"),
-        connType = OutConn,
-        leftEndpoint = c,
-        rightEndpoint = f,
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
-    val edge1 = edge0.copy(connName = Reference("e_1"), leftEndpoint = f, rightEndpoint = c)
-    val algebraTree = constructClauseWithTopology(topology = Seq(edge0, edge1))
+    val c = vertexConstruct(Reference("c"))
+    val f = vertexConstruct(Reference("f"))
+    val edge0 = edgeConstruct(edgeReference = Reference("e_0"), leftEndpoint = c, rightEndpoint = f)
+    val edge1 = edgeConstruct(edgeReference = Reference("e_1"), leftEndpoint = f, rightEndpoint = c)
+    val algebraTree = constructClause(topologies = Seq(Seq(edge0, edge1)))
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val vertexConstructTable = actual.asInstanceOf[GroupConstruct].vertexConstructTable
 
@@ -519,51 +436,39 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
 
   test("GroupConstruct - GROUP-ing for a vertex is detected anywhere in the pattern - " +
     "CONSTRUCT (y)->(x GROUP f.prop)->(f_0)->(x)->(y GROUP c.prop)") {
-    val xNoGrouping =
-      VertexConstruct(
-        Reference("x"),
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
+    val xNoGrouping = vertexConstruct(Reference("x"))
     val xGrouping =
-      xNoGrouping.copy(
+      vertexConstruct(
+        Reference("x"),
         groupDeclaration =
           Some(GroupDeclaration(Seq(PropertyRef(Reference("f"), PropertyKey("prop")))))
       )
-    val yNoGrouping =
-      VertexConstruct(
-        Reference("y"),
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
+    val yNoGrouping = vertexConstruct(Reference("y"))
     val yGrouping =
-      yNoGrouping.copy(
+      vertexConstruct(
+        Reference("y"),
         groupDeclaration =
           Some(GroupDeclaration(Seq(PropertyRef(Reference("c"), PropertyKey("prop")))))
       )
-    val f0 = xNoGrouping.copy(ref = Reference("f_0")) // unmatched => only AddColumn
+    val f0 = vertexConstruct(Reference("f_0")) // unmatched => only AddColumn
     // (y) -> (x GROUP ..)
     val edge0 =
-      EdgeConstruct(
-        connName = Reference("e_0"),
-        connType = OutConn,
-        leftEndpoint = yNoGrouping,
-        rightEndpoint = xGrouping,
-        copyPattern = None,
-        groupDeclaration = None,
-        expr = ObjectConstructPattern.empty)
+      edgeConstruct(
+        edgeReference = Reference("e_0"), leftEndpoint = yNoGrouping, rightEndpoint = xGrouping)
     // (x GROUP ..) -> (f0)
     val edge1 =
-      edge0.copy(connName = Reference("e_1"), leftEndpoint = xGrouping, rightEndpoint = f0)
+      edgeConstruct(edgeReference = Reference("e_1"), leftEndpoint = xGrouping, rightEndpoint = f0)
     // (f0) -> (x)
     val edge2 =
-      edge0.copy(connName = Reference("e_2"), leftEndpoint = f0, rightEndpoint = xNoGrouping)
+      edgeConstruct(
+        edgeReference = Reference("e_2"), leftEndpoint = f0, rightEndpoint = xNoGrouping)
     // (x) -> (y GROUP ..)
     val edge3 =
-      edge0.copy(connName = Reference("e_3"), leftEndpoint = xNoGrouping, rightEndpoint = yGrouping)
-    val algebraTree = constructClauseWithTopology(topology = Seq(edge0, edge1, edge2, edge3))
+      edgeConstruct(
+        edgeReference = Reference("e_3"), leftEndpoint = xNoGrouping, rightEndpoint = yGrouping)
+    val algebraTree = constructClause(topologies = Seq(Seq(edge0, edge1, edge2, edge3)))
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val vertexConstructTable = actual.asInstanceOf[GroupConstruct].vertexConstructTable
 
@@ -583,27 +488,12 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
 
   test("GroupConstruct - edge is inner-joined with the VertexConstructTable view") {
     val algebraTree =
-      edgeConstruct(
+      constructClauseEdge(
         reference = Reference("e"), // matched
-        leftConstruct =
-          VertexConstruct(
-            ref = Reference("c"), // matched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        rightConstruct =
-          VertexConstruct(
-            ref = Reference("f"), // matched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        groupDeclaration = None,
-        objConstructPattern = ObjectConstructPattern.empty,
-        when = True,
-        setClause = emptySetClause,
-        removeClause = emptyRemoveClause)
+        leftConstruct = vertexConstruct(Reference("c")), // matched
+        rightConstruct = vertexConstruct(Reference("f"))) // matched
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val edgeConstructTable = actual.asInstanceOf[GroupConstruct].edgeConstructTable
     val vertexConstructViewName = actual.asInstanceOf[GroupConstruct].vertexConstructViewName
@@ -615,27 +505,12 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
 
   test("GroupConstruct - bound edge is grouped-by its endpoints on the VertexConstructTable view") {
     val algebraTree =
-      edgeConstruct(
+      constructClauseEdge(
         reference = Reference("e"), // matched
-        leftConstruct =
-          VertexConstruct(
-            ref = Reference("c"), // matched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        rightConstruct =
-          VertexConstruct(
-            ref = Reference("f"), // matched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        groupDeclaration = None,
-        objConstructPattern = ObjectConstructPattern.empty,
-        when = True,
-        setClause = emptySetClause,
-        removeClause = emptyRemoveClause)
+        leftConstruct = vertexConstruct(Reference("c")), // matched
+        rightConstruct = vertexConstruct(Reference("f"))) // matched
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val edgeConstructTable = actual.asInstanceOf[GroupConstruct].edgeConstructTable
 
@@ -665,27 +540,12 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
   test("GroupConstruct - unbound edge is grouped-by its endpoints on the VertexConstructTable " +
     "view") {
     val algebraTree =
-      edgeConstruct(
+      constructClauseEdge(
         reference = Reference("e_0"), // unmatched
-        leftConstruct =
-          VertexConstruct(
-            ref = Reference("c"), // matched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        rightConstruct =
-          VertexConstruct(
-            ref = Reference("f"), // matched
-            copyPattern = None,
-            groupDeclaration = None,
-            expr = ObjectConstructPattern.empty),
-        groupDeclaration = None,
-        objConstructPattern = ObjectConstructPattern.empty,
-        when = True,
-        setClause = emptySetClause,
-        removeClause = emptyRemoveClause)
+        leftConstruct = vertexConstruct(Reference("c")), // matched
+        rightConstruct = vertexConstruct(Reference("f"))) // matched
 
-    val actual = extractConstructRelations(rewriter rewriteTree algebraTree).head
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
     actual shouldBe a [GroupConstruct]
     val edgeConstructTable = actual.asInstanceOf[GroupConstruct].edgeConstructTable
 
@@ -715,59 +575,115 @@ class CreateGroupingSetsTest extends FunSuite with Matchers with Inside {
     }
   }
 
+  test("GroupConstruct created correctly after BasicConstructs normalization - " +
+    "CONSTRUCT (v), (v)-[e]->(w)") {
+    val v = vertexConstruct(Reference("v"))
+    val w = vertexConstruct(Reference("w"))
+    val e = edgeConstruct(edgeReference = Reference("e"), v, w)
+    val algebraTree = constructClause(topologies = Seq(Seq(v), Seq(e)))
+
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
+    inside(actual) {
+      case
+        GroupConstruct(
+          /*baseConstructTable =*/ _,
+          /*vertexConstructTable =*/ ConstructRelation(
+            vtableRef1, /*isMatchedRef =*/ _,
+            AddColumn(
+              /*reference =*/ _,
+              ConstructRelation(
+                vtableRef2, /*isMatchedRef =*/ _, _, _, _, _, _)
+            ), _, _, _, _),
+          /*baseConstructViewName =*/ _, /*vertexConstructViewName =*/ _,
+          /*edgeConstructTable =*/ InnerJoin(
+            _,
+            Project(ConstructRelation(Reference("e"), _, _, _, _, _, _), _),
+            _),
+          /*createRules =*/ _) =>
+        assert(Set(vtableRef1, vtableRef2) == Set(Reference("v"), Reference("w")))
+    }
+  }
+
+  private def rewrite(tree: AlgebraTreeNode): AlgebraTreeNode = {
+    basicToGroupConstructRewriter.rewriteTree(
+      NormalizeBasicConstructs.rewriteTree(tree))
+  }
+
+  private def constructClauseVertex(reference: Reference,
+                                    groupDeclaration: Option[GroupDeclaration] = None,
+                                    objConstructPattern: ObjectConstructPattern =
+                                      ObjectConstructPattern.empty,
+                                    when: AlgebraExpression = True,
+                                    setClause: SetClause = emptySetClause,
+                                    removeClause: RemoveClause = emptyRemoveClause)
+  : ConstructClause = {
+
+    constructClause(
+      topologies = Seq(Seq(vertexConstruct(reference, groupDeclaration, objConstructPattern))),
+      when, setClause, removeClause)
+  }
+
+  private def constructClauseEdge(reference: Reference,
+                                  leftConstruct: VertexConstruct,
+                                  rightConstruct: VertexConstruct,
+                                  groupDeclaration: Option[GroupDeclaration] = None,
+                                  objConstructPattern: ObjectConstructPattern =
+                                    ObjectConstructPattern.empty,
+                                  when: AlgebraExpression = True,
+                                  setClause: SetClause = emptySetClause,
+                                  removeClause: RemoveClause = emptyRemoveClause)
+  : ConstructClause = {
+
+    constructClause(
+      topologies = Seq(
+        Seq(
+          edgeConstruct(
+            reference, leftConstruct, rightConstruct, groupDeclaration, objConstructPattern))),
+      when, setClause, removeClause)
+  }
+
   private def vertexConstruct(reference: Reference,
                               groupDeclaration: Option[GroupDeclaration] = None,
                               objConstructPattern: ObjectConstructPattern =
-                                ObjectConstructPattern.empty,
-                              when: AlgebraExpression = True,
-                              setClause: SetClause = emptySetClause,
-                              removeClause: RemoveClause = emptyRemoveClause): ConstructClause = {
-    constructClauseWithTopology(
-      topology = Seq(
-        VertexConstruct(
-          reference,
-          copyPattern = None,
-          groupDeclaration,
-          expr = objConstructPattern)),
-      when, setClause, removeClause)
+                                ObjectConstructPattern.empty)
+  : VertexConstruct = {
+
+    VertexConstruct(
+      ref = reference,
+      copyPattern = None,
+      groupDeclaration = groupDeclaration,
+      expr = objConstructPattern)
   }
 
-  private def edgeConstruct(reference: Reference,
-                            leftConstruct: VertexConstruct,
-                            rightConstruct: VertexConstruct,
+  private def edgeConstruct(edgeReference: Reference,
+                            leftEndpoint: VertexConstruct,
+                            rightEndpoint: VertexConstruct,
                             groupDeclaration: Option[GroupDeclaration] = None,
                             objConstructPattern: ObjectConstructPattern =
-                              ObjectConstructPattern.empty,
-                            when: AlgebraExpression = True,
-                            setClause: SetClause = emptySetClause,
-                            removeClause: RemoveClause = emptyRemoveClause): ConstructClause = {
-    constructClauseWithTopology(
-      topology = Seq(
-        EdgeConstruct(
-          connName = reference,
-          connType = OutConn,
-          leftEndpoint = leftConstruct,
-          rightEndpoint = rightConstruct,
-          copyPattern = None,
-          groupDeclaration,
-          expr = objConstructPattern)),
-      when, setClause, removeClause)
+                              ObjectConstructPattern.empty)
+  : EdgeConstruct = {
+
+    EdgeConstruct(
+      connName = edgeReference,
+      connType = OutConn,
+      leftEndpoint = leftEndpoint,
+      rightEndpoint = rightEndpoint,
+      copyPattern = None,
+      groupDeclaration = groupDeclaration,
+      expr = objConstructPattern)
   }
 
-  private def constructClauseWithTopology(topology: Seq[ConnectionConstruct],
-                                          when: AlgebraExpression = True,
-                                          setClause: SetClause = emptySetClause,
-                                          removeClause: RemoveClause = emptyRemoveClause)
+  private def constructClause(topologies: Seq[Seq[ConnectionConstruct]],
+                              when: AlgebraExpression = True,
+                              setClause: SetClause = emptySetClause,
+                              removeClause: RemoveClause = emptyRemoveClause)
   : ConstructClause = {
 
     ConstructClause(
       graphs = GraphUnion(Seq.empty),
       CondConstructClause(
-        condConstructs = Seq(
-          BasicConstructClause(
-            ConstructPattern(topology),
-            when
-          ))
+        topologies.map(connectionConstruct =>
+          BasicConstructClause(ConstructPattern(connectionConstruct), when))
       ),
       setClause, removeClause)
   }

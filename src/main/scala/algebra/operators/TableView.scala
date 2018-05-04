@@ -1,6 +1,6 @@
 package algebra.operators
 
-import algebra.trees.CreateGroupingSets.BTABLE_VIEW
+import algebra.trees.BasicToGroupConstruct.BTABLE_VIEW
 
 /**
   * An algebraic sub-tree with a name. Can be reused within other sub-trees, instead of the original

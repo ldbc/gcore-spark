@@ -57,6 +57,7 @@ trait CustomMatchers {
                                            aggregateFunctions: Seq[PropertySet],
                                            objectConstructPattern: ObjectConstructPattern,
                                            setClause: Option[SetClause],
+                                           aggPropRemoveClause: Option[RemoveClause],
                                            removeClause: Option[RemoveClause],
                                            when: AlgebraExpression)
     extends Matcher[AlgebraTreeNode] {
@@ -68,6 +69,8 @@ trait CustomMatchers {
             GroupConstruct(
               /*baseConstructTable =*/ Select(BindingTable(_), `when`, _),
               /*vertexConstructTable =*/
+              InnerJoin(
+                BaseConstructTable(_, _),
                 ConstructRelation(
                   `reference`,
                   /*isMatchedRef =*/ false,
@@ -82,11 +85,12 @@ trait CustomMatchers {
                   /*groupedAttributes =*/ `groupingProps`,
                   /*expr =*/ `objectConstructPattern`,
                   `setClause`,
-                  `removeClause`),
+                  `aggPropRemoveClause`),
+                 _),
               /*baseConstructViewName =*/ baseConstructViewName2,
               /*vertexConstructViewName =*/ _,
               /*edgeConstructTable =*/ RelationLike.empty,
-              /*createRules =*/ Seq(VertexCreate(`reference`))
+              /*createRules =*/ Seq(VertexCreate(`reference`, `removeClause`))
             ) =>
             baseConstructViewName1 == baseConstructViewName2
           case _ => false
@@ -119,11 +123,11 @@ trait CustomMatchers {
                     /*groupedAttributes =*/ Seq(),
                     /*expr =*/ `objectConstructPattern`,
                     `setClause`,
-                    `removeClause`),
+                    /*aggPropRemoveClause =*/ None),
               /*baseConstructViewName =*/ baseConstructViewName2,
               /*vertexConstructViewName =*/ _,
               /*edgeConstructTable =*/ RelationLike.empty,
-              /*createRules =*/ Seq(VertexCreate(`reference`))
+              /*createRules =*/ Seq(VertexCreate(`reference`, `removeClause`))
             ) =>
             baseConstructViewName1 == baseConstructViewName2
           case _ => false
@@ -147,6 +151,8 @@ trait CustomMatchers {
             GroupConstruct(
               /*baseConstructTable =*/ Select(BindingTable(_), `when`, _),
               /*vertexConstructTable =*/
+              InnerJoin(
+                BaseConstructTable(_, _),
                 Project(
                   /*relation =*/ ConstructRelation(
                     `reference`,
@@ -160,12 +166,13 @@ trait CustomMatchers {
                     /*groupedAttributes =*/ Seq(),
                     /*expr =*/ `objectConstructPattern`,
                     `setClause`,
-                    `removeClause`),
+                    /*aggPropRemoveClause =*/ None),
                   /*attributes =*/ projectAttrs),
+                  _),
               /*baseConstructViewName =*/ baseConstructViewName2,
               /*vertexConstructViewName =*/ _,
               /*edgeConstructTable =*/ RelationLike.empty,
-              /*createRules =*/ Seq(VertexCreate(`reference`))
+              /*createRules =*/ Seq(VertexCreate(`reference`, `removeClause`))
             ) =>
             projectAttrs == Set(reference) && baseConstructViewName1 == baseConstructViewName2
           case _ => false
@@ -182,13 +189,14 @@ trait CustomMatchers {
                                               objectConstructPattern: ObjectConstructPattern =
                                                 ObjectConstructPattern.empty,
                                               setClause: Option[SetClause] = None,
+                                              aggPropRemoveClause: Option[RemoveClause] = None,
                                               removeClause: Option[RemoveClause] = None,
                                               when: AlgebraExpression = True)
   : GroupConstructUnboundGroupedVertex =
 
     new GroupConstructUnboundGroupedVertex(
       reference, groupingProps, aggregateFunctions, objectConstructPattern,
-      setClause, removeClause, when)
+      setClause, aggPropRemoveClause, removeClause, when)
 
   def matchGroupConstructUnboundVertex(reference: Reference,
                                        objectConstructPattern: ObjectConstructPattern =
