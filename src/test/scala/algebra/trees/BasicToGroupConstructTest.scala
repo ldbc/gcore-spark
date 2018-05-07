@@ -2,8 +2,8 @@ package algebra.trees
 
 import algebra.expressions._
 import algebra.operators._
-import algebra.trees.CustomMatchers._
 import algebra.trees.BasicToGroupConstruct.PROP_AGG_BASENAME
+import algebra.trees.CustomMatchers._
 import algebra.types._
 import org.scalatest.{FunSuite, Inside, Matchers}
 import parser.utils.VarBinder
@@ -604,12 +604,100 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
     }
   }
 
+  test("VertexConstruct properties are merged for all vertex occurrences in GroupConstruct - " +
+    "CONSTRUCT (a {prop0 := 0}), (a {prop1 := 1})") {
+    val prop0 = PropAssignment(PropertyKey("prop0"), IntLiteral(0))
+    val prop1 = PropAssignment(PropertyKey("prop1"), IntLiteral(1))
+    val aprop0 =
+      vertexConstruct(
+        reference = Reference("a"),
+        objConstructPattern =
+          ObjectConstructPattern(
+            propAssignments = PropAssignments(Seq(prop0)),
+            labelAssignments = LabelAssignments(Seq.empty))
+      )
+    val aprop1 =
+      vertexConstruct(
+        reference = Reference("a"),
+        objConstructPattern =
+          ObjectConstructPattern(
+            propAssignments = PropAssignments(Seq(prop1)),
+            labelAssignments = LabelAssignments(Seq.empty))
+      )
+    val algebraTree = constructClause(topologies = Seq(Seq(aprop0), Seq(aprop1)))
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
+    actual should matchGroupConstructUnboundVertex(
+      reference = Reference("a"),
+      objectConstructPattern =
+        ObjectConstructPattern(
+          propAssignments = PropAssignments(Seq(prop0, prop1)),
+          labelAssignments = LabelAssignments(Seq.empty))
+    )
+  }
+
+  test("VertexConstruct GROUP-ings are merged for all vertex occurrences in GroupConstruct - " +
+    "CONSTRUCT (a GROUP c.prop0), (a GROUP c.prop1)") {
+    val prop0 = PropertyRef(Reference("c"), PropertyKey("prop0"))
+    val prop1 = PropertyRef(Reference("c"), PropertyKey("prop1"))
+    val aprop0 =
+      vertexConstruct(
+        reference = Reference("a"),
+        groupDeclaration = Some(GroupDeclaration(Seq(prop0)))
+      )
+    val aprop1 =
+      vertexConstruct(
+        reference = Reference("a"),
+        groupDeclaration = Some(GroupDeclaration(Seq(prop1)))
+      )
+    val algebraTree = constructClause(topologies = Seq(Seq(aprop0), Seq(aprop1)))
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
+    actual should matchGroupConstructUnboundGroupedVertex(
+      reference = Reference("a"),
+      groupingProps = Seq(prop0, prop1)
+    )
+  }
+
+  test("EdgeConstruct properties are merged for all edge occurrences in GroupConstruct - " +
+    "CONSTRUCT (a)-[e]->(b), (a)-[e {prop := 0}]->(b)") {
+    val prop = PropAssignment(PropertyKey("prop0"), IntLiteral(0))
+    val a = vertexConstruct(Reference("a"))
+    val b = vertexConstruct(Reference("b"))
+    val e = edgeConstruct(Reference("e"), a, b)
+    val eprop =
+      edgeConstruct(
+        Reference("e"), a, b,
+        objConstructPattern =
+          ObjectConstructPattern(
+            labelAssignments = LabelAssignments(Seq.empty),
+            propAssignments = PropAssignments(Seq(prop)))
+      )
+    val algebraTree = constructClause(topologies = Seq(Seq(e), Seq(eprop)))
+    val actual = extractConstructRelations(rewrite(algebraTree)).head
+    val edgeConstructTable = actual.asInstanceOf[GroupConstruct].edgeConstructTable
+
+    edgeConstructTable should matchPattern {
+      case
+        InnerJoin(
+          _,
+          Project(
+            ConstructRelation(
+              Reference("e"), /*isMatchedRef =*/ true,
+              /*relation =*/ _, /*groupedAtts =*/ _,
+              ObjectConstructPattern(
+                LabelAssignments(Seq()),
+                PropAssignments(Seq(`prop`))),
+              _, _),
+          /*projectAttrs =*/ _), _) =>
+    }
+  }
+
   private def rewrite(tree: AlgebraTreeNode): AlgebraTreeNode = {
     basicToGroupConstructRewriter.rewriteTree(
       NormalizeBasicConstructs.rewriteTree(tree))
   }
 
   private def constructClauseVertex(reference: Reference,
+                                    copyPattern: Option[Reference] = None,
                                     groupDeclaration: Option[GroupDeclaration] = None,
                                     objConstructPattern: ObjectConstructPattern =
                                       ObjectConstructPattern.empty,
@@ -619,7 +707,8 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
   : ConstructClause = {
 
     constructClause(
-      topologies = Seq(Seq(vertexConstruct(reference, groupDeclaration, objConstructPattern))),
+      topologies = Seq(
+        Seq(vertexConstruct(reference, copyPattern, groupDeclaration, objConstructPattern))),
       when, setClause, removeClause)
   }
 
@@ -643,16 +732,11 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
   }
 
   private def vertexConstruct(reference: Reference,
+                              copyPattern: Option[Reference] = None,
                               groupDeclaration: Option[GroupDeclaration] = None,
                               objConstructPattern: ObjectConstructPattern =
-                                ObjectConstructPattern.empty)
-  : VertexConstruct = {
-
-    VertexConstruct(
-      ref = reference,
-      copyPattern = None,
-      groupDeclaration = groupDeclaration,
-      expr = objConstructPattern)
+                                ObjectConstructPattern.empty): VertexConstruct = {
+    VertexConstruct(reference, copyPattern, groupDeclaration, objConstructPattern)
   }
 
   private def edgeConstruct(edgeReference: Reference,
@@ -660,9 +744,7 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
                             rightEndpoint: VertexConstruct,
                             groupDeclaration: Option[GroupDeclaration] = None,
                             objConstructPattern: ObjectConstructPattern =
-                              ObjectConstructPattern.empty)
-  : EdgeConstruct = {
-
+                              ObjectConstructPattern.empty): EdgeConstruct = {
     EdgeConstruct(
       connName = edgeReference,
       connType = OutConn,
@@ -676,9 +758,7 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
   private def constructClause(topologies: Seq[Seq[ConnectionConstruct]],
                               when: AlgebraExpression = True,
                               setClause: SetClause = emptySetClause,
-                              removeClause: RemoveClause = emptyRemoveClause)
-  : ConstructClause = {
-
+                              removeClause: RemoveClause = emptyRemoveClause): ConstructClause = {
     ConstructClause(
       graphs = GraphUnion(Seq.empty),
       CondConstructClause(

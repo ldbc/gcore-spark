@@ -87,12 +87,15 @@ object BasicToGroupConstruct {
   * As these two properties are only used as temporary results, they will be added to a's
   * [[RemoveClause]].
   *
-  * -- Building a group of entities --
-  * In case there is only one vertex to be built from a [[BasicConstructClause]], we create a
-  * [[GroupConstruct]] with the [[GroupConstruct.vertexConstructTable]] being that vertex's
-  * construct table, as resulting from the rules above.
+  * As part of a [[GroupConstruct]], a vertex denoted by its reference can appear multiple times in
+  * the group, but with different properties or labels assigned to it. Therefore, we introduce a
+  * normalization process, in which [[VertexConstruct]]s with the same reference, but different
+  * features ([[GroupDeclaration]], copy pattern, [[ObjectConstructPattern]]) are merged into a
+  * single entity with the specific reference. In this way, we avoid constructing the same entity
+  * multiple times.
   *
-  * For [[BasicConstructClause]]s that build at least one edge, we use the following steps:
+  * -- Building a group of entities --
+  * For [[BasicConstructClause]]s we use the following steps:
   * (1) We identify the unbound, ungrouped vertices in the construction topology. Iteratively, we
   * construct the vertices as in the previous paragraph and add them as new columns to the filtered
   * binding table.
@@ -250,16 +253,18 @@ case class BasicToGroupConstruct(context: AlgebraContext)
       BaseConstructTable(baseConstructViewName, filteredBindingTable.getBindingSet)
 
     val vertexConstructs: Seq[SingleEndpointConstruct] =
-      constructPattern.children
-        .collect {
-          case vertex: VertexConstruct => Seq(vertex)
-          case edge: EdgeConstruct => Seq(edge.leftEndpoint, edge.rightEndpoint)
-        }
-        .flatten
+      normalizeVertexConstructs(
+        constructPattern.children
+          .collect {
+            case vertex: VertexConstruct => Seq(vertex)
+            case edge: EdgeConstruct => Seq(edge.leftEndpoint, edge.rightEndpoint)
+          }
+          .flatten)
     val edgeConstructs: Seq[DoubleEndpointConstruct] =
-      constructPattern.children.collect {
-        case edge: EdgeConstruct => edge
-      }
+      normalizeEdgeConstructs(
+        constructPattern.children.collect {
+          case edge: EdgeConstruct => edge
+        })
 
     val vertexConstructTable: RelationLike =
       addVerticesToTable(baseConstructTable, vertexConstructs, bindingToSetClause)
@@ -293,6 +298,44 @@ case class BasicToGroupConstruct(context: AlgebraContext)
         vertices ++ edges
       }
     )
+  }
+
+  /**
+    * Merge [[VertexConstruct]]s with the same reference into the same [[VertexConstruct]] with
+    * coalesced features.
+    */
+  private def normalizeVertexConstructs(connectionConstructs: Seq[SingleEndpointConstruct])
+  : Seq[SingleEndpointConstruct] = {
+    val constructMap: Map[Reference, Seq[SingleEndpointConstruct]] =
+      connectionConstructs.groupBy(_.getRef)
+    val normalizedConstructs: Seq[SingleEndpointConstruct] =
+      constructMap
+        .map {
+          case (_, constructs) if constructs.size == 1 => constructs.head
+          // TODO: Does it make sense to allow here multiple GROUP-ing?
+          case (_, constructs) => constructs.reduce(_ merge _)
+        }
+        .toSeq
+    normalizedConstructs
+  }
+
+  /**
+    * Merge [[EdgeConstruct]]s with the same reference into the same [[EdgeConstruct]] with
+    * coalesced features.
+    */
+  private def normalizeEdgeConstructs(connectionConstructs: Seq[DoubleEndpointConstruct])
+  : Seq[DoubleEndpointConstruct] = {
+    val constructMap: Map[Reference, Seq[DoubleEndpointConstruct]] =
+      connectionConstructs.groupBy(_.getRef)
+    val normalizedConstructs: Seq[DoubleEndpointConstruct] =
+      constructMap
+        .map {
+          case (_, constructs) if constructs.size == 1 => constructs.head
+          // TODO: Does it make sense to allow edge GROUP-ing?
+          case (_, constructs) => constructs.reduce(_ merge _)
+        }
+        .toSeq
+    normalizedConstructs
   }
 
   private def addVerticesToTable(baseBindingTable: RelationLike,

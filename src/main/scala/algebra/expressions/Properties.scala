@@ -1,6 +1,6 @@
 package algebra.expressions
 
-import algebra.exceptions.PropKeysException
+import algebra.exceptions.{AmbiguousMerge, PropKeysException}
 import algebra.trees.{PropertyContext, SemanticCheck, SemanticCheckWithContext}
 import common.compiler.Context
 import common.exceptions.UnsupportedOperation
@@ -92,6 +92,27 @@ case class WithProps(propConj: AlgebraExpression) extends AlgebraExpression
   */
 case class PropAssignments(props: Seq[PropAssignment]) extends AlgebraExpression {
   children = props
+
+  /**
+    * Creates a new [[PropAssignments]] from the set union of this object's and other's [[props]].
+    */
+  def merge(other: PropAssignments): PropAssignments = {
+    val propMap: Map[PropertyKey, Seq[PropAssignment]] =
+      (this.props ++ other.props).groupBy(_.propKey)
+
+    PropAssignments(
+      propMap
+        .map {
+          case (propKey, propAssignments) =>
+            val exprSet: Set[AlgebraExpression] = propAssignments.map(_.expr).toSet
+            if (exprSet.size > 1)
+              throw AmbiguousMerge(s"Ambiguous expression for property key ${propKey.key}")
+            else
+              PropAssignment(propKey, exprSet.head)
+        }
+        .toSeq
+    )
+  }
 }
 
 case class PropAssignment(propKey: PropertyKey, expr: AlgebraExpression) extends AlgebraExpression {

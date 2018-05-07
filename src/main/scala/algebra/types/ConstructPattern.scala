@@ -1,5 +1,6 @@
 package algebra.types
 
+import algebra.exceptions.AmbiguousMerge
 import algebra.expressions._
 import algebra.operators.{RemoveClause, SetClause}
 
@@ -47,6 +48,13 @@ case class ConstructPattern(topology: Seq[ConnectionConstruct]) extends AlgebraT
 
 case class GroupDeclaration(groupingSets: Seq[AlgebraExpression]) extends AlgebraType {
   children = groupingSets
+
+  /**
+    * Creates a new [[GroupDeclaration]] from the set union of this object's and other's
+    * [[groupingSets]].
+    */
+  def merge(other: GroupDeclaration): GroupDeclaration =
+    GroupDeclaration(groupingSets = (this.groupingSets.toSet ++ other.groupingSets.toSet).toSeq)
 }
 
 abstract class ConnectionConstruct(ref: Reference,
@@ -57,6 +65,56 @@ abstract class ConnectionConstruct(ref: Reference,
   def getRef: Reference = ref
   def getExpr: ObjectConstructPattern = expr
   def getGroupDeclaration: Option[GroupDeclaration] = groupDeclaration
+  def getCopyPattern: Option[Reference] = copyPattern
+
+  /**
+    * Creates a new [[ConnectionConstruct]] by mergin together the [[copyPattern]],
+    * [[groupDeclaration]] and [[expr]] of this and other object's. The builder is a method that can
+    * create a new [[ConnectionConstruct]] from the merged features.
+    */
+  def merge[T <: ConnectionConstruct](other: T,
+                                      builder: (
+                                        Reference, Option[Reference], Option[GroupDeclaration],
+                                          ObjectConstructPattern) => T): T = {
+    if (this.ref != other.getRef)
+      throw AmbiguousMerge(
+        s"Cannot merge connections of different references: " +
+          s"${this.ref.refName} vs ${other.getRef.refName}")
+
+    val mergedCopyPattern: Option[Reference] = {
+      if (this.copyPattern.isDefined && other.getCopyPattern.isDefined) {
+        val thisCopyRef: Reference = this.copyPattern.get
+        val otherCopyRef: Reference = other.getCopyPattern.get
+        if (thisCopyRef != otherCopyRef)
+          throw AmbiguousMerge(
+            s"Ambiguous copy pattern for vertex ${this.ref.refName}: ${thisCopyRef.refName} vs " +
+              s"${otherCopyRef.refName}.")
+        else
+          this.copyPattern
+      } else {
+        if (this.copyPattern.isDefined)
+          this.copyPattern
+        else
+          other.getCopyPattern
+      }
+    }
+
+    val mergedGroupDeclaration: Option[GroupDeclaration] = {
+      if (this.groupDeclaration.isDefined && other.getGroupDeclaration.isDefined)
+        Some(this.groupDeclaration.get merge other.getGroupDeclaration.get)
+      else {
+        if (this.groupDeclaration.isDefined)
+          this.groupDeclaration
+        else if (other.getGroupDeclaration.isDefined)
+          other.getGroupDeclaration
+        else None
+      }
+    }
+
+    val mergedExprs: ObjectConstructPattern = this.expr merge other.getExpr
+
+    builder(ref, mergedCopyPattern, mergedGroupDeclaration, mergedExprs)
+  }
 }
 
 abstract class SingleEndpointConstruct(ref: Reference,
@@ -66,6 +124,17 @@ abstract class SingleEndpointConstruct(ref: Reference,
   extends ConnectionConstruct(ref, copyPattern, groupDeclaration, expr) {
 
   children = List(ref, expr) ++ copyPattern.toList ++ groupDeclaration.toList
+
+  /**
+    * Creates a new [[VertexConstruct]] by merging together the features of this and the other
+    * [[SingleEndpointConstruct]].
+    */
+  def merge(other: SingleEndpointConstruct): SingleEndpointConstruct =
+    super.merge[SingleEndpointConstruct](
+      other,
+      builder = (ref, copyPattern, groupDeclaration, expr) =>
+        VertexConstruct(ref, copyPattern, groupDeclaration, expr)
+    )
 }
 
 abstract class DoubleEndpointConstruct(connName: Reference,
@@ -84,6 +153,58 @@ abstract class DoubleEndpointConstruct(connName: Reference,
   def getLeftEndpoint: SingleEndpointConstruct = leftEndpoint
   def getRightEndpoint: SingleEndpointConstruct = rightEndpoint
   def getConnType: ConnectionType = connType
+
+  /** Returns the [[Reference]] of the source vertex of this edge. */
+  def getFromReference: Reference = connType match {
+      case InConn => rightEndpoint.getRef
+      case _ => leftEndpoint.getRef
+    }
+
+  /** Returns the [[Reference]] of the destination vertex of this edge. */
+  def getToReference: Reference = connType match {
+      case InConn => leftEndpoint.getRef
+      case _ => rightEndpoint.getRef
+    }
+
+  /**
+    * Creates a new [[EdgeConstruct]] by merging together the features of this and the other
+    * [[DoubleEndpointConstruct]].
+    */
+  def merge(other: DoubleEndpointConstruct): DoubleEndpointConstruct = {
+    if (this.getFromReference != other.getFromReference) {
+      throw AmbiguousMerge(
+        s"Ambiguous source for edge ${this.connName.refName}: " +
+          s"${this.getFromReference.refName} vs. ${other.getFromReference.refName}"
+      )
+    }
+
+    if (this.getToReference != other.getToReference) {
+      throw AmbiguousMerge(
+        s"Ambiguous destination for edge ${this.connName.refName}: " +
+          s"${this.getToReference.refName} vs. ${other.getToReference.refName}"
+      )
+    }
+
+    if ((this.connType == InOutConn || this.connType == UndirectedConn ||
+      other.getConnType == InOutConn || other.getConnType == UndirectedConn) &&
+      this.connType != other.getConnType)
+      throw AmbiguousMerge(
+        s"Ambiguous connection type for edge ${this.connName.refName}: " +
+          s"${this.connType} vs. ${other.getConnType}")
+
+    val mergedLeftEndpoint: SingleEndpointConstruct = this.leftEndpoint.merge(other.getLeftEndpoint)
+    val mergedRightEndpoint: SingleEndpointConstruct =
+      this.rightEndpoint.merge(other.getRightEndpoint)
+
+    super.merge[DoubleEndpointConstruct](
+      other,
+      builder = (ref, copyPattern, groupDeclaration, expr) =>
+        EdgeConstruct(
+          ref, connType,
+          mergedLeftEndpoint, mergedRightEndpoint,
+          copyPattern, groupDeclaration, expr)
+    )
+  }
 }
 
 case class VertexConstruct(ref: Reference,

@@ -63,6 +63,16 @@ case class ObjectPattern(labelsPred: AlgebraExpression, propsPred: AlgebraExpres
 case class ObjectConstructPattern(labelAssignments: LabelAssignments,
                                   propAssignments: PropAssignments) extends AlgebraExpression {
   children = List(labelAssignments, propAssignments)
+
+  /**
+    * Creates a new [[ObjectConstructPattern]], in which the [[labelAssignments]] are the set union
+    * of this object's and other's [[labelAssignments]] and the [[propAssignments]] are the set
+    * union of this object's and other's [[propAssignments]].
+    */
+  def merge(other: ObjectConstructPattern): ObjectConstructPattern =
+    ObjectConstructPattern(
+      labelAssignments = this.labelAssignments merge other.labelAssignments,
+      propAssignments = this.propAssignments merge other.propAssignments)
 }
 
 object ObjectConstructPattern {

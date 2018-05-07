@@ -92,6 +92,12 @@ case class WithLabels(labelConj: AlgebraExpression) extends AlgebraExpression wi
 case class LabelAssignments(labels: Seq[Label]) extends AlgebraExpression {
 
   children = labels
+
+  /**
+    * Creates a new [[LabelAssignments]] from the set union of this object's and other's [[labels]].
+    */
+  def merge(other: LabelAssignments): LabelAssignments =
+    LabelAssignments((this.labels.toSet ++ other.labels.toSet).toSeq)
 }
 
 /** Updates the graph by removing a label from a variable. */

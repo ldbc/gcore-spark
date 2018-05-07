@@ -2,7 +2,7 @@ package algebra.exceptions
 
 import algebra.expressions.{Exists, Label, PropertyKey, Reference}
 import algebra.operators.CrossJoin
-import algebra.types.{DefaultGraph, DoubleEndpointConn, NamedGraph}
+import algebra.types.{ConnectionConstruct, DefaultGraph, DoubleEndpointConn, NamedGraph}
 import schema.EntitySchema
 
 /** A class of exceptions that signals a semantic error within the query. */
@@ -79,3 +79,6 @@ case class CrossJoinException(lhsBset: Set[Reference], rhsBset: Set[Reference])
   extends SemanticException(
     s"Cannot cross-join relations with common attributes. Left attributes are: $lhsBset, right " +
       s"attributes are $rhsBset")
+
+/** Ambiguous features of two [[ConnectionConstruct]]s to be merged. */
+case class AmbiguousMerge(reason: String) extends SemanticException(reason)
