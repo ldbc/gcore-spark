@@ -24,7 +24,7 @@ class SqlPlannerTest extends FunSuite
 
   import spark.implicits._
 
-  val db: SparkGraphDb = graphDb(spark)
+  val db: SparkCatalog = catalog(spark)
   val graph: SparkGraph = catsGraph(spark)
   val sparkPlanner: SqlPlanner = SqlPlanner(CompileContext(db, spark))
 

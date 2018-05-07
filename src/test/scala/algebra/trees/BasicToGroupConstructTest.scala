@@ -7,7 +7,7 @@ import algebra.trees.CustomMatchers._
 import algebra.types._
 import org.scalatest.{FunSuite, Inside, Matchers}
 import parser.utils.VarBinder
-import schema.GraphDb
+import schema.Catalog
 
 import scala.collection.mutable
 
@@ -30,7 +30,7 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
 
   private val basicToGroupConstructRewriter: BasicToGroupConstruct =
     BasicToGroupConstruct(
-      AlgebraContext(GraphDb.empty, bindingToGraph = None, bindingContext = Some(bindingContext)))
+      AlgebraContext(Catalog.empty, bindingToGraph = None, bindingContext = Some(bindingContext)))
 
   private val emptySetClause: SetClause = SetClause(Seq.empty)
   private val emptyRemoveClause: RemoveClause =

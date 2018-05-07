@@ -7,12 +7,12 @@ import algebra.target_api.BindingTableMetadata
 import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
-import schema.{GraphDb, Table}
+import schema.{Catalog, Table}
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
-case class EdgeScan(edgeRelation: EdgeRelation, graph: Graph, graphDb: GraphDb)
-  extends target_api.EdgeScan(edgeRelation, graph, graphDb) {
+case class EdgeScan(edgeRelation: EdgeRelation, graph: Graph, catalog: Catalog)
+  extends target_api.EdgeScan(edgeRelation, graph, catalog) {
 
   private val edgeTable: Table[DataFrame] =
     physGraph.tableMap(edgeTableName).asInstanceOf[Table[DataFrame]]

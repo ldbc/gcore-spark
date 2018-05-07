@@ -1,7 +1,7 @@
 import compiler.{CompileContext, Compiler, GcoreCompiler}
 import org.apache.spark.sql.SparkSession
 import org.slf4j.{Logger, LoggerFactory}
-import spark.SparkGraphDb
+import spark.SparkCatalog
 import spark.examples.{DummyGraph, PeopleGraph}
 
 /** Main entry point of the interpreter. */
@@ -16,13 +16,13 @@ object GcoreRunner {
     .getOrCreate()
 
   def main(args: Array[String]): Unit = {
-    val graphDb: SparkGraphDb = SparkGraphDb(spark)
+    val catalog: SparkCatalog = SparkCatalog(spark)
 
-    graphDb.registerGraph(DummyGraph(spark))
-    graphDb.registerGraph(PeopleGraph(spark))
-    graphDb.setDefaultGraph("people_graph")
+    catalog.registerGraph(DummyGraph(spark))
+    catalog.registerGraph(PeopleGraph(spark))
+    catalog.setDefaultGraph("people_graph")
 
-    val compiler: Compiler = GcoreCompiler(CompileContext(graphDb, spark.newSession()))
+    val compiler: Compiler = GcoreCompiler(CompileContext(catalog, spark.newSession()))
     compiler.compile(
       """
         | CONSTRUCT (x GROUP p.employer)-(p {newProp := p.name}), (c)

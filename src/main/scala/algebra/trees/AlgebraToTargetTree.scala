@@ -3,25 +3,25 @@ package algebra.trees
 import algebra.operators._
 import algebra.target_api.TargetPlanner
 import common.trees.BottomUpRewriter
-import schema.GraphDb
+import schema.Catalog
 
 /**
   * Creates the physical plan from the logical plan. Uses a [[TargetPlanner]] to emit
   * target-specific operators. Each logical operator op of type OpType is converted into its
   * target-specific equivalent by calling the [[TargetPlanner]]'s planOpType(op) method.
   */
-case class AlgebraToTargetTree(graphDb: GraphDb, targetPlanner: TargetPlanner)
+case class AlgebraToTargetTree(catalog: Catalog, targetPlanner: TargetPlanner)
   extends BottomUpRewriter[AlgebraTreeNode] {
 
   override val rule: RewriteFuncType = {
     case SimpleMatchRelation(rel, matchContext, _) =>
       rel match {
         case vr: VertexRelation =>
-          targetPlanner.planVertexScan(vr, matchContext.graph, graphDb)
+          targetPlanner.planVertexScan(vr, matchContext.graph, catalog)
         case er: EdgeRelation =>
-          targetPlanner.planEdgeScan(er, matchContext.graph, graphDb)
+          targetPlanner.planEdgeScan(er, matchContext.graph, catalog)
         case pr: StoredPathRelation =>
-          targetPlanner.planPathScan(pr, matchContext.graph, graphDb)
+          targetPlanner.planPathScan(pr, matchContext.graph, catalog)
       }
 
     case ua: UnionAll => targetPlanner.planUnionAll(ua)

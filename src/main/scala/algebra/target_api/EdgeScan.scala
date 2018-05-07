@@ -3,10 +3,10 @@ package algebra.target_api
 import algebra.expressions.{AlgebraExpression, Label, Reference}
 import algebra.operators.{EdgeRelation, Relation}
 import algebra.types.Graph
-import schema.GraphDb
+import schema.Catalog
 
-abstract class EdgeScan(edgeRelation: EdgeRelation, graph: Graph, graphDb: GraphDb) extends
-  EntityScan(graph, graphDb) {
+abstract class EdgeScan(edgeRelation: EdgeRelation, graph: Graph, catalog: Catalog) extends
+  EntityScan(graph, catalog) {
 
   val edgeTableName: Label = edgeRelation.labelRelation.asInstanceOf[Relation].label
   val fromTableName: Label = edgeRelation.fromRel.labelRelation.asInstanceOf[Relation].label

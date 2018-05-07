@@ -2,7 +2,7 @@ package algebra.trees
 
 import algebra.expressions.WithLabels
 import common.compiler.Context
-import schema.{EntitySchema, GraphDb, GraphSchema}
+import schema.{EntitySchema, Catalog, GraphSchema}
 
 /** A [[SemanticCheck]]able node implements validation rules that are checked upon creation. */
 trait SemanticCheck {
@@ -23,7 +23,7 @@ trait SemanticCheckWithContext {
 }
 
 /** Available [[Context]]s for semantic checks. */
-case class QueryContext(graphDb: GraphDb) extends Context
+case class QueryContext(catalog: Catalog) extends Context
 case class GraphPatternContext(schema: GraphSchema, graphName: String) extends Context
 case class DisjunctLabelsContext(graphName: String, schema: EntitySchema) extends Context
 case class PropertyContext(graphName: String, labelsExpr: Option[WithLabels], schema: EntitySchema)

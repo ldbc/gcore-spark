@@ -6,7 +6,7 @@ import schema._
 
 trait TestGraphWrapper {
 
-  val graphDb: GraphDb = GraphDb.empty
+  val catalog: Catalog = Catalog.empty
 
   /**
     * vertex labels: Cat        - name: String, age: Double, weight: Int, onDiet: Boolean

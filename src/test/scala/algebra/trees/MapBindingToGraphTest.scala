@@ -29,11 +29,11 @@ class MapBindingToGraphTest extends FunSuite with BeforeAndAfterAll with TestGra
     Exists(
       GraphPattern(Seq(Vertex(Reference("ctry"), labeledObjPattern))))
 
-  private val rewriter: MapBindingToGraph = MapBindingToGraph(AlgebraContext(graphDb))
+  private val rewriter: MapBindingToGraph = MapBindingToGraph(AlgebraContext(catalog))
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    graphDb.registerGraph(catsGraph)
+    catalog.registerGraph(catsGraph)
   }
 
   test("Bindings from SimpleMatchClause") {

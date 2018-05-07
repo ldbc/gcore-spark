@@ -62,12 +62,12 @@ class SpoofaxParserTest extends FunSuite
     override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
   }
 
-  val graphDb: GraphDb = new GraphDb { override type StorageType = Nothing }
-  val parseContext: ParseContext = ParseContext(graphDb = graphDb)
+  val catalog: Catalog = new Catalog { override type StorageType = Nothing }
+  val parseContext: ParseContext = ParseContext(catalog = catalog)
   val parser: SpoofaxParser = SpoofaxParser(parseContext)
 
   after {
-    graphDb.unregisterGraph("people")
+    catalog.unregisterGraph("people")
   }
 
   test("Conjunction of labels is not supported yet") {
@@ -109,7 +109,7 @@ class SpoofaxParserTest extends FunSuite
   }
 
   test("NamedGraph exists in the database") {
-    assert(!graphDb.hasGraph("people"))
+    assert(!catalog.hasGraph("people"))
     the [NamedGraphNotAvailableException] thrownBy {
       parser parse "CONSTRUCT () MATCH (v) ON people"
     } should matchPattern {
@@ -118,14 +118,14 @@ class SpoofaxParserTest extends FunSuite
   }
 
   test("DefaultGraph is registered with the database") {
-    assert(!graphDb.hasDefaultGraph)
+    assert(!catalog.hasDefaultGraph)
     assertThrows[DefaultGraphNotAvailableException] {
       parser parse "CONSTRUCT () MATCH (v)"
     }
   }
 
   test("Disjunct labels are present in schema") {
-    graphDb.registerGraph(peopleGraph)
+    catalog.registerGraph(peopleGraph)
 
     the [DisjunctLabelsException] thrownBy {
       parser parse "CONSTRUCT () MATCH (v:foo) ON people"
@@ -155,7 +155,7 @@ class SpoofaxParserTest extends FunSuite
 
   // TODO: Un-ignore once property unrolling is supported.
   ignore("Property keys are present in schema") {
-    graphDb.registerGraph(peopleGraph)
+    catalog.registerGraph(peopleGraph)
 
     the [PropKeysException] thrownBy {
       parser parse "CONSTRUCT () MATCH (:person {foo = 1, bar = 2}) ON people"

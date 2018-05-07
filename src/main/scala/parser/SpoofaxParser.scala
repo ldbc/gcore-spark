@@ -29,7 +29,7 @@ case class SpoofaxParser(context: ParseContext) extends ParseStage {
     val rewriteParseTree: SpoofaxBaseTreeNode = SpoofaxCanonicalRewriter rewriteTree parseTree
     val algebraTree: AlgebraTreeNode = AlgebraTreeBuilder build rewriteParseTree
     logger.info("\n{}", algebraTree.treeString())
-    algebraTree.asInstanceOf[Query].checkWithContext(QueryContext(context.graphDb))
+    algebraTree.asInstanceOf[Query].checkWithContext(QueryContext(context.catalog))
     algebraTree
   }
 }

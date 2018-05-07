@@ -3,10 +3,10 @@ package algebra.target_api
 import algebra.expressions.{AlgebraExpression, Label, Reference}
 import algebra.operators.{Relation, StoredPathRelation}
 import algebra.types.{Graph, PathQuantifier}
-import schema.GraphDb
+import schema.Catalog
 
-abstract class PathScan(pathRelation: StoredPathRelation, graph: Graph, graphDb: GraphDb)
-  extends EntityScan(graph, graphDb) {
+abstract class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog)
+  extends EntityScan(graph, catalog) {
 
   val pathTableName: Label = pathRelation.labelRelation.asInstanceOf[Relation].label
   val fromTableName: Label = pathRelation.fromRel.labelRelation.asInstanceOf[Relation].label

@@ -7,12 +7,12 @@ import algebra.target_api.BindingTableMetadata
 import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
-import schema.{GraphDb, Table}
+import schema.{Catalog, Table}
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
-case class VertexScan(vertexRelation: VertexRelation, graph: Graph, graphDb: GraphDb)
-  extends target_api.VertexScan(vertexRelation, graph, graphDb) {
+case class VertexScan(vertexRelation: VertexRelation, graph: Graph, catalog: Catalog)
+  extends target_api.VertexScan(vertexRelation, graph, catalog) {
 
   private val physTable: Table[DataFrame] =
     physGraph.tableMap(tableName).asInstanceOf[Table[DataFrame]]

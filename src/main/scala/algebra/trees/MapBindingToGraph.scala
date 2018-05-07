@@ -70,7 +70,7 @@ case class MapBindingToGraph(context: AlgebraContext) {
           case c: Connection if !knownMapping.isDefinedAt(c.getRef) =>
             c.getExpr.forEachDown {
               case l: Label =>
-                context.graphDb.allGraphs.foreach(graph => {
+                context.catalog.allGraphs.foreach(graph => {
                   if (graph.vertexSchema.labels.contains(l))
                     buffer += Tuple2(c.getRef, NamedGraph(graph.graphName))
                   if (graph.edgeSchema.labels.contains(l))
@@ -80,7 +80,7 @@ case class MapBindingToGraph(context: AlgebraContext) {
                 })
 
               case pk: PropertyKey =>
-                context.graphDb.allGraphs.foreach(graph => {
+                context.catalog.allGraphs.foreach(graph => {
                   if (graph.vertexSchema.properties.contains(pk))
                     buffer += Tuple2(c.getRef, NamedGraph(graph.graphName))
                   if (graph.edgeSchema.properties.contains(pk))

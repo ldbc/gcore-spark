@@ -4,7 +4,7 @@ import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
-import schema.GraphDb
+import schema.Catalog
 
 /**
   * A target-specific implementation should provide concrete [[TargetTreeNode]]s in order to create
@@ -21,11 +21,11 @@ abstract class TargetPlanner {
   // TODO: This method should return a PathPropertyGraph
   def constructGraph(btable: StorageType, constructClauses: Seq[AlgebraTreeNode]): Seq[DataFrame]
 
-  def planVertexScan(vertexRelation: VertexRelation, graph: Graph, graphDb: GraphDb): VertexScan
+  def planVertexScan(vertexRelation: VertexRelation, graph: Graph, catalog: Catalog): VertexScan
 
-  def planEdgeScan(edgeRelation: EdgeRelation, graph: Graph, graphDb: GraphDb): EdgeScan
+  def planEdgeScan(edgeRelation: EdgeRelation, graph: Graph, catalog: Catalog): EdgeScan
 
-  def planPathScan(pathRelation: StoredPathRelation, graph: Graph, graphDb: GraphDb): PathScan
+  def planPathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog): PathScan
 
   def planUnionAll(unionAllOp: algebra.operators.UnionAll): UnionAll
 

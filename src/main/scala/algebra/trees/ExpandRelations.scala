@@ -4,7 +4,7 @@ import algebra.expressions.{Exists, Label, Reference}
 import algebra.operators._
 import algebra.types.{Connection, DefaultGraph, Graph, GraphPattern, NamedGraph}
 import common.trees.TopDownRewriter
-import schema.{GraphDb, GraphSchema, SchemaMap}
+import schema.{Catalog, GraphSchema, SchemaMap}
 
 import scala.collection.mutable
 
@@ -59,7 +59,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
   override val rule: RewriteFuncType = {
     case matchClause: MatchClause =>
-      val graphDb: GraphDb = context.graphDb
+      val catalog: Catalog = context.catalog
 
       val allSimpleMatches: mutable.ArrayBuffer[SimpleMatchRelation] =
         new mutable.ArrayBuffer[SimpleMatchRelation]()
@@ -88,14 +88,14 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
         })
 
       // Use all SimpleMatchRelations to restrict the labels of all variables in the match query.
-      val constrainedLabels: BindingToLabelsMmap = restrictLabelsOverall(allSimpleMatches, graphDb)
+      val constrainedLabels: BindingToLabelsMmap = restrictLabelsOverall(allSimpleMatches, catalog)
 
       // Constrain labels for each CondMatchClause.
       matchClause.children.foreach(
         condMatch => {
           val simpleMatches: Seq[SimpleMatchRelation] =
             constrainSimpleMatches(
-              simpleMatches = condMatch.children.init, constrainedLabels, graphDb)
+              simpleMatches = condMatch.children.init, constrainedLabels, catalog)
           val matchPred: AlgebraTreeNode = condMatch.children.last
           condMatch.children = simpleMatches :+ matchPred
 
@@ -104,7 +104,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
           matchPred forEachDown {
             case e: Exists =>
               val existsMatches: Seq[SimpleMatchRelation] =
-                constrainSimpleMatches(simpleMatches = e.children, constrainedLabels, graphDb)
+                constrainSimpleMatches(simpleMatches = e.children, constrainedLabels, catalog)
               e.children = existsMatches
             case _ =>
           }
@@ -132,9 +132,9 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
   private def constrainSimpleMatches(simpleMatches: Seq[AlgebraTreeNode],
                                      constrainedLabels: BindingToLabelsMmap,
-                                     graphDb: GraphDb): Seq[SimpleMatchRelation] = {
+                                     catalog: Catalog): Seq[SimpleMatchRelation] = {
     val constrainedPerMatch: MatchToBindingTuplesMmap =
-      restrictLabelsPerMatch(simpleMatches, constrainedLabels, graphDb)
+      restrictLabelsPerMatch(simpleMatches, constrainedLabels, catalog)
 
     simpleMatches.flatMap {
       case m @ SimpleMatchRelation(rel @ VertexRelation(_, _, _), _, _) =>
@@ -166,7 +166,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
   private def restrictLabelsPerMatch(relations: Seq[AlgebraTreeNode],
                                      constrainedLabels: BindingToLabelsMmap,
-                                     graphDb: GraphDb): MatchToBindingTuplesMmap = {
+                                     catalog: Catalog): MatchToBindingTuplesMmap = {
     val matchToBindingTuplesMmap: MatchToBindingTuplesMmap = newMatchToBindingsMmap
     relations.foreach {
       case relation @ SimpleMatchRelation(VertexRelation(ref, _, _), _, _) =>
@@ -175,8 +175,8 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
       case relation @ SimpleMatchRelation(EdgeRelation(edgeRef, _, _, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph => graphDb.defaultGraph()
-          case NamedGraph(graphName) => graphDb.graph(graphName)
+          case DefaultGraph => catalog.defaultGraph()
+          case NamedGraph(graphName) => catalog.graph(graphName)
         }
         val constrainedEdgeLabels: Seq[Label] = constrainedLabels(edgeRef).toSeq
         graphSchema.edgeRestrictions.map
@@ -192,8 +192,8 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       case relation @ SimpleMatchRelation(
       StoredPathRelation(pathRef, _, _, _, _, _, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph => graphDb.defaultGraph()
-          case NamedGraph(graphName) => graphDb.graph(graphName)
+          case DefaultGraph => catalog.defaultGraph()
+          case NamedGraph(graphName) => catalog.graph(graphName)
         }
         val constrainedPathLabels: Seq[Label] = constrainedLabels(pathRef).toSeq
         graphSchema.storedPathRestrictions.map
@@ -211,20 +211,20 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
   }
 
   private def restrictLabelsOverall(relations: Seq[SimpleMatchRelation],
-                                    graphDb: GraphDb): BindingToLabelsMmap = {
+                                    catalog: Catalog): BindingToLabelsMmap = {
     val initialRestrictedBindings: BindingToLabelsMmap = newBindingToLabelsMmap
     relations.foreach {
       case SimpleMatchRelation(VertexRelation(ref, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph => graphDb.defaultGraph()
-          case NamedGraph(graphName) => graphDb.graph(graphName)
+          case DefaultGraph => catalog.defaultGraph()
+          case NamedGraph(graphName) => catalog.graph(graphName)
         }
         initialRestrictedBindings.update(ref, mutable.Set(graphSchema.vertexSchema.labels: _*))
 
       case SimpleMatchRelation(EdgeRelation(edgeRef, _, _, fromRel, toRel), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph => graphDb.defaultGraph()
-          case NamedGraph(graphName) => graphDb.graph(graphName)
+          case DefaultGraph => catalog.defaultGraph()
+          case NamedGraph(graphName) => catalog.graph(graphName)
         }
         val vertexLabels: Seq[Label] = graphSchema.vertexSchema.labels
         initialRestrictedBindings.update(edgeRef, mutable.Set(graphSchema.edgeSchema.labels: _*))
@@ -234,8 +234,8 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       case SimpleMatchRelation(
       StoredPathRelation(pathRef, _, _, _, fromRel, toRel, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph => graphDb.defaultGraph()
-          case NamedGraph(graphName) => graphDb.graph(graphName)
+          case DefaultGraph => catalog.defaultGraph()
+          case NamedGraph(graphName) => catalog.graph(graphName)
         }
         val vertexLabels: Seq[Label] = graphSchema.vertexSchema.labels
         initialRestrictedBindings.update(pathRef, mutable.Set(graphSchema.pathSchema.labels: _*))
@@ -243,11 +243,11 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
         initialRestrictedBindings.update(toRel.ref, mutable.Set(vertexLabels: _*))
     }
 
-    analyseLabels(relations, graphDb, initialRestrictedBindings)
+    analyseLabels(relations, catalog, initialRestrictedBindings)
   }
 
   private def analyseLabels(relations: Seq[SimpleMatchRelation],
-                            graphDb: GraphDb,
+                            catalog: Catalog,
                             restrictedBindings: BindingToLabelsMmap): BindingToLabelsMmap = {
     var changed: Boolean = false
     relations.foreach {
@@ -256,8 +256,8 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
 
       case SimpleMatchRelation(EdgeRelation(ref, edgeLblRel, _, fromRel, toRel), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph => graphDb.defaultGraph()
-          case NamedGraph(graphName) => graphDb.graph(graphName)
+          case DefaultGraph => catalog.defaultGraph()
+          case NamedGraph(graphName) => catalog.graph(graphName)
         }
         changed |=
           analyseDoubleEndpRelation(
@@ -267,8 +267,8 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       case SimpleMatchRelation(
       StoredPathRelation(ref, _, pathLblRel, _, fromRel, toRel, _, _), matchContext, _) =>
         val graphSchema: GraphSchema = matchContext.graph match {
-          case DefaultGraph => graphDb.defaultGraph()
-          case NamedGraph(graphName) => graphDb.graph(graphName)
+          case DefaultGraph => catalog.defaultGraph()
+          case NamedGraph(graphName) => catalog.graph(graphName)
         }
         changed |=
           analyseDoubleEndpRelation(
@@ -276,7 +276,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
     }
 
     if (changed)
-      analyseLabels(relations, graphDb, restrictedBindings)
+      analyseLabels(relations, catalog, restrictedBindings)
     else
       restrictedBindings
   }

@@ -6,13 +6,13 @@ import algebra.target_api.TargetPlanner
 import algebra.types.{DefaultGraph, Graph, OutConn}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.FunSuite
-import schema.GraphDb
+import schema.Catalog
 
 class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
 
   val mockedTargetPlanner: TargetPlanner = stub[TargetPlanner]
-  val graphDb: GraphDb = GraphDb.empty
-  val rewriter: AlgebraToTargetTree = AlgebraToTargetTree(graphDb, mockedTargetPlanner)
+  val catalog: Catalog = Catalog.empty
+  val rewriter: AlgebraToTargetTree = AlgebraToTargetTree(catalog, mockedTargetPlanner)
 
   val vertexV: VertexRelation = VertexRelation(Reference("v"), Relation(Label("vlabel")), True)
   val vertexW: VertexRelation = VertexRelation(Reference("w"), Relation(Label("wlabel")), True)
@@ -22,7 +22,7 @@ class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
   test("planVertexScan is called for SimpleMatchRelation(VertexRelation)") {
     val simpleMatchRelation = SimpleMatchRelation(vertexV, matchContext)
     rewriter rewriteTree simpleMatchRelation
-    (mockedTargetPlanner.planVertexScan _).verify(vertexV, graph, graphDb).once
+    (mockedTargetPlanner.planVertexScan _).verify(vertexV, graph, catalog).once
   }
 
   test("planEdgeScan is called for SimpleMatchRelation(EdgeRelation)") {
@@ -30,7 +30,7 @@ class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
       EdgeRelation(Reference("e"), Relation(Label("elabel")), True, vertexV, vertexW)
     val simpleMatchRelation = SimpleMatchRelation(edgeRel, matchContext)
     rewriter rewriteTree simpleMatchRelation
-    (mockedTargetPlanner.planEdgeScan _).verify(edgeRel, graph, graphDb).once
+    (mockedTargetPlanner.planEdgeScan _).verify(edgeRel, graph, catalog).once
   }
 
   test("planPathScan is called for SimpleMatchRelation(StoredPathRelation)") {
@@ -40,7 +40,7 @@ class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
         expr = True, vertexV, vertexW, costVarDef = None, quantifier = None)
     val simpleMatchRelation = SimpleMatchRelation(pathRel, matchContext)
     rewriter rewriteTree simpleMatchRelation
-    (mockedTargetPlanner.planPathScan _).verify(pathRel, graph, graphDb).once
+    (mockedTargetPlanner.planPathScan _).verify(pathRel, graph, catalog).once
   }
 
   test("planUnionAll is called for UnionAll") {

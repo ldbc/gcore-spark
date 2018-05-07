@@ -13,13 +13,13 @@ import scala.collection.mutable.ArrayBuffer
 class ExpandRelationsTest extends FunSuite
   with BeforeAndAfterAll with Matchers with TestGraphWrapper {
 
-  private val spoofaxParser: SpoofaxParser = SpoofaxParser(ParseContext(graphDb))
-  private val expandRelations: ExpandRelations = ExpandRelations(AlgebraContext(graphDb))
+  private val spoofaxParser: SpoofaxParser = SpoofaxParser(ParseContext(catalog))
+  private val expandRelations: ExpandRelations = ExpandRelations(AlgebraContext(catalog))
 
   override def beforeAll() {
     super.beforeAll()
-    graphDb.registerGraph(catsGraph)
-    graphDb.setDefaultGraph("cats graph")
+    catalog.registerGraph(catsGraph)
+    catalog.setDefaultGraph("cats graph")
   }
 
   test("Strict label for vertex is preserved - (v:Cat)") {
@@ -426,7 +426,7 @@ class ExpandRelationsTest extends FunSuite
   }
 
   private def rewrite(query: String): AlgebraTreeNode = {
-    val context = AlgebraContext(graphDb, Some(Map.empty)) // all vars in the default graph
+    val context = AlgebraContext(catalog, Some(Map.empty)) // all vars in the default graph
     val treeWithExists: AlgebraTreeNode =
       AddGraphToExistentialPatterns(context).rewriteTree(spoofaxParser.parse(query))
     val treeWithRelations = PatternsToRelations rewriteTree treeWithExists

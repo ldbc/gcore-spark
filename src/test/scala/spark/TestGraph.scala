@@ -6,7 +6,7 @@ import schema._
 
 trait TestGraph {
 
-  def graphDb(sparkSession: SparkSession): SparkGraphDb = SparkGraphDb(sparkSession)
+  def catalog(sparkSession: SparkSession): SparkCatalog = SparkCatalog(sparkSession)
 
   /**
     * vertex labels: Cat        - name: String, age: Double, weight: Int, onDiet: Boolean

@@ -50,19 +50,19 @@ case class SimpleMatchClause(graphPattern: GraphPattern, graph: Graph) extends M
     * [[QueryGraph]]s are not supported in the current version of the interpreter.
     */
   override def checkWithContext(context: Context): Unit = {
-    val graphDb = context.asInstanceOf[QueryContext].graphDb
+    val catalog = context.asInstanceOf[QueryContext].catalog
     val graphPatternContext: GraphPatternContext = {
       graph match {
         case DefaultGraph =>
-          if (graphDb.hasDefaultGraph)
+          if (catalog.hasDefaultGraph)
             GraphPatternContext(
-              schema = graphDb.defaultGraph(), graphName = graphDb.defaultGraph().graphName)
+              schema = catalog.defaultGraph(), graphName = catalog.defaultGraph().graphName)
           else
             throw DefaultGraphNotAvailableException()
 
         case NamedGraph(graphName) =>
-          if (graphDb.hasGraph(graphName))
-            GraphPatternContext(schema = graphDb.graph(graphName), graphName = graphName)
+          if (catalog.hasGraph(graphName))
+            GraphPatternContext(schema = catalog.graph(graphName), graphName = graphName)
           else
             throw NamedGraphNotAvailableException(graphName)
 

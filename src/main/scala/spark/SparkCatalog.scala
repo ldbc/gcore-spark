@@ -3,10 +3,10 @@ package spark
 import java.nio.file.Path
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import schema.{GraphDb, PathPropertyGraph}
+import schema.{Catalog, PathPropertyGraph}
 
-/** A [[GraphDb]] for [[PathPropertyGraph]]s backed by [[DataFrame]]s. */
-case class SparkGraphDb(sparkSession: SparkSession) extends GraphDb {
+/** A [[Catalog]] for [[PathPropertyGraph]]s backed by [[DataFrame]]s. */
+case class SparkCatalog(sparkSession: SparkSession) extends Catalog {
 
   override type StorageType = DataFrame
 

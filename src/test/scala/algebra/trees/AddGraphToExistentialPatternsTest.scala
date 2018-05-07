@@ -5,7 +5,7 @@ import algebra.expressions.{Exists, ObjectPattern, Reference, True}
 import algebra.operators.SimpleMatchClause
 import algebra.types._
 import org.scalatest.FunSuite
-import schema.GraphDb
+import schema.Catalog
 
 class AddGraphToExistentialPatternsTest extends FunSuite {
 
@@ -15,7 +15,7 @@ class AddGraphToExistentialPatternsTest extends FunSuite {
     Map(Reference("u") -> graph1, Reference("v") -> graph1, Reference("z") -> graph2)
 
   private val rewriter: AddGraphToExistentialPatterns =
-    AddGraphToExistentialPatterns(AlgebraContext(GraphDb.empty, Some(bindingToGraph)))
+    AddGraphToExistentialPatterns(AlgebraContext(Catalog.empty, Some(bindingToGraph)))
 
   private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)
 
@@ -78,7 +78,7 @@ class AddGraphToExistentialPatternsTest extends FunSuite {
     val exists = Exists(graphPattern)
 
     assertThrows[AmbiguousGraphForExistentialPatternException] {
-      val actual = rewriter rewriteTree exists
+      rewriter rewriteTree exists
     }
   }
 

@@ -1,11 +1,11 @@
 package schema
 
-object GraphDb {
-  val empty: GraphDb = new GraphDb { override type StorageType = Nothing }
+object Catalog {
+  val empty: Catalog = new Catalog { override type StorageType = Nothing }
 }
 
 /** Keeps track of all the [[PathPropertyGraph]]s available for querying. */
-abstract class GraphDb {
+abstract class Catalog {
 
   type StorageType
 

@@ -7,12 +7,12 @@ import algebra.target_api.BindingTableMetadata
 import algebra.types.Graph
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
-import schema.{GraphDb, Table}
+import schema.{Catalog, Table}
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
-case class PathScan(pathRelation: StoredPathRelation, graph: Graph, graphDb: GraphDb)
-  extends target_api.PathScan(pathRelation, graph, graphDb) {
+case class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog)
+  extends target_api.PathScan(pathRelation, graph, catalog) {
 
   private val pathTable: Table[DataFrame] =
     physGraph.tableMap(pathTableName).asInstanceOf[Table[DataFrame]]

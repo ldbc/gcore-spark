@@ -8,7 +8,7 @@ import algebra.{target_api => target}
 import compiler.CompileContext
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.slf4j.{Logger, LoggerFactory}
-import schema.GraphDb
+import schema.Catalog
 import spark.sql.operators._
 import spark.sql.{operators => sql}
 
@@ -17,7 +17,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
 
   override type StorageType = DataFrame
 
-  val rewriter: AlgebraToTargetTree = AlgebraToTargetTree(compileContext.graphDb, this)
+  val rewriter: AlgebraToTargetTree = AlgebraToTargetTree(compileContext.catalog, this)
   val sparkSession: SparkSession = compileContext.sparkSession
   val logger: Logger = LoggerFactory.getLogger(getClass.getName)
 
@@ -82,14 +82,14 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
     })
   }
 
-  override def planVertexScan(vertexRelation: VertexRelation, graph: Graph, graphDb: GraphDb)
-  : target.VertexScan = sql.VertexScan(vertexRelation, graph, graphDb)
+  override def planVertexScan(vertexRelation: VertexRelation, graph: Graph, catalog: Catalog)
+  : target.VertexScan = sql.VertexScan(vertexRelation, graph, catalog)
 
-  override def planEdgeScan(edgeRelation: EdgeRelation, graph: Graph, graphDb: GraphDb)
-  : target.EdgeScan = sql.EdgeScan(edgeRelation, graph, graphDb)
+  override def planEdgeScan(edgeRelation: EdgeRelation, graph: Graph, catalog: Catalog)
+  : target.EdgeScan = sql.EdgeScan(edgeRelation, graph, catalog)
 
-  override def planPathScan(pathRelation: StoredPathRelation, graph: Graph, graphDb: GraphDb)
-  : target.PathScan = sql.PathScan(pathRelation, graph, graphDb)
+  override def planPathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog)
+  : target.PathScan = sql.PathScan(pathRelation, graph, catalog)
 
   override def planUnionAll(unionAllOp: algebra.operators.UnionAll): target.UnionAll =
     sql.UnionAll(
