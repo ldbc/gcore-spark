@@ -24,6 +24,12 @@ abstract class SparkGraph extends PathPropertyGraph {
 
   override def pathSchema: EntitySchema = buildSchema(pathData)
 
+  def sparkSchemaString: String =
+    s"\nGraph: $graphName\n" +
+      s"[*] Vertex schema:\n$vertexData\n" +
+      s"[*] Edge schema:\n$edgeData\n" +
+      s"[*] Path schema:\n$pathData"
+
   /**
     * Infers the schema of an entity type (vertex, edge, path) from the sequence of data [[Table]]s
     * comprising this graph.

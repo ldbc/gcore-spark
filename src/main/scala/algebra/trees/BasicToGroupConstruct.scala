@@ -460,10 +460,10 @@ case class BasicToGroupConstruct(context: AlgebraContext)
           relation = {
             if (hasGrouping)
               GroupBy(
-                vertexConstruct.getRef,
+                reference = vertexConstruct.getRef,
                 relation = bindingTable,
-                vertexConstruct.getGroupDeclaration.toList,
-                propAggregates)
+                groupingAttributes = vertexConstruct.getGroupDeclaration.toList,
+                aggregateFunctions = propAggregates)
             else
               bindingTable
           }),

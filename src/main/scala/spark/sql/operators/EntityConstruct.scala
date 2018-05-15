@@ -5,14 +5,33 @@ import algebra.operators.Column._
 import algebra.operators.{RemoveClause, SetClause}
 import algebra.target_api
 import algebra.target_api.{BindingTableMetadata, TargetTreeNode}
+import algebra.trees.BasicToGroupConstruct
 import org.apache.spark.sql.types._
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
 import scala.collection.mutable
 
-// TODO: We should verify here again that the vertex does not end up with two labels. What happens
-// if we add two labels and remove one?
+/**
+  * Given a construct [[relation]], will select the necessary columns, possibly adding new ones,
+  * such that the result contains all the columns of the new entity denoted by its [[reference]] and
+  * possibly other columns as well, that will be needed in later stages of the creation process.
+  *
+  * New properties or labels for this entity can be added via the a [[SetClause]].
+  *
+  * Each new instance of this entity, denoted by a row in the construct [[relation]], will receives
+  * a unique, strictly increasing id. To this end, we use SQL's ROW_NUMBER() function applied over
+  * the [[relation]] ordered by the entity's previous id. The new column with consecutive ids is
+  * aliased with the [[constructIdColumn]] name.
+  *
+  * If this was an unmatched ([[isMatchedRef]] = false), but grouped ([[groupedAttributes]]
+  * non-empty) entity, we remove all the attributes of the [[relation]] that are not properties of
+  * the new entity, <b>except</b> for the [[groupedAttributes]]. For more details, see
+  * [[BasicToGroupConstruct]].
+  *
+  * TODO: The [[removeClause]] parameter is redundant and should be removed.
+  * TODO: Treat the case of multiple labels or missing labels.
+  */
 case class EntityConstruct(reference: Reference,
                            isMatchedRef: Boolean,
                            relation: TargetTreeNode,
@@ -38,18 +57,29 @@ case class EntityConstruct(reference: Reference,
     val fieldsToSelect: Set[StructField] = existingAndNewFields.keySet -- removeFields
     val columnsToSelect: String = fieldsToSelect.map(existingAndNewFields).mkString(", ")
 
-    val newRefSchema: StructType = StructType(fieldsToSelect.toArray)
-
-    // TODO: If the label is missing, add it as a new column and create a random name for the label.
-    // TODO: Same as above for id.
+    val idColumnName: String = s"${reference.refName}$$${idColumn.columnName}"
+    val constructIdColumnName: String = s"${reference.refName}$$${constructIdColumn.columnName}"
+    val constructIdColumnStructField: StructField = StructField(constructIdColumnName, IntegerType)
 
     val createQuery: String =
       s"""
-      SELECT $columnsToSelect FROM (${relationBtable.btableOps.resQuery})"""
+      SELECT ROW_NUMBER() OVER (ORDER BY `$idColumnName`) AS `$constructIdColumnName`,
+      $columnsToSelect FROM (${relationBtable.btableOps.resQuery})"""
+
+    val newSchemaMap: Map[Reference, StructType] =
+      (fieldsToSelect + constructIdColumnStructField)
+        .map(structField => {
+          val reference: Reference = Reference(structField.name.split("\\$")(0))
+          reference -> structField
+        })
+        .groupBy(refStructFieldTuple => refStructFieldTuple._1) // group by reference
+        .mapValues(refStructFieldTuples => refStructFieldTuples.map(_._2))
+        .mapValues(structFields => StructType(structFields.toArray))
+    val newBtableSchema: StructType = StructType(newSchemaMap.values.flatMap(_.fields).toArray)
 
     SqlBindingTableMetadata(
-      sparkSchemaMap = Map(reference -> newRefSchema),
-      sparkBtableSchema = newRefSchema,
+      sparkSchemaMap = newSchemaMap,
+      sparkBtableSchema = newBtableSchema,
       btableOps = SqlQuery(resQuery = createQuery))
   }
 
@@ -70,23 +100,14 @@ case class EntityConstruct(reference: Reference,
           case label: Label =>
             val columnName = s"${reference.refName}$$${tableLabelColumn.columnName}"
             val selectStr = s""""${label.value}" AS `$columnName`"""
-            newFieldsToSelectStr += Tuple2(StructField(columnName, StringType), selectStr)
+            newFieldsToSelectStr += (StructField(columnName, StringType) -> selectStr)
           case PropAssignment(propKey, propExpr) =>
             val columnName = s"${reference.refName}$$${propKey.key}"
             val selectStr = s"(${expandExpression(propExpr)}) AS `$columnName`"
             // TODO: Infer the correct data type.
-            newFieldsToSelectStr += Tuple2(StructField(columnName, StringType), selectStr)
+            newFieldsToSelectStr += (StructField(columnName, StringType) -> selectStr)
           case _ =>
         })
-
-    val idColumnName: String = s"${reference.refName}$$${idColumn.columnName}"
-    val hasId: Boolean = relationBtable.schemaMap(reference).exists(_.name == idColumnName)
-
-    if (!hasId)
-      newFieldsToSelectStr +=
-        Tuple2(
-          StructField(idColumnName, IntegerType),
-          s"MONOTONICALLY_INCREASING_ID() AS `$idColumnName`")
 
     newFieldsToSelectStr.toMap
   }

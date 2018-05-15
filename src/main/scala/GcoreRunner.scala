@@ -1,33 +1,36 @@
 import compiler.{CompileContext, Compiler, GcoreCompiler}
 import org.apache.spark.sql.SparkSession
-import org.slf4j.{Logger, LoggerFactory}
+import schema.Catalog
 import spark.SparkCatalog
 import spark.examples.{DummyGraph, PeopleGraph}
 
 /** Main entry point of the interpreter. */
 object GcoreRunner {
 
-  val logger: Logger = LoggerFactory.getLogger(getClass.getName)
+  def newRunner: GcoreRunner = {
+    val sparkSession: SparkSession = SparkSession
+      .builder()
+      .appName("G-CORE Runner")
+      .master("local[*]")
+      .getOrCreate()
+    val catalog: SparkCatalog = SparkCatalog(sparkSession)
+    val compiler: Compiler = GcoreCompiler(CompileContext(catalog, sparkSession))
 
-  val spark: SparkSession = SparkSession
-    .builder()
-    .appName("G-CORE Runner")
-    .master("local[*]")
-    .getOrCreate()
+    GcoreRunner(sparkSession, compiler, catalog)
+  }
 
   def main(args: Array[String]): Unit = {
-    val catalog: SparkCatalog = SparkCatalog(spark)
+    val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
+    gcoreRunner.catalog.registerGraph(DummyGraph(gcoreRunner.sparkSession))
+    gcoreRunner.catalog.registerGraph(PeopleGraph(gcoreRunner.sparkSession))
+    gcoreRunner.catalog.setDefaultGraph("people_graph")
 
-    catalog.registerGraph(DummyGraph(spark))
-    catalog.registerGraph(PeopleGraph(spark))
-    catalog.setDefaultGraph("people_graph")
-
-    val compiler: Compiler = GcoreCompiler(CompileContext(catalog, spark.newSession()))
-    compiler.compile(
+    gcoreRunner.compiler.compile(
       """
-        | CONSTRUCT (x GROUP p.employer)-(p {newProp := p.name}), (c)
+        | CONSTRUCT (x GROUP p.employer :XLabel)<-[e0 :e0Label]-(p {newProp := p.name})
         | MATCH (c:Company)<-[e]-(p:Person)
-        | WHERE c.name = p.employer
       """.stripMargin)
   }
 }
+
+case class GcoreRunner(sparkSession: SparkSession, compiler: Compiler, catalog: Catalog)

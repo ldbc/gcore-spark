@@ -7,6 +7,11 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import spark.sql.SqlQuery
 
+/**
+  * Given the [[viewName]] of a temporary table view, infers the
+  * [[SqlBindingTableMetadata.schemaMap]] and [[SqlBindingTableMetadata.btableSchema]] from the
+  * table schema yielded by the DESCRIBE TABLE command in Spark.
+  */
 case class TableView(viewName: String, sparkSession: SparkSession)
   extends target_api.TableView(viewName) {
 

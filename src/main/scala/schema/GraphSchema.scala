@@ -2,7 +2,7 @@ package schema
 
 import algebra.expressions.{Label, PropertyKey}
 import algebra.types.GcoreDataType
-import schema.EntitySchema.{LabelRestrictionType, LabelSchemaType}
+import schema.EntitySchema.{LabelRestrictionMap, LabelPropsSchemaMap}
 
 /** The schema of a [[PathPropertyGraph]]. */
 trait GraphSchema {
@@ -13,9 +13,9 @@ trait GraphSchema {
 
   def edgeSchema: EntitySchema
 
-  def edgeRestrictions: LabelRestrictionType
+  def edgeRestrictions: LabelRestrictionMap
 
-  def storedPathRestrictions: LabelRestrictionType
+  def storedPathRestrictions: LabelRestrictionMap
 }
 
 /**
@@ -23,7 +23,7 @@ trait GraphSchema {
   * that are associated with a label. Note that this association is a [[Map]], therefore a [[Label]]
   * can/should be applied to one and only one type of entity.
   */
-case class EntitySchema(labelSchema: LabelSchemaType) {
+case class EntitySchema(labelSchema: LabelPropsSchemaMap) {
 
   /** All the labels in this [[EntitySchema]]. */
   def labels: Seq[Label] = labelSchema.keys
@@ -56,8 +56,8 @@ case class EntitySchema(labelSchema: LabelSchemaType) {
 object EntitySchema {
   val empty = EntitySchema(SchemaMap.empty[Label, SchemaMap[PropertyKey, GcoreDataType]])
 
-  type LabelSchemaType = SchemaMap[Label, SchemaMap[PropertyKey, GcoreDataType]]
-  type LabelRestrictionType = SchemaMap[Label, (Label, Label)]
+  type LabelPropsSchemaMap = SchemaMap[Label, SchemaMap[PropertyKey, GcoreDataType]]
+  type LabelRestrictionMap = SchemaMap[Label, (Label, Label)]
 }
 
 /** A general-purpose [[Map]] with richer union semantics. */

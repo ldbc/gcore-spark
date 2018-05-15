@@ -2,13 +2,14 @@ package algebra.trees
 
 import algebra.expressions.{Label, ObjectConstructPattern, Reference, True}
 import algebra.operators._
+import algebra.target_api
 import algebra.target_api.TargetPlanner
 import algebra.types.{DefaultGraph, Graph, OutConn}
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.FunSuite
+import org.scalatest.{FunSuite, Matchers}
 import schema.Catalog
 
-class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
+class AlgebraToTargetTreeTest extends FunSuite with Matchers with MockFactory {
 
   val mockedTargetPlanner: TargetPlanner = stub[TargetPlanner]
   val catalog: Catalog = Catalog.empty
@@ -114,5 +115,34 @@ class AlgebraToTargetTreeTest extends FunSuite with MockFactory {
         setClause = None, propAggRemoveClause = None)
     rewriter rewriteTree construct
     (mockedTargetPlanner.planConstruct _).verify(construct).once
+  }
+
+  test("target.VertexCreate is created from a VertexCreate") {
+    Catalog.resetBaseEntityTableIndex()
+    val vertexCreate =
+      VertexCreate(
+        reference = Reference("foo"),
+        removeClause = None)
+    val targetVertexCreate = rewriter.rewriteTree(vertexCreate)
+    targetVertexCreate should matchPattern {
+      case target_api.VertexCreate(Reference("foo"), None, Catalog.START_BASE_TABLE_INDEX) =>
+    }
+  }
+
+  test("target.EdgeCreate is created from an EdgeCreate") {
+    Catalog.resetBaseEntityTableIndex()
+    val edgeCreate =
+      EdgeCreate(
+        reference = Reference("e"),
+        leftReference = Reference("v"),
+        rightReference = Reference("w"),
+        connType = OutConn,
+        removeClause = None)
+    val targetEdgeCreate = rewriter.rewriteTree(edgeCreate)
+    targetEdgeCreate should matchPattern {
+      case target_api.EdgeCreate(
+      Reference("e"), Reference("v"), Reference("w"), OutConn,
+      None, Catalog.START_BASE_TABLE_INDEX) =>
+    }
   }
 }

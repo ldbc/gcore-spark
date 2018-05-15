@@ -11,6 +11,10 @@ import schema.{Catalog, Table}
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
+/**
+  * Creates the table that will hold information about a vertex. The use-case is a MATCH query of
+  * the type MATCH (a). Edge endpoints are <b>not</b> scanned with the [[VertexScan]] operator.
+  */
 case class VertexScan(vertexRelation: VertexRelation, graph: Graph, catalog: Catalog)
   extends target_api.VertexScan(vertexRelation, graph, catalog) {
 

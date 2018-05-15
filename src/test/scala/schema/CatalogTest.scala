@@ -61,7 +61,6 @@ class CatalogTest extends FunSuite {
     val catalog: ACatalog = new ACatalog {}
     catalog.registerGraph(graph1)
     assert(!catalog.hasDefaultGraph)
-    assert(catalog.defaultGraph().isEmpty)
 
     catalog.setDefaultGraph("graph1")
     assert(catalog.hasDefaultGraph)
@@ -69,7 +68,6 @@ class CatalogTest extends FunSuite {
 
     catalog.unregisterGraph(graph1)
     assert(!catalog.hasDefaultGraph)
-    assert(catalog.defaultGraph().isEmpty)
   }
 
   test("setDefaultGraph throws exception if graph is not registered") {

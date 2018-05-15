@@ -21,4 +21,5 @@ object Column {
 
   /** Other fixed column names as needed by targets. */
   val tableLabelColumn: Column = Column("table_label")
+  val constructIdColumn: Column = Column("construct_id")
 }

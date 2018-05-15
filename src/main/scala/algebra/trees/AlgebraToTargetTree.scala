@@ -4,6 +4,7 @@ import algebra.operators._
 import algebra.target_api.TargetPlanner
 import common.trees.BottomUpRewriter
 import schema.Catalog
+import algebra.{target_api => target}
 
 /**
   * Creates the physical plan from the logical plan. Uses a [[TargetPlanner]] to emit
@@ -33,5 +34,12 @@ case class AlgebraToTargetTree(catalog: Catalog, targetPlanner: TargetPlanner)
 
     case tableView: TableView => targetPlanner.createTableView(tableView.getViewName)
     case ec: ConstructRelation => targetPlanner.planConstruct(ec)
+    case VertexCreate(reference, removeClause) =>
+      target.VertexCreate(reference, removeClause, Catalog.nextBaseEntityTableIndex)
+    case EdgeCreate(reference, leftReference, rightReference, connType, removeClause) =>
+      target.EdgeCreate(
+        reference, leftReference, rightReference, connType,
+        removeClause,
+        Catalog.nextBaseEntityTableIndex)
   }
 }

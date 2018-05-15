@@ -11,6 +11,15 @@ import schema.{Catalog, Table}
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
+/**
+  * Creates the table that will hold information about an edge and its endpoints.
+  *
+  * Each edge and vertex type (denoted by the entity label) is stored into a separate table in the
+  * database. For example, for the edge (a)-[e]->(b), we will need three tables, a's, e's and b's,
+  * to create the result of the [[EdgeScan]] operation. To do this, we first create temporary views
+  * over a's, b's and e's tables. We then join e's table with a's on e.fromid == a.id and the result
+  * with b's table on e.toid == b.id.
+  */
 case class EdgeScan(edgeRelation: EdgeRelation, graph: Graph, catalog: Catalog)
   extends target_api.EdgeScan(edgeRelation, graph, catalog) {
 

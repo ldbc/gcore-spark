@@ -15,6 +15,7 @@
         and count on DataFrames throws an error with 2.2.1. For now we will use 2.2.0, as the
         operations seem to work with this older version. -->
         <spark.version>2.2.0</spark.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <!-- Spoofax Maven artifacts are hosted on Metaborg's artifact server
@@ -79,7 +80,7 @@
         </dependency>
         <dependency>
             <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_${scala.version}</artifactId>
+            <artifactId>scalatest_${scala.version}</artifactId> <!-- Requires scala 2.11.12 -->
             <version>3.0.5</version>
             <scope>test</scope>
         </dependency>
@@ -141,11 +142,21 @@
     </dependencies>
 
     <build>
+        <sourceDirectory>src/main/scala</sourceDirectory>
+        <testSourceDirectory>src/test/scala</testSourceDirectory>
         <plugins>
             <!-- Compiler plugin for Scala source files. -->
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <!-- Compiler plugin requires scala 2.11.0, but everything else depends on
+                    2.11.12. Since they are backwards compatible, we require only compatibility
+                    with 2.11 -->
+                    <scalaCompatVersion>${scala.version}</scalaCompatVersion>
+                    <scalaVersion>${scala.version}</scalaVersion>
+                </configuration>
                 <executions>
                     <execution>
                         <id>scala-compile-first</id>
@@ -165,16 +176,25 @@
                 </executions>
             </plugin>
 
-            <!-- Compiler plugin for Java source files, as instructed by the
-            Spoofax wiki:
-            http://www.metaborg.org/en/latest/source/core/start.html -->
+            <!-- Plugin to run tests with mvn test -->
             <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.2</version>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest-maven-plugin</artifactId>
+                <version>2.0.0</version>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <reportsDirectory>${project.build.directory}/scalatest-reports</reportsDirectory>
+                    <junitxml>.</junitxml>
+                    <filereports>WDF TestSuite.txt</filereports>
+                    <stdout>W</stdout>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- This plugin adds all dependencies to JAR file during 'package'

@@ -6,7 +6,7 @@ import algebra.expressions.Label
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-import schema.EntitySchema.LabelRestrictionType
+import schema.EntitySchema.LabelRestrictionMap
 import schema.{SchemaMap, Table}
 
 import scala.io.Source
@@ -31,10 +31,10 @@ abstract class GraphSource(spark: SparkSession) {
 
       override def edgeData: Seq[Table[DataFrame]] = loadData(graphConfig.edgeFiles)
 
-      override def edgeRestrictions: LabelRestrictionType =
+      override def edgeRestrictions: LabelRestrictionMap =
         buildRestrictions(graphConfig.edgeRestrictions)
 
-      override def storedPathRestrictions: LabelRestrictionType =
+      override def storedPathRestrictions: LabelRestrictionMap =
         buildRestrictions(graphConfig.pathRestrictions)
   }
 
@@ -45,7 +45,7 @@ abstract class GraphSource(spark: SparkSession) {
           name = Label(filePath.getFileName.toString),
           data = loadDataFn(filePath.toString)))
 
-  private def buildRestrictions(restrictions: Seq[ConnectionRestriction]): LabelRestrictionType = {
+  private def buildRestrictions(restrictions: Seq[ConnectionRestriction]): LabelRestrictionMap = {
     restrictions.foldLeft(SchemaMap.empty[Label, (Label, Label)]) {
       (aggSchemaMap, conRestr) => {
         aggSchemaMap union SchemaMap(Map(

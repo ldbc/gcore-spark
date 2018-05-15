@@ -6,6 +6,10 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types.StructType
 import spark.sql.SqlQuery
 
+/**
+  * Metadata of a binding table, where the schema is stored as a [[StructType]] and the operation
+  * on the binding table is a [[SqlQuery]].
+  */
 case class SqlBindingTableMetadata(sparkSchemaMap: Map[Reference, StructType],
                                    sparkBtableSchema: StructType,
                                    btableOps: SqlQuery) extends BindingTableMetadata {

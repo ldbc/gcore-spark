@@ -6,6 +6,11 @@ import org.apache.spark.sql.types.StructType
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery.{mergeSchemas, orderColumnsForUnion}
 
+/**
+  * Unions two relations, [[lhs]] UNION [[rhs]]. The result will contain all the columns in both
+  * relations. If a column is not defined for a particular relation, the value null will be filled
+  * in the column, for the row present in that relation
+  */
 case class UnionAll(lhs: TargetTreeNode, rhs: TargetTreeNode)
   extends target_api.UnionAll(lhs, rhs) {
 

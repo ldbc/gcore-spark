@@ -22,7 +22,8 @@ object ConstructTreeBuilder {
     val labelRemoves: mutable.ArrayBuffer[LabelRemove] = new mutable.ArrayBuffer[LabelRemove]()
 
     constructPattern.children.foreach {
-      case namedGraph: SpoofaxLeaf[String] => graphs += NamedGraph(namedGraph.leafValue)
+      case namedGraph: SpoofaxLeaf[_] =>
+        graphs += NamedGraph(namedGraph.asInstanceOf[SpoofaxLeaf[String]].leafValue)
 
       case queryGraph: SpoofaxTreeNode if queryGraph.name == "BasicQuery" =>
         graphs += QueryGraph(extractQueryClause(queryGraph))

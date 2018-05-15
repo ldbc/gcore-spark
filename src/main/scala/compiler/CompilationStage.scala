@@ -1,13 +1,13 @@
 package compiler
 
 import algebra.trees.AlgebraTreeNode
-import org.apache.spark.sql.DataFrame
+import schema.PathPropertyGraph
 
 /**
   * A step in the compilation process of a G-CORE query. Extending [[Function1]] makes any
   * [[CompilationStage]] composable with another type-compatible [[CompilationStage]].
   */
-trait CompilationStage[I, O] extends Function1[I, O] {
+trait CompilationStage[I, O] extends ((I) => O) {
 
   /**
     * Defines the behavior of this [[CompilationStage]]. Should be implemented by any extending
@@ -44,10 +44,8 @@ trait RewriteStage extends CompilationStage[AlgebraTreeNode, AlgebraTreeNode] {
 /**
   * The step in the compilation pipeline that produces a physical plan from the logical plan and
   * then runs it on the target backend.
-  *
-  * TODO: We need to return a PathPropertyGraph from this stage.
   */
-trait RunTargetCodeStage extends CompilationStage[AlgebraTreeNode, Seq[DataFrame]] {
+trait RunTargetCodeStage extends CompilationStage[AlgebraTreeNode, PathPropertyGraph] {
 
-  override def runStage(input: AlgebraTreeNode): Seq[DataFrame]
+  override def runStage(input: AlgebraTreeNode): PathPropertyGraph
 }

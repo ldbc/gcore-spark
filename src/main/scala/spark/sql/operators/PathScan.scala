@@ -11,6 +11,22 @@ import schema.{Catalog, Table}
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
+/**
+  * Creates the table that will hold information about a stored path and its endpoints.
+  *
+  * Each path and vertex type (denoted by the entity label) is stored into a separate table in the
+  * database. For example, for the path (a)-/@p/->(b), we will need three tables, a's, p's and b's,
+  * to create the result of the [[PathScan]] operation. To do this, we first create temporary views
+  * over a's, b's and p's tables. We then join p's table with a's on p.fromid == a.id and the result
+  * with b's table on p.toid == b.id.
+  *
+  * If the path is a reachability test ([[pathRelation.isReachableTest]] = true), we will only keep
+  * a's and b's properties in the resulting table.
+  *
+  * If the cost of the path is required ([[pathRelation.costVarDef]] is defined), then the length
+  * of the path's [[edgeSeqColumn]] entries is added to the path's row aliased as
+  * [[pathRelation.costVarDef]].
+  */
 case class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog)
   extends target_api.PathScan(pathRelation, graph, catalog) {
 

@@ -11,6 +11,15 @@ import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import spark.sql.SqlQuery
 import spark.sql.SqlQuery._
 
+/**
+  * Groups the [[relation]] by the [[groupingAttributes]], which can be [[Reference]]s or a
+  * [[GroupDeclaration]]. We only accept [[PropertyRef]]erences as the attributes specified within a
+  * [[GroupDeclaration]]. Particular column aggregations can be specified as [[aggregateFunctions]].
+  * All other columns that are neither part of the aggregation key, nor a particular aggregation
+  * in the [[aggregateFunctions]], will be aggregated with the FIRST function.
+  *
+  * For now, the [[having]] parameter is ignored.
+  */
 case class GroupBy(relation: TargetTreeNode,
                    groupingAttributes: Seq[AlgebraTreeNode],
                    aggregateFunctions: Seq[PropertySet],
@@ -65,16 +74,6 @@ case class GroupBy(relation: TargetTreeNode,
       .toSet
   }
 
-  /**
-    * x { prop1 := AVG(y.prop2) } <=> x { prop1 := x.prop2 }, x.prop2 = AVG(y.prop2)
-    *
-    *   alias field name = x.prop2
-    *   aggregate expression = AVG(y.prop2)
-    *
-    *   SELECT AVG(y.prop2) AS x.prop2 GROUP BY other_prop, other_prop != y.prop2
-    *
-    * reference x -> new StructField
-    */
   private val aggregatedFields: Map[Reference, Seq[SchemaField]] = {
     aggregateFunctions
       .filter {
@@ -84,7 +83,7 @@ case class GroupBy(relation: TargetTreeNode,
       .map {
         case PropertySet(newVarRef, PropAssignment(propKey, expr: AggregateExpression)) =>
           expr.getOperand match {
-            // x.prop2 = AVG(y.prop2)
+            // eg: x.prop2 = AVG(y.prop2)
             case PropertyRef(aggVarRef, PropertyKey(key)) =>
               val aggFieldName: SchemaFieldName = s"${aggVarRef.refName}$$$key" // y$prop2
               val newPropFieldName: String = s"${newVarRef.refName}$$${propKey.key}"  // x$prop2
@@ -109,7 +108,7 @@ case class GroupBy(relation: TargetTreeNode,
   private val starAggregations: Map[Reference, Seq[SchemaField]] = {
     aggregateFunctions
       .filter {
-        case PropertySet(newVarRef, PropAssignment(propKey, expr: AggregateExpression)) =>
+        case PropertySet(_, PropAssignment(_, expr: AggregateExpression)) =>
           !expr.getOperand.isInstanceOf[PropertyRef]
       }
       .map {

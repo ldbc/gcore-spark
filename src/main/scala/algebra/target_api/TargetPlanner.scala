@@ -3,8 +3,7 @@ package algebra.target_api
 import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import algebra.types.Graph
-import org.apache.spark.sql.DataFrame
-import schema.Catalog
+import schema.{Catalog, PathPropertyGraph}
 
 /**
   * A target-specific implementation should provide concrete [[TargetTreeNode]]s in order to create
@@ -18,8 +17,7 @@ abstract class TargetPlanner {
   /** Instantiates the physical binding table from the match clause. */
   def solveBindingTable(matchClause: AlgebraTreeNode): StorageType
 
-  // TODO: This method should return a PathPropertyGraph
-  def constructGraph(btable: StorageType, constructClauses: Seq[AlgebraTreeNode]): Seq[DataFrame]
+  def constructGraph(btable: StorageType, constructClauses: Seq[AlgebraTreeNode]): PathPropertyGraph
 
   def planVertexScan(vertexRelation: VertexRelation, graph: Graph, catalog: Catalog): VertexScan
 

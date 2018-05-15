@@ -11,7 +11,8 @@ abstract class PathPropertyGraph extends GraphSchema with GraphData {
 
   def graphName: String
 
-  def isEmpty: Boolean = false
+  def isEmpty: Boolean =
+    vertexData.isEmpty && edgeData.isEmpty && pathData.isEmpty
 
   def nonEmpty: Boolean = !isEmpty
 
@@ -22,18 +23,11 @@ abstract class PathPropertyGraph extends GraphSchema with GraphData {
       s"[*] Vertex schema:\n$vertexSchema" +
       s"[*] Edge schema:\n$edgeSchema" +
       s"[*] Path schema:\n$pathSchema"
-
-  def sparkSchemaString: String =
-    s"\nGraph: $graphName\n" +
-      s"[*] Vertex schema:\n$vertexData\n" +
-      s"[*] Edge schema:\n$edgeData\n" +
-      s"[*] Path schema:\n$pathData"
 }
 
 object PathPropertyGraph {
 
   val empty: PathPropertyGraph = new PathPropertyGraph {
-    override def isEmpty: Boolean = true
 
     override def graphName: String = "PathPropertyGraph.empty"
     override def vertexData: Seq[Table[StorageType]] = Seq.empty

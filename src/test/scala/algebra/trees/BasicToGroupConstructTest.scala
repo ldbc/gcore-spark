@@ -295,8 +295,8 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
     val leftEndpoint1 = vertexConstruct(Reference("left_1"))
     val rightEndpoint0 = vertexConstruct(Reference("right_0"))
     val rightEndpoint1 = vertexConstruct(Reference("right_1"))
-    val edge0 = edgeConstruct(edgeReference = Reference("e_0"), leftEndpoint0, rightEndpoint0)
-    val edge1 = edgeConstruct(edgeReference = Reference("e_1"), leftEndpoint1, rightEndpoint1)
+    val edge0 = edgeConstruct(Reference("e_0"), leftEndpoint0, rightEndpoint0)
+    val edge1 = edgeConstruct(Reference("e_1"), leftEndpoint1, rightEndpoint1)
     val algebraTree = constructClause(topologies = Seq(Seq(edge0, edge1)))
 
     val actual = extractConstructRelations(rewrite(algebraTree)).head
@@ -579,7 +579,7 @@ class BasicToGroupConstructTest extends FunSuite with Matchers with Inside {
     "CONSTRUCT (v), (v)-[e]->(w)") {
     val v = vertexConstruct(Reference("v"))
     val w = vertexConstruct(Reference("w"))
-    val e = edgeConstruct(edgeReference = Reference("e"), v, w)
+    val e = edgeConstruct(Reference("e"), v, w)
     val algebraTree = constructClause(topologies = Seq(Seq(v), Seq(e)))
 
     val actual = extractConstructRelations(rewrite(algebraTree)).head

@@ -2,7 +2,7 @@ package spark.examples
 
 import algebra.expressions.Label
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import schema.EntitySchema.LabelRestrictionType
+import schema.EntitySchema.LabelRestrictionMap
 import schema.{SchemaMap, Table}
 import spark.SparkGraph
 
@@ -45,12 +45,12 @@ case class PeopleGraph(spark: SparkSession) extends SparkGraph {
 
   override def pathData: Seq[Table[DataFrame]] = Seq.empty
 
-  override def edgeRestrictions: LabelRestrictionType =
+  override def edgeRestrictions: LabelRestrictionMap =
     SchemaMap(Map(
       Label("WorksAt") -> (Label("Person"), Label("Company"))
     ))
 
-  override def storedPathRestrictions: LabelRestrictionType = SchemaMap.empty
+  override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 }
 
 sealed case class Person(id: Int, name: String, employer: String)
