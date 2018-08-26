@@ -10,7 +10,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
   private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)
   private val labeledObjPattern: ObjectPattern =
     ObjectPattern(
-      labelsPred = WithLabels(And(HasLabel(Seq(Label("foo"))), True)),
+      labelsPred = ConjunctLabels(And(DisjunctLabels(Seq(Label("foo"))), True)),
       propsPred = True)
 
   test("Vertex - match on AllRelations() if no label provided") {
@@ -103,7 +103,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         leftEndpoint = from, rightEndpoint = to,
         connType = OutConn,
         expr = emptyObjPattern,
-        quantifier = None, costVarDef = None, isObj = true)
+        quantifier = AllPaths, costVarDef = None, isObj = true, pathExpression = None)
     val relationOutConn = PatternsToRelations rewriteTree pathOutConn
     val pathInConn =
       Path(
@@ -112,21 +112,21 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         leftEndpoint = from, rightEndpoint = to,
         connType = InConn,
         expr = emptyObjPattern,
-        quantifier = None, costVarDef = None, isObj = true)
+        quantifier = AllPaths, costVarDef = None, isObj = true, pathExpression = None)
     val relationInConn = PatternsToRelations rewriteTree pathInConn
 
     relationOutConn should matchPattern {
       case StoredPathRelation(Reference("p"), /*isReachableTest =*/ false, AllRelations, _,
       /*fromRel = */ VertexRelation(Reference("v"), _, _),
       /*toRel = */ VertexRelation(Reference("w"), _, _),
-      /*costVarDef =*/ None, /*quantifier = */ None) =>
+      /*costVarDef =*/ None, /*quantifier = */ AllPaths) =>
     }
 
     relationInConn should matchPattern {
       case StoredPathRelation(Reference("p"), /*isReachableTest =*/ false, AllRelations, _,
       /*fromRel = */ VertexRelation(Reference("w"), _, _),
       /*toRel = */ VertexRelation(Reference("v"), _, _),
-      /*costVarDef =*/ None, /*quantifier = */ None) =>
+      /*costVarDef =*/ None, /*quantifier = */ AllPaths) =>
     }
   }
 
@@ -140,7 +140,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         leftEndpoint = from, rightEndpoint = to,
         connType = OutConn,
         expr = labeledObjPattern,
-        quantifier = None, costVarDef = None, isObj = true)
+        quantifier = AllPaths, costVarDef = None, isObj = true, pathExpression = None)
     val relationOutConn = PatternsToRelations rewriteTree pathOutConn
     val pathInConn =
       Path(
@@ -149,7 +149,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
         leftEndpoint = from, rightEndpoint = to,
         connType = InConn,
         expr = labeledObjPattern,
-        quantifier = None, costVarDef = None, isObj = true)
+        quantifier = AllPaths, costVarDef = None, isObj = true, pathExpression = None)
     val relationInConn = PatternsToRelations rewriteTree pathInConn
 
     relationOutConn should matchPattern {
@@ -157,7 +157,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
       /*expr = */ _,
       /*fromRel = */ VertexRelation(Reference("v"), _, _),
       /*toRel = */ VertexRelation(Reference("w"), _, _),
-      /*costVarDef =*/ None, /*quantifier = */ None) =>
+      /*costVarDef =*/ None, /*quantifier = */ AllPaths) =>
     }
 
     relationInConn should matchPattern {
@@ -165,7 +165,7 @@ class PatternsToRelationsTest extends FunSuite with Matchers {
       /*expr = */ _,
       /*fromRel = */ VertexRelation(Reference("w"), _, _),
       /*toRel = */ VertexRelation(Reference("v"), _, _),
-      /*costVarDef =*/ None, /*quantifier = */ None) =>
+      /*costVarDef =*/ None, /*quantifier = */ AllPaths) =>
     }
   }
 }

@@ -224,26 +224,25 @@ object MatchTreeBuilder {
     val quantifierElement = connElement.children.head /* Virtual/Objectified */
       .children.head /* Some/None */
     val quantifier = quantifierElement.name match {
-      case "None" => None
+      // Default for objectified is AllPaths, default for virtual is shortest.
+      case "None" => if (isObj) AllPaths else Shortest(qty = 1, isDistinct = false)
       case "Some" => quantifierElement.children.head.name match {
-        case "Shortest" => Some(Shortest(qty = 1, isDistinct = false))
+        case "Shortest" => Shortest(qty = 1, isDistinct = false)
         case "XShortest" =>
-          Some(
-            Shortest(
-              qty =
-                quantifierElement.children.head
-                  .children.head.asInstanceOf[SpoofaxLeaf[String]]
-                  .value.toInt,
-              isDistinct = false))
+          Shortest(
+            qty =
+              quantifierElement.children.head
+                .children.head.asInstanceOf[SpoofaxLeaf[String]]
+                .value.toInt,
+            isDistinct = false)
         case "XDistinctShortest" =>
-          Some(
-            Shortest(
-              qty =
-                quantifierElement.children.head
-                  .children.head.asInstanceOf[SpoofaxLeaf[String]]
-                  .value.toInt,
-              isDistinct = true))
-        case "AllPaths" => Some(AllPaths)
+          Shortest(
+            qty =
+              quantifierElement.children.head
+                .children.head.asInstanceOf[SpoofaxLeaf[String]]
+                .value.toInt,
+            isDistinct = true)
+        case "AllPaths" => AllPaths
       }
     }
 
@@ -258,8 +257,64 @@ object MatchTreeBuilder {
         Some(Reference(varDefElement.children.head.asInstanceOf[SpoofaxLeaf[String]].value))
     }
 
+    val pathExpressionElement =
+      connElement.children.head /* Virtual/Objectified */
+        .children(2) /* None or Some */
+    val pathExpression = pathExpressionElement.name match {
+      case "None" => None
+      case "Some" =>
+        Some(
+          extractPathExpression(
+            pathExpressionElement.children.head // PathExpression
+              .children(1))) // children.head is SpoofaxLeaf [<]
+    }
+
     Path(connName, isReachableTest, leftEndpoint = prevRef, rightEndpoint, connType,
-      expr, quantifier, costVarDef, isObj)
+      expr, quantifier, costVarDef, isObj, pathExpression)
+  }
+
+  private def extractPathExpression(from: SpoofaxBaseTreeNode): PathExpression = {
+    from.name match {
+      // There is a typo in the node name in the language reference, "marco" instead of "macro".
+      case "MarcoNameRef" =>
+        MacroNameReference(Reference(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value))
+      case "KleeneStar" =>
+        val disjunctLabels =
+          DisjunctLabels(
+            from.children.head.children.map(
+              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+        val (lowerBound, upperBound) = from.children.last.name match {
+          case "None" => (0, Int.MaxValue)
+          case "Some" =>
+            val boundsElement = from.children.last.children.head
+            boundsElement.name match {
+              case "Lower" =>
+                val lower = boundsElement.children(1).asInstanceOf[SpoofaxLeaf[String]].value.toInt
+                val upper = Int.MaxValue
+                (lower, upper)
+              case "Upper" =>
+                val lower = 0
+                val upper = boundsElement.children(2).asInstanceOf[SpoofaxLeaf[String]].value.toInt
+                (lower, upper)
+              case "LowerUpper" =>
+                val lower = boundsElement.children(1).asInstanceOf[SpoofaxLeaf[String]].value.toInt
+                val upper = boundsElement.children(3).asInstanceOf[SpoofaxLeaf[String]].value.toInt
+                (lower, upper)
+            }
+        }
+
+        KleeneStar(disjunctLabels, lowerBound, upperBound)
+      case "Concatenation" =>
+        KleeneConcatenation(
+          lhs = extractPathExpression(from.children.head),
+          rhs = extractPathExpression(from.children.last))
+      case "Union" =>
+        KleeneUnion(
+          lhs = extractPathExpression(from.children.head),
+          rhs = extractPathExpression(from.children.last))
+      case other =>
+        throw QueryParseException(s"Cannot extract PathExpression from node type $other")
+    }
   }
 
   /**
@@ -279,7 +334,7 @@ object MatchTreeBuilder {
   private def extractLabels(from: SpoofaxBaseTreeNode): AlgebraExpression = {
     from.name match {
       case "None" => True
-      case "Some" => WithLabels(extractLabels(from.children.head))
+      case "Some" => ConjunctLabels(extractLabels(from.children.head))
       case "ConjunctLabels" => extractDisjunctLabels(from.children)
       case _ => throw QueryParseException(s"Cannot extract labels from node type ${from.name}")
     }
@@ -294,7 +349,7 @@ object MatchTreeBuilder {
       // dl = DisjunctLabels
       case Seq(dl, other@_*) =>
         And(
-          HasLabel(
+          DisjunctLabels(
             dl.children.map(
               label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value))),
           extractDisjunctLabels(other))

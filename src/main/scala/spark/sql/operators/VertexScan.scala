@@ -26,8 +26,8 @@ case class VertexScan(vertexRelation: VertexRelation, graph: Graph, catalog: Cat
     val scanQuery: String =
       s"""
       SELECT
-      "${tableName.value}" AS `${binding.refName}$$${tableLabelColumn.columnName}`,
-      ${selectAllPrependRef(physTable, binding)}
+      "${tableName.value}" AS `${binding.refName}$$${TABLE_LABEL_COL.columnName}`,
+      ${selectAllPrependRef(physTable.data, binding)}
       FROM global_temp.${tableName.value}"""
     SqlQuery(resQuery = scanQuery)
   }

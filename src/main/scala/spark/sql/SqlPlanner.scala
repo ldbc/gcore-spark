@@ -1,8 +1,8 @@
 package spark.sql
 
 import algebra.expressions.{Label, Reference}
+import algebra.operators.Column.TABLE_LABEL_COL
 import algebra.operators._
-import algebra.operators.Column.tableLabelColumn
 import algebra.target_api._
 import algebra.trees.{AlgebraToTargetTree, AlgebraTreeNode}
 import algebra.types.{Graph, InConn, OutConn}
@@ -125,9 +125,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
           attributes =
             (addColumnOp.relation.getBindingSet.refSet ++ Set(addColumnOp.reference)).toSeq))
 
-  override def planConstruct(entityConstruct: ConstructRelation)
-  : target.EntityConstruct = {
-
+  override def planConstruct(entityConstruct: ConstructRelation): target.EntityConstruct =
     sql.EntityConstruct(
       reference = entityConstruct.reference,
       isMatchedRef = entityConstruct.isMatchedRef,
@@ -136,7 +134,10 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
       expr = entityConstruct.expr,
       setClause = entityConstruct.setClause,
       removeClause = entityConstruct.propAggRemoveClause)
-  }
+
+  override def planPathSearch(pathRelation: VirtualPathRelation, graph: Graph, catalog: Catalog)
+  : target.PathSearch =
+    sql.PathSearch(pathRelation, graph, catalog, sparkSession)
 
   /** Translates the relation into a SQL query and runs it on Spark's SQL engine. */
   private def rewriteAndSolveBtableOps(relation: AlgebraTreeNode): DataFrame = {
@@ -281,12 +282,12 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
     * names.
     */
   private def createTable(reference: Reference, data: DataFrame): Table[DataFrame] = {
-    val labelColumnSelect: String = s"${reference.refName}$$${tableLabelColumn.columnName}"
+    val labelColumnSelect: String = s"${reference.refName}$$${TABLE_LABEL_COL.columnName}"
     val labelColumn: String = data.select(labelColumnSelect).first.getString(0)
     val newDataColumnNames: Seq[String] =
       data.columns.map(columnName => columnName.split(s"${reference.refName}\\$$")(1))
     val dataColumnsRenamed: DataFrame =
-      data.toDF(newDataColumnNames: _*).drop(s"${tableLabelColumn.columnName}")
+      data.toDF(newDataColumnNames: _*).drop(s"${TABLE_LABEL_COL.columnName}")
     Table[DataFrame](name = Label(labelColumn), data = dataColumnsRenamed)
   }
 }

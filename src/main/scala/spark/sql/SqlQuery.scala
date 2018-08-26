@@ -28,19 +28,19 @@ object SqlQuery {
   def tempViewAlias: String = RandomNameGenerator.randomString()
 
   /**
-    * Given a [[Table]], creates the string for selecting all columns in that [[Table]] and
-    * prepending the binding's name to each column name. If a column's previous name was a_col and
-    * the table held data for the binding v, then the new name of the column will be v$a_col.
+    * Given a table, creates the string for selecting all columns in that table and prepending the
+    * binding's name to each column name. If a column's previous name was a_col and the table held
+    * data for the binding v, then the new name of the column will be v$a_col.
     */
-  def selectAllPrependRef(table: Table[DataFrame], ref: Reference): String = {
-    table.data.columns
+  def selectAllPrependRef(table: DataFrame, ref: Reference): String = {
+    table.columns
       .map(col => s"$col AS `${ref.refName}$$$col`")
       .mkString(", ")
   }
 
   /**
     * Refactors the schema of a scanned entity, by prepending the binding's name to all column
-    * names and by adding the extra column [[Column.tableLabelColumn]] to the schema.
+    * names and by adding the extra column [[Column.TABLE_LABEL_COL]] to the schema.
     */
   def refactorScanSchema(schema: StructType, ref: Reference): StructType = {
     val newSchema: StructType =
@@ -48,7 +48,7 @@ object SqlQuery {
         (aggStruct, structField) => {
           aggStruct.add(structField.copy(name = s"${ref.refName}$$${structField.name}"))
         })
-    newSchema.add(name = s"${ref.refName}$$${tableLabelColumn.columnName}", dataType = "String")
+    newSchema.add(name = s"${ref.refName}$$${TABLE_LABEL_COL.columnName}", dataType = "String")
   }
 
   /**
@@ -126,7 +126,7 @@ object SqlQuery {
           selectSchemaMap.keys.toSet.intersect(existsSchemaMap.keys.toSet)
 
         val tempName: String = tempViewAlias
-        val id: String = idColumn.columnName
+        val id: String = ID_COL.columnName
         val selectConds: String =
           commonBindings
             .map(ref => s"$selectAlias.`${ref.refName}$$$id` = $tempName.`${ref.refName}$$$id`")

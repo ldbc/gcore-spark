@@ -46,33 +46,33 @@ case class EdgeScan(edgeRelation: EdgeRelation, graph: Graph, catalog: Catalog)
     val addLabelFrom: String =
       s"""
       SELECT
-      "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
-      ${selectAllPrependRef(fromTable, fromBinding)}
+      "$fromTableRef" AS `$fromRef$$${TABLE_LABEL_COL.columnName}`,
+      ${selectAllPrependRef(fromTable.data, fromBinding)}
       FROM global_temp.$fromTableRef"""
 
     val addLabelTo: String =
       s"""
       SELECT
-      "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
-      ${selectAllPrependRef(toTable, toBinding)}
+      "$toTableRef" AS `$toRef$$${TABLE_LABEL_COL.columnName}`,
+      ${selectAllPrependRef(toTable.data, toBinding)}
       FROM global_temp.$toTableRef"""
 
     val addLabelEdge: String =
       s"""
       SELECT
-      "$edgeTableRef" AS `$edgeRef$$${tableLabelColumn.columnName}`,
-      ${selectAllPrependRef(edgeTable, edgeBinding)}
+      "$edgeTableRef" AS `$edgeRef$$${TABLE_LABEL_COL.columnName}`,
+      ${selectAllPrependRef(edgeTable.data, edgeBinding)}
       FROM global_temp.$edgeTableRef"""
 
     val joinEdgeOnFrom: String =
       s"""
       SELECT * FROM ($addLabelEdge) INNER JOIN ($addLabelFrom) ON
-      `$edgeRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`"""
+      `$edgeRef$$${FROM_ID_COL.columnName}` = `$fromRef$$${ID_COL.columnName}`"""
 
     val joinEdgeOnFromAndTo: String =
       s"""
       SELECT * FROM ($joinEdgeOnFrom) INNER JOIN ($addLabelTo) ON
-      `$edgeRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`"""
+      `$edgeRef$$${TO_ID_COL.columnName}` = `$toRef$$${ID_COL.columnName}`"""
 
     SqlQuery(resQuery = joinEdgeOnFromAndTo)
   }

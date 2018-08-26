@@ -19,7 +19,7 @@ case class Label(value: String) extends AlgebraExpression {
   * An [[ObjectPattern]] predicate that restricts a variable to a set of disjunct [[Label]]s. The
   * variable satisfies the pattern if it is labeled with either of the [[Label]]s in the set.
   */
-case class HasLabel(labels: Seq[Label]) extends AlgebraExpression
+case class DisjunctLabels(labels: Seq[Label]) extends AlgebraExpression
   with SemanticCheck with SemanticCheckWithContext {
 
   children = labels
@@ -62,24 +62,25 @@ case class HasLabel(labels: Seq[Label]) extends AlgebraExpression
   * is satisfied if the variable it is applied on is labeled with "fred" and "qux" and at least one
   * of the labels "foo", "bar" or "baz". In this case, the algebraic subtree is:
   *
-  * WithLabels(
+  * ConjunctLabels(
   *   And(
-  *     HasLabel(foo, bar, baz),
+  *     DisjunctLabels(foo, bar, baz),
   *     And(
-  *       HasLabel(fred)
-  *       And(HasLabel(qux), True)
+  *       DisjunctLabels(fred)
+  *       And(DisjunctLabels(qux), True)
   *     )
   *   )
   * )
   */
-case class WithLabels(labelConj: AlgebraExpression) extends AlgebraExpression with SemanticCheck {
+case class ConjunctLabels(labelConj: AlgebraExpression)
+  extends AlgebraExpression with SemanticCheck {
 
   children = List(labelConj)
 
   /** Label conjunction is not enabled in the current version of the interpreter. */
   override def check(): Unit =
     labelConj match {
-      case And(_: HasLabel, True) =>
+      case And(_: DisjunctLabels, True) =>
       case _ =>
         throw UnsupportedOperation("Label conjunction is not supported. An entity must have " +
           "only one label associated with it.")

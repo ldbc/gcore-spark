@@ -23,7 +23,11 @@ abstract class TargetPlanner {
 
   def planEdgeScan(edgeRelation: EdgeRelation, graph: Graph, catalog: Catalog): EdgeScan
 
+  /** Scan the contents of a path table already stored in the database. */
   def planPathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog): PathScan
+
+  /** Search for a path in the graph between two node types. */
+  def planPathSearch(pathRelation: VirtualPathRelation, graph: Graph, catalog: Catalog): PathSearch
 
   def planUnionAll(unionAllOp: algebra.operators.UnionAll): UnionAll
 

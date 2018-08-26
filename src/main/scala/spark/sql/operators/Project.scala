@@ -15,14 +15,14 @@ import spark.sql.SqlQuery
   * attributes in the context of the [[Project]] operator:
   *
   * (1) There is a set of columns already present in the [[relation]] that represents the
-  * [[Reference]]'s properties. The set of columns also includes the [[idColumn]]. In this case, the
+  * [[Reference]]'s properties. The set of columns also includes the [[ID_COL]]. In this case, the
   * result of the [[Project]]ion is the SQL SELECT-ion of the columns in the said set. This case
   * occurs when projecting a matched variable.
   *
   * (2) There is a set of columns already present in the [[relation]] that represents the
-  * [[Reference]]'s properties. The set of columns does <b>not</b> include the [[idColumn]]. In this
+  * [[Reference]]'s properties. The set of columns does <b>not</b> include the [[ID_COL]]. In this
   * case, the result of the [[Project]]ion is the SQL SELECT-ion of the columns in the said set,
-  * plus a new column aliased as the [[idColumn]], filled in with MONOTONICALLY_INCREASING_IDs, to
+  * plus a new column aliased as the [[ID_COL]], filled in with MONOTONICALLY_INCREASING_IDs, to
   * ensure the id of each entity instance is uniquely keyed. This case occurs when projecting an
   * unmatched variable that contained grouping with aggregation. The aggregation is solved as a
   * temporary property of the variable, that is removed at [[VertexCreate]] or [[EdgeCreate]] level.
@@ -31,7 +31,7 @@ import spark.sql.SqlQuery
   *
   * (3) There is no column in the [[relation]] to represent a property of the [[Reference]]'s. In
   * this case, the result of the [[Project]]ion is the SQL SELECT-ion of a column aliased as
-  * [[idColumn]] filled in with MONOTONICALLY_INCREASING_IDs, to ensure the id of each entity
+  * [[ID_COL]] filled in with MONOTONICALLY_INCREASING_IDs, to ensure the id of each entity
   * instance is uniquely keyed. This case occurs when projecting an unmatched variable with no
   * grouping, or an unmatched variable with grouping, but no aggregation.
   */
@@ -60,7 +60,7 @@ case class Project(relation: TargetTreeNode, attributes: Seq[Reference])
         .filterNot(ref =>
           relationSchemaMap(ref)
             .fields
-            .exists(_.name == s"${ref.refName}$$${idColumn.columnName}")) // no id column
+            .exists(_.name == s"${ref.refName}$$${ID_COL.columnName}")) // no id column
         .toSet
     val newRefs: Set[Reference] = refsNotInSchema ++ refsInSchemaWithoutId
     // For each new variable, we add a column containing monotonically increasing id's. We cannot
@@ -71,7 +71,7 @@ case class Project(relation: TargetTreeNode, attributes: Seq[Reference])
     // preserved after the GROUP BY.
     val newRefsSelect: Set[String] =
       newRefs.map(
-        ref => s"MONOTONICALLY_INCREASING_ID() AS `${ref.refName}$$${idColumn.columnName}`")
+        ref => s"MONOTONICALLY_INCREASING_ID() AS `${ref.refName}$$${ID_COL.columnName}`")
 
     val columnsToSelect: Set[String] = existingColumnsSelect ++ newRefsSelect
 
@@ -89,7 +89,7 @@ case class Project(relation: TargetTreeNode, attributes: Seq[Reference])
         .map(ref => {
           val previousSchema: StructType = relationSchemaMap(ref)
           val newIdStructField: StructField =
-            StructField(s"${ref.refName}$$${idColumn.columnName}", IntegerType)
+            StructField(s"${ref.refName}$$${ID_COL.columnName}", IntegerType)
           ref -> StructType(previousSchema.fields :+ newIdStructField)
         })
         .toMap
@@ -97,7 +97,7 @@ case class Project(relation: TargetTreeNode, attributes: Seq[Reference])
       refsNotInSchema
         .map(ref =>
           ref -> StructType(Array(
-            StructField(s"${ref.refName}$$${idColumn.columnName}", IntegerType))))
+            StructField(s"${ref.refName}$$${ID_COL.columnName}", IntegerType))))
         .toMap
 
     val projectionRefSchema: Map[Reference, StructType] =

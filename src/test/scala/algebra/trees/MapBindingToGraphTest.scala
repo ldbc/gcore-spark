@@ -10,7 +10,7 @@ class MapBindingToGraphTest extends FunSuite with BeforeAndAfterAll with TestGra
   private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)
   private val labeledObjPattern: ObjectPattern =
     ObjectPattern(
-      labelsPred = WithLabels(And(HasLabel(Seq(Label("Country"))), True)),
+      labelsPred = ConjunctLabels(And(DisjunctLabels(Seq(Label("Country"))), True)),
       propsPred = True)
 
   private val namedCatsGraph: NamedGraph = NamedGraph("cats graph")

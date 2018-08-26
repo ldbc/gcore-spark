@@ -22,7 +22,7 @@ import scala.collection.mutable
   * Each new instance of this entity, denoted by a row in the construct [[relation]], will receives
   * a unique, strictly increasing id. To this end, we use SQL's ROW_NUMBER() function applied over
   * the [[relation]] ordered by the entity's previous id. The new column with consecutive ids is
-  * aliased with the [[constructIdColumn]] name.
+  * aliased with the [[CONSTRUCT_ID_COL]] name.
   *
   * If this was an unmatched ([[isMatchedRef]] = false), but grouped ([[groupedAttributes]]
   * non-empty) entity, we remove all the attributes of the [[relation]] that are not properties of
@@ -57,8 +57,8 @@ case class EntityConstruct(reference: Reference,
     val fieldsToSelect: Set[StructField] = existingAndNewFields.keySet -- removeFields
     val columnsToSelect: String = fieldsToSelect.map(existingAndNewFields).mkString(", ")
 
-    val idColumnName: String = s"${reference.refName}$$${idColumn.columnName}"
-    val constructIdColumnName: String = s"${reference.refName}$$${constructIdColumn.columnName}"
+    val idColumnName: String = s"${reference.refName}$$${ID_COL.columnName}"
+    val constructIdColumnName: String = s"${reference.refName}$$${CONSTRUCT_ID_COL.columnName}"
     val constructIdColumnStructField: StructField = StructField(constructIdColumnName, IntegerType)
 
     val createQuery: String =
@@ -98,7 +98,7 @@ case class EntityConstruct(reference: Reference,
       .foreach(
         _.forEachDown {
           case label: Label =>
-            val columnName = s"${reference.refName}$$${tableLabelColumn.columnName}"
+            val columnName = s"${reference.refName}$$${TABLE_LABEL_COL.columnName}"
             val selectStr = s""""${label.value}" AS `$columnName`"""
             newFieldsToSelectStr += (StructField(columnName, StringType) -> selectStr)
           case PropAssignment(propKey, propExpr) =>
@@ -123,7 +123,7 @@ case class EntityConstruct(reference: Reference,
       .foreach(
         _.forEachDown {
           case _: Label =>
-            val columnName = s"${reference.refName}$$${tableLabelColumn.columnName}"
+            val columnName = s"${reference.refName}$$${TABLE_LABEL_COL.columnName}"
             removeFieldsArray += StructField(columnName, StringType)
           case PropertyRef(_, propKey) =>
             val columnName = s"${reference.refName}$$${propKey.key}"

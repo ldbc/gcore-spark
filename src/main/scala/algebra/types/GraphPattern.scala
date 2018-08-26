@@ -26,19 +26,19 @@ import schema.EntitySchema
   * [[SingleEndpointConn]]ection.
   *
   * Each variable match pattern can specify conditions on labels and properties. We call this the
-  * pattern of an object. The pattern is the conjunction of a [[WithLabels]] and a [[WithProps]]
+  * pattern of an object. The pattern is the conjunction of a [[ConjunctLabels]] and a [[WithProps]]
   * expression. Any of them can be empty, in which case they will be substituted with the [[True]]
   * literal. The two predicates are wrapped in an [[ObjectPattern]] node.
   *
-  * The [[WithLabels]] predicate represents a conjunction of disjunct lists of labels. We translate
-  * each disjunction as a [[HasLabel]] [[AlgebraExpression]] and then rewrite the conjunction of
-  * [[HasLabel]]s as follows:
+  * The [[ConjunctLabels]] predicate represents a conjunction of disjunct lists of labels. We
+  * translate each disjunction as a [[DisjunctLabels]] [[AlgebraExpression]] and then rewrite the
+  * conjunction of [[DisjunctLabels]]s as follows:
   *
   * [DLS0, DLS1, DLS2, ... DLSn-1] =
   * = And(DLS0, [DLS1, DLS2, ..., DLSn-1) =
   * = And(DLS0, And(DLS1, [DLS2, ..., DLSn-1])) = ...
   *
-  * , where DLSi(labels: Seq[Literal]) = HasLabel(Li0, Li1, ...)
+  * , where DLSi(labels: Seq[Literal]) = DisjunctLabels(Li0, Li1, ...)
   *
   * The [[WithProps]] predicate represents a conjunction of property value unrolling. We translate
   * the predicate to an [[Eq]] expression between the [[PropertyKey]] and the property substitute.
@@ -54,16 +54,55 @@ case class GraphPattern(topology: Seq[Connection]) extends AlgebraType {
   children = topology
 }
 
-/** Type of path to query for. */
+/******************************** Type of path to query for. **************************************/
 abstract class PathQuantifier extends AlgebraType
 case class Shortest(qty: Integer, isDistinct: Boolean) extends PathQuantifier {
 
   override def toString: String = s"$name [$qty, isDistinct = $isDistinct]"
 }
 case object AllPaths extends PathQuantifier
+/**************************************************************************************************/
 
+/********************************** Path expression. **********************************************/
+abstract class PathExpression extends AlgebraType
 
-/** Abstract connections in graph. */
+case class KleeneStar(labels: DisjunctLabels, lowerBound: Int, upperBound: Int)
+  extends PathExpression with SemanticCheck {
+
+  children = List(labels)
+
+  override def name: String = s"${super.name} [lowerBound = $lowerBound, upperBound = $upperBound]"
+
+  override def check(): Unit = {
+    if (lowerBound > 0 || upperBound < Int.MaxValue)
+      throw UnsupportedOperation("Kleene bounds are not supported in path expressions.")
+  }
+}
+
+case class KleeneUnion(lhs: PathExpression, rhs: PathExpression)
+  extends PathExpression with SemanticCheck {
+
+  children = List(lhs, rhs)
+
+  override def check(): Unit =
+    throw UnsupportedOperation("Path expression union is not supported.")
+}
+
+case class KleeneConcatenation(lhs: PathExpression, rhs: PathExpression)
+  extends PathExpression with SemanticCheck {
+
+  children = List(lhs, rhs)
+
+  override def check(): Unit =
+    throw UnsupportedOperation("Path expression concatenation is not supported.")
+}
+
+case class MacroNameReference(reference: Reference) extends PathExpression {
+  children = List(reference)
+}
+/**************************************************************************************************/
+
+/******************************* Abstract connections in graph. ***********************************/
 abstract class Connection(ref: Reference, expr: ObjectPattern) extends AlgebraType
   with SemanticCheckWithContext {
 
@@ -83,7 +122,7 @@ abstract class Connection(ref: Reference, expr: ObjectPattern) extends AlgebraTy
               labelsExpr = None,
               schema = schema))
 
-      case ObjectPattern(labelsPred: WithLabels, propsPred: WithProps) =>
+      case ObjectPattern(labelsPred: ConjunctLabels, propsPred: WithProps) =>
         propsPred
           .checkWithContext(
             PropertyContext(
@@ -91,8 +130,8 @@ abstract class Connection(ref: Reference, expr: ObjectPattern) extends AlgebraTy
               labelsExpr = Some(labelsPred),
               schema = schema))
 
-      case hl: HasLabel =>
-        hl.checkWithContext(
+      case dl: DisjunctLabels =>
+        dl.checkWithContext(
           DisjunctLabelsContext(
             graphName = context.asInstanceOf[GraphPatternContext].graphName,
             schema = schema))
@@ -126,7 +165,9 @@ abstract class DoubleEndpointConn(connName: Reference,
       throw UnsupportedOperation(s"Connection type $connType unsupported.")
   }
 }
+/**************************************************************************************************/
 
+/********************************* Concrete connections in graph **********************************/
 case class Vertex(vertexRef: Reference, expr: ObjectPattern)
   extends SingleEndpointConn(vertexRef, expr) {
 
@@ -157,25 +198,32 @@ case class Path(connName: Reference,
                 rightEndpoint: SingleEndpointConn,
                 connType: ConnectionType,
                 expr: ObjectPattern,
-                quantifier: Option[PathQuantifier],
+                quantifier: PathQuantifier,
                 // If COST is not mentioned, we are not interested in computing it by default.
                 costVarDef: Option[Reference],
-                isObj: Boolean)
-                // TODO: path expression
+                isObj: Boolean,
+                pathExpression: Option[PathExpression])
   extends DoubleEndpointConn(connName, connType, leftEndpoint, rightEndpoint, expr) {
 
-  children = List(connName, leftEndpoint, rightEndpoint, connType, expr) ++
-    quantifier.toList ++ costVarDef.toList
+  children =
+    List(connName, leftEndpoint, rightEndpoint, connType, expr, quantifier) ++ costVarDef.toList ++
+      pathExpression.toList
 
   override def toString: String = s"$name [isObjectified = $isObj]"
 
   override def schemaOfEntityType(context: GraphPatternContext): EntitySchema =
     context.schema.pathSchema
 
-  /** Virtual paths are not supported in current version of interpreter. */
   override def check(): Unit = {
     super.check()
-    if (!isObj)
-      throw UnsupportedOperation(s"Virtual paths unsupported.")
+
+    val acceptedQuantifierConfig: Boolean =
+      (isObj && quantifier == AllPaths) ||
+        (!isObj && quantifier == Shortest(qty = 1, isDistinct = false) && pathExpression.isDefined)
+
+    if (!acceptedQuantifierConfig)
+      throw UnsupportedOperation(s"Unsupported path configuration: " +
+        s"${if (isObj) "objectified" else "virtual"} path, " +
+        s"quantifier = $quantifier, path expression = $pathExpression")
   }
 }

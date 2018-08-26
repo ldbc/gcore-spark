@@ -4,7 +4,7 @@ import algebra.expressions.{Label, ObjectConstructPattern, Reference, True}
 import algebra.operators._
 import algebra.target_api
 import algebra.target_api.TargetPlanner
-import algebra.types.{DefaultGraph, Graph, OutConn}
+import algebra.types.{AllPaths, DefaultGraph, Graph, OutConn}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{FunSuite, Matchers}
 import schema.Catalog
@@ -38,7 +38,7 @@ class AlgebraToTargetTreeTest extends FunSuite with Matchers with MockFactory {
     val pathRel: StoredPathRelation =
       StoredPathRelation(
         Reference("p"), isReachableTest = true, Relation(Label("plabel")),
-        expr = True, vertexV, vertexW, costVarDef = None, quantifier = None)
+        expr = True, vertexV, vertexW, costVarDef = None, quantifier = AllPaths)
     val simpleMatchRelation = SimpleMatchRelation(pathRel, matchContext)
     rewriter rewriteTree simpleMatchRelation
     (mockedTargetPlanner.planPathScan _).verify(pathRel, graph, catalog).once

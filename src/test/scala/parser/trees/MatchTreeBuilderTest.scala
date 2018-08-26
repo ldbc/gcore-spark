@@ -147,7 +147,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       /* optional */ _) =>
 
         graphPattern should matchPattern {
-          case GraphPattern(Seq(Path(_, _, _, _, _, _, _, _, false))) =>
+          case GraphPattern(Seq(Path(_, _, _, _, _, _, _, _, false, _))) =>
         }
     }
   }
@@ -162,7 +162,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       /* optional */ _) =>
 
         graphPattern should matchPattern {
-          case GraphPattern(Seq(Path(_, _, _, _, _, _, _, _, true))) =>
+          case GraphPattern(Seq(Path(_, _, _, _, _, _, _, _, true, _))) =>
         }
     }
   }
@@ -177,7 +177,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       /* optional */ _) =>
 
         graphPattern should matchPattern {
-          case GraphPattern(Seq(Path(_, true, _, _, _, _, _, _, _))) =>
+          case GraphPattern(Seq(Path(_, true, _, _, _, _, _, _, _, _))) =>
         }
     }
   }
@@ -192,7 +192,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       /* optional */ _)=>
 
         graphPattern should matchPattern {
-          case GraphPattern(Seq(Path(_, false, _, _, _, _, _, _, _))) =>
+          case GraphPattern(Seq(Path(_, false, _, _, _, _, _, _, _, _))) =>
         }
     }
   }

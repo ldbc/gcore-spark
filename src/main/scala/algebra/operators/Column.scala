@@ -10,16 +10,16 @@ object Column {
 
   /**
     * Fixed column names we expect to find in physical tables, for specific entity types:
-    * - Vertex, edge and path tables should contain the [[idColumn]];
-    * - Edge and path tables should contain the [[fromIdColumn]] and [[toIdColumn]];
-    * - Path tables should contain the [[edgeSeqColumn]].
+    * - Vertex, edge and path tables should contain the [[ID_COL]];
+    * - Edge and path tables should contain the [[FROM_ID_COL]] and [[TO_ID_COL]];
+    * - Path tables should contain the [[EDGE_SEQ_COL]].
     */
-  val idColumn: Column = Column("id")
-  val fromIdColumn: Column = Column("fromId")
-  val toIdColumn: Column = Column("toId")
-  val edgeSeqColumn: Column = Column("edges")
+  val ID_COL: Column = Column("id")
+  val FROM_ID_COL: Column = Column("fromId")
+  val TO_ID_COL: Column = Column("toId")
+  val EDGE_SEQ_COL: Column = Column("edges")
 
   /** Other fixed column names as needed by targets. */
-  val tableLabelColumn: Column = Column("table_label")
-  val constructIdColumn: Column = Column("construct_id")
+  val TABLE_LABEL_COL: Column = Column("table_label")
+  val CONSTRUCT_ID_COL: Column = Column("construct_id")
 }

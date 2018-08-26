@@ -21,8 +21,10 @@ case class AlgebraToTargetTree(catalog: Catalog, targetPlanner: TargetPlanner)
           targetPlanner.planVertexScan(vr, matchContext.graph, catalog)
         case er: EdgeRelation =>
           targetPlanner.planEdgeScan(er, matchContext.graph, catalog)
-        case pr: StoredPathRelation =>
-          targetPlanner.planPathScan(pr, matchContext.graph, catalog)
+        case spr: StoredPathRelation =>
+          targetPlanner.planPathScan(spr, matchContext.graph, catalog)
+        case vpr: VirtualPathRelation =>
+          targetPlanner.planPathSearch(vpr, matchContext.graph, catalog)
       }
 
     case ua: UnionAll => targetPlanner.planUnionAll(ua)

@@ -41,7 +41,7 @@ case class GroupBy(relation: TargetTreeNode,
   private val groupByFields: Map[SchemaFieldName, SchemaField] = {
     groupingAttributes
       .flatMap {
-        case ref: Reference => Seq(PropertyRef(ref, PropertyKey(idColumn.columnName)))
+        case ref: Reference => Seq(PropertyRef(ref, PropertyKey(ID_COL.columnName)))
         case groupDecl: GroupDeclaration =>
           groupDecl.children.map {
             case propRef: PropertyRef => propRef

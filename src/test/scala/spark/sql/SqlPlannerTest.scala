@@ -36,11 +36,11 @@ class SqlPlannerTest extends FunSuite
   val parser: SpoofaxParser = SpoofaxParser(ParseContext(db))
   val algebraRewriter: AlgebraRewriter = AlgebraRewriter(AlgebraContext(db))
 
-  val idCol: String = idColumn.columnName
-  val fromIdCol: String = fromIdColumn.columnName
-  val toIdCol: String = toIdColumn.columnName
-  val labelCol: String = tableLabelColumn.columnName
-  val edgesCol: String = edgeSeqColumn.columnName
+  val idCol: String = ID_COL.columnName
+  val fromIdCol: String = FROM_ID_COL.columnName
+  val toIdCol: String = TO_ID_COL.columnName
+  val labelCol: String = TABLE_LABEL_COL.columnName
+  val edgesCol: String = EDGE_SEQ_COL.columnName
 
   /** MATCH (c:Cat)-[e:Eats]->(f:Food) */
   val bindingTableSchema: StructType =
@@ -976,7 +976,7 @@ class SqlPlannerTest extends FunSuite
     * Base equals-like operator to test that two [[DataFrame]] [[Table]]s are equal. The operator
     * checks that the actual and expected [[Table.name]]s are equal, that the actual and expected
     * headers are equal, that there is a correct number of unique ids as an id interval and that
-    * the data contained by the two [[Table]]s is equal. Note that the [[idColumn]] does not
+    * the data contained by the two [[Table]]s is equal. Note that the [[ID_COL]] does not
     * participate in the data equality test.
     */
   sealed abstract class EqBase(actualTable: Table[DataFrame],
@@ -1202,7 +1202,7 @@ class SqlPlannerTest extends FunSuite
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
-      Seq(coby, hosico, maru, grumpy).toDF.withColumn(tableLabelColumn.columnName, lit("Cat"))
+      Seq(coby, hosico, maru, grumpy).toDF.withColumn(TABLE_LABEL_COL.columnName, lit("Cat"))
     compareDfs(
       actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
       expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
@@ -1265,7 +1265,7 @@ class SqlPlannerTest extends FunSuite
     /**
       * isReachableTest = false => p's attributes are included in the result
       * costVarDef is defined => column "cost" is included in the result and is equal to path length
-      * (path length = number of edges in the [[edgeSeqColumn]] of the path.
+      * (path length = number of edges in the [[EDGE_SEQ_COL]] of the path.
       */
     val expectedHeader: Seq[String] =
       Seq(
@@ -1298,7 +1298,7 @@ class SqlPlannerTest extends FunSuite
     val actualDf = sparkPlanner.solveBindingTable(union)
 
     /**
-      * [[tableLabelColumn]], [[idColumn]], [[fromIdColumn]], [[toIdColumn]] and "since" are common
+      * [[TABLE_LABEL_COL]], [[ID_COL]], [[FROM_ID_COL]], [[TO_ID_COL]] and "since" are common
       * between the two sides. Column "fights" is only present in the right hand-side of the union.
       */
     val expectedHeader: Seq[String] =
@@ -1408,7 +1408,7 @@ class SqlPlannerTest extends FunSuite
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
-      Seq(hosico, maru).toDF.withColumn(tableLabelColumn.columnName, lit("Cat"))
+      Seq(hosico, maru).toDF.withColumn(TABLE_LABEL_COL.columnName, lit("Cat"))
     compareDfs(
       actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
       expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))

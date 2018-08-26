@@ -1,18 +1,16 @@
 package algebra.target_api
 
 import algebra.expressions.{AlgebraExpression, Label, Reference}
-import algebra.operators.{Relation, StoredPathRelation}
-import algebra.types.{Graph, PathQuantifier}
+import algebra.operators.{Relation, VirtualPathRelation}
+import algebra.types.{Graph, PathExpression}
 import schema.Catalog
 
-abstract class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog)
+abstract class PathSearch(pathRelation: VirtualPathRelation, graph: Graph, catalog: Catalog)
   extends EntityScan(graph, catalog) {
 
-  val pathTableName: Label = pathRelation.labelRelation.asInstanceOf[Relation].label
   val fromTableName: Label = pathRelation.fromRel.labelRelation.asInstanceOf[Relation].label
   val toTableName: Label = pathRelation.toRel.labelRelation.asInstanceOf[Relation].label
 
-  val pathExpr: AlgebraExpression = pathRelation.expr
   val fromExpr: AlgebraExpression = pathRelation.fromRel.expr
   val toExpr: AlgebraExpression = pathRelation.toRel.expr
 
@@ -22,11 +20,11 @@ abstract class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog:
 
   val isReachableTest: Boolean = pathRelation.isReachableTest
   val costVarDef: Option[Reference] = pathRelation.costVarDef
-  val quantifier: PathQuantifier = pathRelation.quantifier
+  val pathExpression: Option[PathExpression] = pathRelation.pathExpression
 
   children =
-    List(pathBinding, fromBinding, toBinding, pathTableName, fromTableName, toTableName,
-      pathExpr, fromExpr, toExpr, quantifier) ++ costVarDef.toList
+    List(pathBinding, fromBinding, toBinding, fromTableName, toTableName, fromExpr, toExpr) ++
+      costVarDef.toList
 
   override def name: String = s"${super.name} [isReachableTest = $isReachableTest]"
 }

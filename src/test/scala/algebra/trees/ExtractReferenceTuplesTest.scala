@@ -45,8 +45,9 @@ class ExtractReferenceTuplesTest extends FunSuite {
             rightEndpoint = Vertex(Reference("v6"), emptyObjPattern),
             connType = OutConn,
             expr = emptyObjPattern,
-            quantifier = None, costVarDef = None,
-            isObj = true),
+            quantifier = AllPaths, costVarDef = None,
+            isObj = true,
+            pathExpression = None),
           Path(
             connName = Reference("p2"),
             isReachableTest = true,
@@ -54,8 +55,9 @@ class ExtractReferenceTuplesTest extends FunSuite {
             rightEndpoint = Vertex(Reference("v2"), emptyObjPattern),
             connType = OutConn,
             expr = emptyObjPattern,
-            quantifier = None, costVarDef = None,
-            isObj = true)
+            quantifier = AllPaths, costVarDef = None,
+            isObj = true,
+            pathExpression = None)
         ))
     val expected =
       BindingContext(

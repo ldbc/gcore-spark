@@ -1,7 +1,7 @@
 package algebra.operators
 
 import algebra.expressions.{AlgebraExpression, Reference}
-import algebra.types.{Edge, Graph, PathQuantifier, Path, Vertex}
+import algebra.types._
 import common.compiler.Context
 
 case class SimpleMatchRelationContext(graph: Graph) extends Context {
@@ -59,8 +59,24 @@ case class StoredPathRelation(ref: Reference,
                               fromRel: VertexRelation,
                               toRel: VertexRelation,
                               costVarDef: Option[Reference],
-                              quantifier: Option[PathQuantifier])
+                              quantifier: PathQuantifier)
   extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingSet ++ toRel.getBindingSet) {
 
   children = List(ref, labelRelation, expr, fromRel, toRel)
+}
+
+/**
+  * The logical table that contains data for a virtual path (a path that we need to discover in the
+  * graph). It is essentially a wrapper over the G-CORE-specific [[Path]] with parameter
+  * [[Path.isObj]] = true, such that we can use the entity in the relational tree.
+  */
+case class VirtualPathRelation(ref: Reference,
+                               isReachableTest: Boolean,
+                               fromRel: VertexRelation,
+                               toRel: VertexRelation,
+                               costVarDef: Option[Reference],
+                               pathExpression: Option[PathExpression])
+  extends RelationLike(new BindingSet(ref) ++ fromRel.getBindingSet ++ toRel.getBindingSet) {
+
+  children = List(ref, fromRel, toRel)
 }

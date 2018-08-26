@@ -42,7 +42,7 @@ case class WithProps(propConj: AlgebraExpression) extends AlgebraExpression
   /**
     * [[PropertyKey]]s used in this pattern must (1) be present in the graph and (2) correspond to
     * the variable's label(s) or, if the variable has not been restricted to a label (with the
-    * [[WithLabels]] predicate), to that variable's entity type (vertex, edge or path).
+    * [[ConjunctLabels]] predicate), to that variable's entity type (vertex, edge or path).
     */
   override def checkWithContext(context: Context): Unit = {
     val withLabels = context.asInstanceOf[PropertyContext].labelsExpr

@@ -24,7 +24,7 @@ import spark.sql.SqlQuery._
   * a's and b's properties in the resulting table.
   *
   * If the cost of the path is required ([[pathRelation.costVarDef]] is defined), then the length
-  * of the path's [[edgeSeqColumn]] entries is added to the path's row aliased as
+  * of the path's [[EDGE_SEQ_COL]] entries is added to the path's row aliased as
   * [[pathRelation.costVarDef]].
   */
 case class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Catalog)
@@ -64,35 +64,35 @@ case class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Cat
     val addLabelFrom: String =
       s"""
       SELECT
-      "$fromTableRef" AS `$fromRef$$${tableLabelColumn.columnName}`,
-      ${selectAllPrependRef(fromTable, fromBinding)}
+      "$fromTableRef" AS `$fromRef$$${TABLE_LABEL_COL.columnName}`,
+      ${selectAllPrependRef(fromTable.data, fromBinding)}
       FROM global_temp.$fromTableRef"""
 
     val addLabelTo: String =
       s"""
       SELECT
-      "$toTableRef" AS `$toRef$$${tableLabelColumn.columnName}`,
-      ${selectAllPrependRef(toTable, toBinding)}
+      "$toTableRef" AS `$toRef$$${TABLE_LABEL_COL.columnName}`,
+      ${selectAllPrependRef(toTable.data, toBinding)}
       FROM global_temp.$toTableRef"""
 
     val addLabelPath: String =
       s"""
       SELECT
-      "$pathTableRef" AS `$pathRef$$${tableLabelColumn.columnName}`,
-      ${selectAllPrependRef(pathTable, pathBinding)}
+      "$pathTableRef" AS `$pathRef$$${TABLE_LABEL_COL.columnName}`,
+      ${selectAllPrependRef(pathTable.data, pathBinding)}
       FROM global_temp.$pathTableRef"""
 
     val joinPathOnFrom: String =
       s"""
       SELECT * FROM ($addLabelPath) INNER JOIN ($addLabelFrom) ON
-      `$pathRef$$${fromIdColumn.columnName}` = `$fromRef$$${idColumn.columnName}`"""
+      `$pathRef$$${FROM_ID_COL.columnName}` = `$fromRef$$${ID_COL.columnName}`"""
 
     val joinPathOnFromAndTo: String = {
       if (pathRelation.isReachableTest) {
         val reachableTestTempView: String =
           s"""
           SELECT * FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
-          `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`"""
+          `$pathRef$$${TO_ID_COL.columnName}` = `$toRef$$${ID_COL.columnName}`"""
 
         s"""
         SELECT ${allColumnsExceptForRef(pathBinding, mergedSchemas)}
@@ -102,14 +102,14 @@ case class PathScan(pathRelation: StoredPathRelation, graph: Graph, catalog: Cat
         val columns: String = {
           if (pathRelation.costVarDef.isDefined)
             s"*, " +
-              s"SIZE(`$pathRef$$${edgeSeqColumn.columnName}`) " +
+              s"SIZE(`$pathRef$$${EDGE_SEQ_COL.columnName}`) " +
               s"AS `$pathRef$$${pathRelation.costVarDef.get.refName}`"
           else "*"
         }
 
         s"""
         SELECT $columns FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
-        `$pathRef$$${toIdColumn.columnName}` = `$toRef$$${idColumn.columnName}`"""
+        `$pathRef$$${TO_ID_COL.columnName}` = `$toRef$$${ID_COL.columnName}`"""
       }
     }
 

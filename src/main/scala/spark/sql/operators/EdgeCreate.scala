@@ -34,11 +34,11 @@ case class EdgeCreate(relation: TargetTreeNode,
     relation.bindingTable.asInstanceOf[SqlBindingTableMetadata]
 
   private val reference: String = createRule.reference.refName
-  private val idCol: String = s"$reference$$${idColumn.columnName}"
-  private val fromIdCol: String = s"$reference$$${fromIdColumn.columnName}"
-  private val toIdCol: String = s"$reference$$${toIdColumn.columnName}"
-  private val constructIdCol: String = s"$reference$$${constructIdColumn.columnName}"
-  private val labelCol: String = s"$reference$$${tableLabelColumn.columnName}"
+  private val idCol: String = s"$reference$$${ID_COL.columnName}"
+  private val fromIdCol: String = s"$reference$$${FROM_ID_COL.columnName}"
+  private val toIdCol: String = s"$reference$$${TO_ID_COL.columnName}"
+  private val constructIdCol: String = s"$reference$$${CONSTRUCT_ID_COL.columnName}"
+  private val labelCol: String = s"$reference$$${TABLE_LABEL_COL.columnName}"
 
   private val idColStructField: StructField = StructField(idCol, IntegerType)
   private val fromIdColStructField: StructField = StructField(fromIdCol, IntegerType)
@@ -98,9 +98,9 @@ case class EdgeCreate(relation: TargetTreeNode,
     }
 
     val fromEndpIdColumn: SelectStr =
-      s"${fromCreateRule.reference.refName}$$${constructIdColumn.columnName}"
+      s"${fromCreateRule.reference.refName}$$${CONSTRUCT_ID_COL.columnName}"
     val toEndpIdColumn: SelectStr =
-      s"${toCreateRule.reference.refName}$$${constructIdColumn.columnName}"
+      s"${toCreateRule.reference.refName}$$${CONSTRUCT_ID_COL.columnName}"
 
     // We need a FIRST over the endpoint ids, because they will not be part of the aggregation key,
     // therefore they need to be aggregated. In any case, there is only one combination of endpoints

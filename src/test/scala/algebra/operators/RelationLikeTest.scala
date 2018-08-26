@@ -1,6 +1,7 @@
 package algebra.operators
 
 import algebra.expressions.{Label, Reference, True}
+import algebra.types.AllPaths
 import org.scalatest.FunSuite
 
 class RelationLikeTest extends FunSuite {
@@ -44,7 +45,7 @@ class RelationLikeTest extends FunSuite {
         expr = True,
         fromRel = from, toRel = to,
         costVarDef = None,
-        quantifier = None)
+        quantifier = AllPaths)
     assert(path.getBindingSet.refSet ==
       Set(Reference("fromRef"), Reference("toRef"), Reference("pathRef")))
   }

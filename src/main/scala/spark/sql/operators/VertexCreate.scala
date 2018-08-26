@@ -32,9 +32,9 @@ case class VertexCreate(relation: TargetTreeNode, createRule: target_api.VertexC
     relation.bindingTable.asInstanceOf[SqlBindingTableMetadata]
 
   private val reference: String = createRule.reference.refName
-  private val idCol: String = s"$reference$$${idColumn.columnName}"
-  private val constructIdCol: String = s"$reference$$${constructIdColumn.columnName}"
-  private val labelCol: String = s"$reference$$${tableLabelColumn.columnName}"
+  private val idCol: String = s"$reference$$${ID_COL.columnName}"
+  private val constructIdCol: String = s"$reference$$${CONSTRUCT_ID_COL.columnName}"
+  private val labelCol: String = s"$reference$$${TABLE_LABEL_COL.columnName}"
 
   private val idColStructField: StructField = StructField(idCol, IntegerType)
 
