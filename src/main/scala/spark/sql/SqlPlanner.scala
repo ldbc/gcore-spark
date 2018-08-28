@@ -1,11 +1,11 @@
 package spark.sql
 
-import algebra.expressions.{Label, Reference}
-import algebra.operators.Column.TABLE_LABEL_COL
+import algebra.expressions._
+import algebra.operators.Column._
 import algebra.operators._
 import algebra.target_api._
 import algebra.trees.{AlgebraToTargetTree, AlgebraTreeNode}
-import algebra.types.{Graph, InConn, OutConn}
+import algebra.types.Graph
 import algebra.{target_api => target}
 import common.RandomNameGenerator.randomString
 import compiler.CompileContext
@@ -14,13 +14,16 @@ import org.slf4j.{Logger, LoggerFactory}
 import schema.EntitySchema.LabelRestrictionMap
 import schema._
 import spark.SparkGraph
-import spark.sql.SqlPlanner.{ConstructClauseData, GRAPH_NAME_LENGTH, GROUP_CONSTRUCT_VIEW_PREFIX}
+import spark.sql.SqlPlanner.{ConstructClauseData, GRAPH_NAME_LENGTH, GROUPED_VERTEX_PREFIX}
+import spark.sql.SqlQuery.expandExpression
 import spark.sql.operators._
 import spark.sql.{operators => sql}
 
+import scala.collection._
+
 object SqlPlanner {
   val GRAPH_NAME_LENGTH: Int = 8
-  val GROUP_CONSTRUCT_VIEW_PREFIX: String = "GroupConstruct"
+  val GROUPED_VERTEX_PREFIX: String = "GroupedVertex"
 
   /**
     * A subset of the graph data produced by a [[GroupConstruct]]. As a CONSTRUCT clause is
@@ -43,16 +46,156 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
 
   override def solveBindingTable(matchClause: AlgebraTreeNode): DataFrame = {
     val matchData: DataFrame = rewriteAndSolveBtableOps(matchClause)
+    matchData.show // log the binding table
     matchData.cache()
   }
 
   override def constructGraph(btable: DataFrame,
-                              constructClauses: Seq[AlgebraTreeNode]): PathPropertyGraph = {
-    // Register the resulting binding table as a view, so that each construct clause can reuse it.
-    btable.createOrReplaceGlobalTempView(algebra.trees.BasicToGroupConstruct.BTABLE_VIEW)
+                              groupConstructs: Seq[AlgebraTreeNode]): PathPropertyGraph = {
+    // Create a view of the binding table, as the table will be used to build each variable in the
+    // CONSTRUCT block.
+    btable.createOrReplaceGlobalTempView(algebra.trees.ConditionalToGroupConstruct.BTABLE_VIEW)
 
-    // Create a ConstructClauseData from each available construct clause.
-    val constructClauseData: Seq[ConstructClauseData] = constructClauses.map(solveConstructClause)
+    val constructClauseData: Seq[ConstructClauseData] = groupConstructs.map(treeNode => {
+      val groupConstruct: GroupConstruct = treeNode.asInstanceOf[GroupConstruct]
+      val baseConstructTableDF = rewriteAndSolveBtableOps(groupConstruct.baseConstructTable)
+      if (baseConstructTableDF.rdd.isEmpty()) {
+        logger.info("The base construct table was empty, cannot build edge table.")
+        ConstructClauseData(
+          vertexDataMap = Map.empty,
+          edgeDataMap = Map.empty,
+          edgeRestrictions = SchemaMap.empty)
+      } else {
+        // Register a view over the filtered binding table, if it was not empty. We can now start
+        // building the vertices of this group construct.
+        baseConstructTableDF
+          .createOrReplaceGlobalTempView(groupConstruct.baseConstructTableView.viewName)
+
+        val vertexData: mutable.ArrayBuffer[(Reference, Table[DataFrame])] =
+          new mutable.ArrayBuffer()
+        val edgeData: mutable.ArrayBuffer[(Reference, Table[DataFrame])] =
+          new mutable.ArrayBuffer()
+        val vertexConstructTable = groupConstruct.vertexConstructTable
+
+        // First, create each unmatched ungrouped vertex.
+        vertexConstructTable.unmatchedUngroupedRules.foreach(constructRule => {
+          val vdata: DataFrame = rewriteAndSolveBtableOps(constructRule.constructRelation)
+          val entity: Table[DataFrame] =
+            createEntity(
+              constructRule.reference,
+              constructRule.setAssignments,
+              constructRule.removeAssignments,
+              vdata)
+          val vertexTuple: (Reference, Table[DataFrame]) = (constructRule.reference, entity)
+          vertexData += vertexTuple
+          // We need to register the vertex data as a global view, because it will be used by the
+          // next vertex in the list.
+          vdata.createOrReplaceGlobalTempView(constructRule.constructRelationTableView.get.viewName)
+        })
+
+        vertexConstructTable.matchedRules.foreach(constructRule => {
+          val vdata: DataFrame = rewriteAndSolveBtableOps(constructRule.constructRelation)
+          val entity: Table[DataFrame] =
+            createEntity(
+              constructRule.reference,
+              constructRule.setAssignments,
+              constructRule.removeAssignments,
+              vdata)
+          val vertexTuple: (Reference, Table[DataFrame]) = (constructRule.reference, entity)
+          vertexData += vertexTuple
+        })
+
+        val lastVertexTableViewName: String = {
+          if (vertexConstructTable.unmatchedUngroupedRules.nonEmpty) {
+            // The last table view of the unmatched ungrouped vertices will contain all of them. It
+            // also contains all the matched vertices. We need to add the unmatched and grouped
+            // vertices with a join on the grouping attributes, so that we can start building the
+            // edges.
+            val lastVertexTableView: ConstructRelationTableView =
+              vertexConstructTable.unmatchedUngroupedRules.last.constructRelationTableView.get
+              s"global_temp.${lastVertexTableView.viewName}"
+          } else {
+            // If we haven't built any unmatched ungrouped vertex, then the base construct table is
+            // the one we need to use to build the grouped vertices. It already contains the matched
+            // vertices.
+            s"global_temp.${groupConstruct.baseConstructTableView.viewName}"
+          }
+        }
+        val vtableQuery: String = vertexConstructTable.unmatchedGroupedRules
+          // The accumulator starts with a full projection, because if don't have any unmatched
+          // grouped vertices to build, we will simply return the base construct table.
+          .foldLeft(s"SELECT * FROM $lastVertexTableViewName") {
+            (prevQuery, constructRule) => {
+              val currVdata: DataFrame = rewriteAndSolveBtableOps(constructRule.constructRelation)
+              val entity: Table[DataFrame] =
+                createEntity(
+                  constructRule.reference,
+                  constructRule.setAssignments,
+                  constructRule.removeAssignments,
+                  currVdata)
+              val vertexTuple: (Reference, Table[DataFrame]) = (constructRule.reference, entity)
+              vertexData += vertexTuple
+
+              // Join back to prevQuery.
+              val vdataViewName: String = s"${GROUPED_VERTEX_PREFIX}_${randomString()}"
+              currVdata.createOrReplaceGlobalTempView(vdataViewName)
+              val groupedAttrs: Seq[String] =
+                constructRule.groupDeclaration.get.groupingSets.map {
+                  case PropertyRef(ref, propKey) => s"`${ref.refName}$$${propKey.key}`"
+                }
+              val vertexRef: String =
+                s"`${constructRule.reference.refName}$$${ID_COL.columnName}`"
+              val projectAttrs: String = (groupedAttrs :+ vertexRef).mkString(", ")
+              val joinKey: String = groupedAttrs.mkString(", ")
+
+              val joinQuery: String =
+                s"""
+                SELECT * FROM (
+                (SELECT $projectAttrs FROM global_temp.$vdataViewName)
+                INNER JOIN ($prevQuery) USING ($joinKey))"""
+
+              joinQuery
+            }
+          }
+
+        // We now have all the vertices into one table (or at least the vertex identities, we can
+        // start building the edges.
+        val vertexTableDF = sparkSession.sql(vtableQuery)
+        vertexTableDF
+          .createOrReplaceGlobalTempView(groupConstruct.vertexConstructTableView.viewName)
+        val edgeFromTo: mutable.ArrayBuffer[(Reference, (Reference, Reference))] =
+          new mutable.ArrayBuffer()
+        groupConstruct.edgeConstructRules.foreach(constructRule => {
+          val edata: DataFrame = rewriteAndSolveBtableOps(constructRule.constructRelation)
+          val entity: Table[DataFrame] =
+            createEntity(
+              constructRule.reference,
+              constructRule.setAssignments,
+              constructRule.removeAssignments,
+              edata,
+              Some(constructRule.fromRef.get, constructRule.toRef.get))
+          val edgeTuple: (Reference, Table[DataFrame]) = (constructRule.reference, entity)
+          val edgeFromToTuple: (Reference, (Reference, Reference)) =
+            (constructRule.reference, (constructRule.fromRef.get, constructRule.toRef.get))
+          edgeData += edgeTuple
+          edgeFromTo += edgeFromToTuple
+        })
+
+        val vertexDataMap: Map[Reference, Table[DataFrame]] = vertexData.toMap
+        val edgeDataMap: Map[Reference, Table[DataFrame]] = edgeData.toMap
+        val edgeLabelRestrictions: LabelRestrictionMap =
+          SchemaMap(
+            edgeFromTo.map {
+              case (edgeRef, (fromRef, toRef)) =>
+                val edgeLabel: Label = edgeDataMap(edgeRef).name
+                val fromLabel: Label = vertexDataMap(fromRef).name
+                val toLabel: Label = vertexDataMap(toRef).name
+                edgeLabel -> (fromLabel, toLabel)
+            }.toMap)
+
+        ConstructClauseData(vertexDataMap, edgeDataMap, edgeLabelRestrictions)
+      }
+    })
 
     // Union all data from construct clauses into a single PathPropertyGraph.
     val graph: SparkGraph = new SparkGraph {
@@ -71,8 +214,8 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
       override def edgeData: Seq[Table[DataFrame]] =
         constructClauseData.map(_.edgeDataMap).reduce(_ ++ _).values.toSeq
     }
-    logger.info(s"Constructed new graph:\n$graph")
 
+    logger.info(s"Constructed new graph:\n$graph")
     graph
   }
 
@@ -119,21 +262,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
   override def planAddColumn(addColumnOp: algebra.operators.AddColumn): target.AddColumn =
     sql.AddColumn(
       reference = addColumnOp.reference,
-      relation =
-        sql.Project(
-          relation = addColumnOp.children.last.asInstanceOf[TargetTreeNode],
-          attributes =
-            (addColumnOp.relation.getBindingSet.refSet ++ Set(addColumnOp.reference)).toSeq))
-
-  override def planConstruct(entityConstruct: ConstructRelation): target.EntityConstruct =
-    sql.EntityConstruct(
-      reference = entityConstruct.reference,
-      isMatchedRef = entityConstruct.isMatchedRef,
-      relation = entityConstruct.children(1).asInstanceOf[TargetTreeNode],
-      groupedAttributes = entityConstruct.groupedAttributes,
-      expr = entityConstruct.expr,
-      setClause = entityConstruct.setClause,
-      removeClause = entityConstruct.propAggRemoveClause)
+      relation = addColumnOp.children.last.asInstanceOf[TargetTreeNode])
 
   override def planPathSearch(pathRelation: VirtualPathRelation, graph: Graph, catalog: Catalog)
   : target.PathSearch =
@@ -154,140 +283,70 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
     data
   }
 
-  /** Extracts a subset of a graph's data by solving a [[GroupConstruct]] clause. */
-  private def solveConstructClause(constructClause: AlgebraTreeNode): ConstructClauseData = {
-    // The root of each tree is a GroupConstruct.
-    val groupConstruct: GroupConstruct = constructClause.asInstanceOf[GroupConstruct]
+  private def createEntity(reference: Reference,
+                           setAssignments: Seq[AlgebraExpression],
+                           removeAssignments: Seq[AlgebraExpression],
+                           constructRelation: DataFrame,
+                           fromToRefs: Option[(Reference, Reference)] = None): Table[DataFrame] = {
+    val labelColSelect: String = s"${reference.refName}$$${TABLE_LABEL_COL.columnName}"
 
-    // Rewrite the filtered binding table and register it as a global view, if it is not empty.
-    val baseConstructTableData: DataFrame =
-      rewriteAndSolveBtableOps(groupConstruct.getBaseConstructTable)
+    val entityFields: Set[String] =
+      constructRelation.columns
+        .filter(_.startsWith(s"${reference.refName}$$"))
+        .map(field => s"`$field`")
+        .toSet
 
-    if (baseConstructTableData.rdd.isEmpty()) {
-      // It can happen that the GroupConstruct filters on contradictory predicates. Example:
-      // CONSTRUCT (c) WHEN c.prop > 3, (c)-[]-... WHEN c.prop <= 3 ...
-      // In this case, the resulting baseConstructTable will be the empty DataFrame. We should
-      // return here the empty DF as well. No other operations on this table will make sense.
-      logger.info("The base construct table was empty, cannot build edge table.")
-      ConstructClauseData(
-        vertexDataMap = Map.empty,
-        edgeDataMap = Map.empty,
-        edgeRestrictions = SchemaMap.empty)
-    } else {
-      // Rewrite the vertex table.
-      baseConstructTableData.createOrReplaceGlobalTempView(groupConstruct.baseConstructViewName)
-      val vertexData: DataFrame = rewriteAndSolveBtableOps(groupConstruct.getVertexConstructTable)
-
-      // For the edge table, if it's not the empty relation, register the vertex table as a global
-      // view and solve the query to create the edge table.
-      val constructData: DataFrame = groupConstruct.getEdgeConstructTable match {
-        case RelationLike.empty => vertexData
-        case relation @ _ =>
-          vertexData.createOrReplaceGlobalTempView(groupConstruct.vertexConstructViewName)
-          val vertexAndEdgeData: DataFrame = rewriteAndSolveBtableOps(relation)
-          vertexAndEdgeData
-      }
-
-      // Register the construct data of this GroupConstruct's as a global view.
-      val constructDataViewName: String = s"${GROUP_CONSTRUCT_VIEW_PREFIX}_${randomString()}"
-      constructData.createOrReplaceGlobalTempView(constructDataViewName)
-      val constructDataTableView: sql.TableView = TableView(constructDataViewName, sparkSession)
-
-      // Rewrite the CreateRules, and then construct each entity in turn.
-      val targetCreateRules: Seq[AlgebraTreeNode] =
-        groupConstruct.createRules.map(rule => rewriter.rewriteTree(rule))
-      val vertexSqlCreates: Seq[sql.VertexCreate] =
-        targetCreateRules
-          .collect { case vertexCreate: target.VertexCreate => vertexCreate }
-          .map(createRule => sql.VertexCreate(constructDataTableView, createRule))
-      val vertexRefToCreateRuleMap: Map[Reference, target.VertexCreate] =
-        vertexSqlCreates
-          .map(vertexCreate => vertexCreate.createRule.reference -> vertexCreate.createRule)
-          .toMap
-      val edgeSqlCreates: Seq[sql.EdgeCreate] =
-        targetCreateRules
-          .collect { case edgeCreate: target.EdgeCreate => edgeCreate }
-          .map(createRule =>
-            sql.EdgeCreate(
-              constructDataTableView,
-              createRule,
-              vertexRefToCreateRuleMap(createRule.leftReference),
-              vertexRefToCreateRuleMap(createRule.rightReference)))
-
-      val vertexRefToDataMap: Map[Reference, Table[DataFrame]] =
-        vertexSqlCreates
-          .map(vertexCreate => vertexCreate.createRule.reference -> createTable(vertexCreate))
-          .toMap
-      val edgeRefToDataMap: Map[Reference, Table[DataFrame]] =
-        edgeSqlCreates
-          .map(edgeCreate => edgeCreate.createRule.reference -> createTable(edgeCreate))
-          .toMap
-
-      val edgeFromToMap: Map[Reference, (Reference, Reference)] =
-        edgeSqlCreates
-          .map(edgeSqlCreate => {
-            val edgeRef: Reference = edgeSqlCreate.createRule.reference
-            val fromRef: Reference = edgeSqlCreate.createRule.connType match {
-              case OutConn => edgeSqlCreate.createRule.leftReference
-              case InConn => edgeSqlCreate.createRule.rightReference
-            }
-            val toRef: Reference = edgeSqlCreate.createRule.connType match {
-              case OutConn => edgeSqlCreate.createRule.rightReference
-              case InConn => edgeSqlCreate.createRule.leftReference
-            }
-            edgeRef -> (fromRef, toRef)
-          })
-          .toMap
-      val edgeRestrictions: LabelRestrictionMap =
-        SchemaMap(
-          edgeFromToMap.map {
-            case (edgeRef, (fromRef, toRef)) =>
-              val edgeLabel: Label = edgeRefToDataMap(edgeRef).name
-              val fromLabel: Label = vertexRefToDataMap(fromRef).name
-              val toLabel: Label = vertexRefToDataMap(toRef).name
-              edgeLabel -> (fromLabel, toLabel)
-          })
-
-      ConstructClauseData(
-        vertexDataMap = vertexRefToDataMap,
-        edgeDataMap = edgeRefToDataMap,
-        edgeRestrictions = edgeRestrictions)
+    // If this is an edge, we need to project the correct source and destination id fields from the
+    // construct table.
+    val edgeEndps: Set[String] = {
+      if (fromToRefs.isDefined) {
+        val fromRef: String = fromToRefs.get._1.refName
+        val toRef: String = fromToRefs.get._2.refName
+        val ref: String = reference.refName
+        Set(s"`$fromRef$$${ID_COL.columnName}` AS `$ref$$${FROM_ID_COL.columnName}`",
+          s"`$toRef$$${ID_COL.columnName}` AS `$ref$$${TO_ID_COL.columnName}`")
+      } else Set.empty
     }
-  }
+    val setAttributes: Seq[String] =
+      setAssignments.collect {
+        case PropertySet(ref, PropAssignment(propKey, expr)) =>
+          s"(${expandExpression(expr)}) AS `${ref.refName}$$${propKey.key}`"
+        case LabelAssignments(Seq(Label(value), _*)) =>
+          // TODO: We should check here that the new entity has at most one label. And we should add
+          // a label if there is none.
+          s""""$value" AS `$labelColSelect`"""
+      }
+    val removeAttributes: Set[String] =
+      removeAssignments.map {
+        case PropertyRemove(PropertyRef(ref, PropertyKey(key))) => s"`${ref.refName}$$$key`"
+        // TODO: Here too label remove should be implemented such that we make sure we end up with
+        // exactly one label for the entity.
+        case _: LabelRemove => s"`$labelColSelect`"
+      }
+      .toSet
 
-  private def createTable(edgeCreate: sql.EdgeCreate): Table[DataFrame] = {
-    val edgeRef: Reference = edgeCreate.createRule.reference
-    val edgeData: DataFrame = solveBtableOps(edgeCreate)
-    val edgeTable: Table[DataFrame] = createTable(edgeRef, edgeData)
-    edgeTable
-  }
+    // For edges that had previous source and destination ids, we remove them.
+    val removePrevFromTo: Set[String] =
+      if (fromToRefs.isDefined) {
+        Set(s"`${reference.refName}$$${FROM_ID_COL.columnName}`",
+          s"`${reference.refName}$$${TO_ID_COL.columnName}`")
+      } else Set.empty
 
-  private def createTable(vertexCreate: sql.VertexCreate): Table[DataFrame] = {
-    val vertexRef: Reference = vertexCreate.createRule.reference
-    val vertexData: DataFrame = solveBtableOps(vertexCreate)
-    val vertexTable: Table[DataFrame] = createTable(vertexRef, vertexData)
-    vertexTable
-  }
+    val selectionList: Seq[String] =
+      (entityFields -- removeAttributes -- removePrevFromTo ++ setAttributes ++ edgeEndps).toSeq
+    val entityDf: DataFrame = constructRelation.selectExpr(selectionList: _*)
+    val label: Label = Label(entityDf.select(labelColSelect).first.getString(0))
 
-  /**
-    * Creates a [[Table]] from a [[DataFrame]] containing only the properties of an entity.
-    *
-    * The [[Table.name]] will be the first value found on the [[tableLabelColumn]], as we make the
-    * assumption that all the values on this column are equal. Note: The [[tableLabelColumn]] is
-    * added during a scan ([[VertexScan]], [[EdgeScan]] or [[PathScan]]) as a constant, or added
-    * in the [[EntityConstruct]] step, also as a constant column.
-    *
-    * The [[Table.data]] is the same as the provided data parameter, minus the [[tableLabelColumn]].
-    * The columns are renamed by removing the "reference$" prefix from the provided data's column
-    * names.
-    */
-  private def createTable(reference: Reference, data: DataFrame): Table[DataFrame] = {
-    val labelColumnSelect: String = s"${reference.refName}$$${TABLE_LABEL_COL.columnName}"
-    val labelColumn: String = data.select(labelColumnSelect).first.getString(0)
-    val newDataColumnNames: Seq[String] =
-      data.columns.map(columnName => columnName.split(s"${reference.refName}\\$$")(1))
-    val dataColumnsRenamed: DataFrame =
-      data.toDF(newDataColumnNames: _*).drop(s"${TABLE_LABEL_COL.columnName}")
-    Table[DataFrame](name = Label(labelColumn), data = dataColumnsRenamed)
+    val newColumnNames: Seq[String] =
+      entityDf.columns.map(columnName => columnName.split(s"${reference.refName}\\$$")(1))
+    val entityDfColumnsRenamed: DataFrame =
+      entityDf.toDF(newColumnNames: _*).drop(s"${TABLE_LABEL_COL.columnName}")
+
+    // Log DF before stripping the variable$ prefix.
+    entityDf.show
+    // Log the final DF that goes into the graph.
+    entityDfColumnsRenamed.show
+
+    Table[DataFrame](name = label, data = entityDfColumnsRenamed)
   }
 }

@@ -51,6 +51,4 @@ abstract class TargetPlanner {
     * specific methods inside.
     */
   def createTableView(viewName: String): TableView
-
-  def planConstruct(entityConstructRelation: ConstructRelation): EntityConstruct
 }

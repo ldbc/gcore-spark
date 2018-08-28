@@ -35,13 +35,5 @@ case class AlgebraToTargetTree(catalog: Catalog, targetPlanner: TargetPlanner)
     case addColumn: AddColumn => targetPlanner.planAddColumn(addColumn)
 
     case tableView: TableView => targetPlanner.createTableView(tableView.getViewName)
-    case ec: ConstructRelation => targetPlanner.planConstruct(ec)
-    case VertexCreate(reference, removeClause) =>
-      target.VertexCreate(reference, removeClause, Catalog.nextBaseEntityTableIndex)
-    case EdgeCreate(reference, leftReference, rightReference, connType, removeClause) =>
-      target.EdgeCreate(
-        reference, leftReference, rightReference, connType,
-        removeClause,
-        Catalog.nextBaseEntityTableIndex)
   }
 }

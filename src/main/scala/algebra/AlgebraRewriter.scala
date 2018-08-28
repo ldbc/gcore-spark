@@ -27,9 +27,7 @@ case class AlgebraRewriter(context: AlgebraContext) extends RewriteStage {
     val matchesToAlgebra = MatchesToAlgebra rewriteTree expandedRelations
 
     // Construct rewrite.
-    val normalizedBasicConstructs = NormalizeBasicConstructs rewriteTree matchesToAlgebra
-    val groupConstructs =
-      BasicToGroupConstruct(enrichedContext) rewriteTree normalizedBasicConstructs
+    val groupConstructs = ConditionalToGroupConstruct(enrichedContext) rewriteTree matchesToAlgebra
 
     // Query rewrite
     val createGraph = BasicQueriesToGraphs rewriteTree groupConstructs

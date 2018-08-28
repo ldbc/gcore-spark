@@ -103,46 +103,4 @@ class AlgebraToTargetTreeTest extends FunSuite with Matchers with MockFactory {
     rewriter rewriteTree tableView
     (mockedTargetPlanner.createTableView _).verify("foo").once
   }
-
-  test("planConstruct is called for ConstructRelation") {
-    val construct =
-      ConstructRelation(
-        reference = Reference("v"),
-        isMatchedRef = true,
-        relation = RelationLike.empty,
-        groupedAttributes = Seq.empty,
-        expr = ObjectConstructPattern.empty,
-        setClause = None, propAggRemoveClause = None)
-    rewriter rewriteTree construct
-    (mockedTargetPlanner.planConstruct _).verify(construct).once
-  }
-
-  test("target.VertexCreate is created from a VertexCreate") {
-    Catalog.resetBaseEntityTableIndex()
-    val vertexCreate =
-      VertexCreate(
-        reference = Reference("foo"),
-        removeClause = None)
-    val targetVertexCreate = rewriter.rewriteTree(vertexCreate)
-    targetVertexCreate should matchPattern {
-      case target_api.VertexCreate(Reference("foo"), None, Catalog.START_BASE_TABLE_INDEX) =>
-    }
-  }
-
-  test("target.EdgeCreate is created from an EdgeCreate") {
-    Catalog.resetBaseEntityTableIndex()
-    val edgeCreate =
-      EdgeCreate(
-        reference = Reference("e"),
-        leftReference = Reference("v"),
-        rightReference = Reference("w"),
-        connType = OutConn,
-        removeClause = None)
-    val targetEdgeCreate = rewriter.rewriteTree(edgeCreate)
-    targetEdgeCreate should matchPattern {
-      case target_api.EdgeCreate(
-      Reference("e"), Reference("v"), Reference("w"), OutConn,
-      None, Catalog.START_BASE_TABLE_INDEX) =>
-    }
-  }
 }

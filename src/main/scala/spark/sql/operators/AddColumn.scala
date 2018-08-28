@@ -1,16 +1,50 @@
 package spark.sql.operators
 
 import algebra.expressions.Reference
+import algebra.operators.Column.{CONSTRUCT_ID_COL, ID_COL}
 import algebra.target_api
 import algebra.target_api.TargetTreeNode
+import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import spark.sql.SqlQuery
 
-/**
-  * Adds a new column to a table. Since the implementation of this operator is resolved through the
-  * [[Project]] operator, we simply pass on the [[target_api.BindingTableMetadata]] of the received
-  * [[relation]] to the parent node.
-  */
 case class AddColumn(reference: Reference, relation: TargetTreeNode)
   extends target_api.AddColumn(reference, relation) {
 
-  override val bindingTable: target_api.BindingTableMetadata = relation.bindingTable
+  override val bindingTable: target_api.BindingTableMetadata = {
+    val relationBtable: SqlBindingTableMetadata =
+      relation.bindingTable.asInstanceOf[SqlBindingTableMetadata]
+    val relationSchemaMap: Map[Reference, StructType] = relationBtable.schemaMap
+
+    val idColumnName: String = s"${reference.refName}$$${ID_COL.columnName}"
+    val monotonicIdColumnName: String = s"${reference.refName}$$${CONSTRUCT_ID_COL.columnName}"
+
+    // Add a monotic id to allow ordering by it in the next step.
+    val addMonotonicIdQuery: String =
+      s"""
+      SELECT *, MONOTONICALLY_INCREASING_ID() AS `$monotonicIdColumnName`
+      FROM (${relationBtable.btable.resQuery})"""
+
+    // All columns in btable except for the monotonic id previously added.
+    val allColumns: Seq[String] = relationBtable.btableSchema.map(field => s"`${field.name}`")
+    val allColumnsSelect: String = allColumns.mkString(", ")
+    val idSelect: String = s"ROW_NUMBER() OVER (ORDER BY `$monotonicIdColumnName`)"
+
+    val addIdQuery: String =
+      s"""
+      SELECT $allColumnsSelect, $idSelect AS `$idColumnName` FROM ($addMonotonicIdQuery)"""
+
+    // If this variable needed an aggregation, it already has properties in the table so it will be
+    // in schema. In this case, we only need to update its schema, otherwise we need to add it to
+    // the binding table schema as a new entry.
+    val idField = StructField(s"${reference.refName}$$${ID_COL.columnName}", IntegerType)
+    val newRefSchema =
+      StructType(relationSchemaMap.getOrElse(reference, new StructType()) :+ idField)
+    val newSchemaMap = relationSchemaMap ++ Map(reference -> newRefSchema)
+    val newBtableSchema = StructType(newSchemaMap.values.flatMap(_.fields).toArray)
+
+    SqlBindingTableMetadata(
+      sparkSchemaMap = newSchemaMap,
+      sparkBtableSchema = newBtableSchema,
+      btableOps = SqlQuery(resQuery = addIdQuery))
+  }
 }

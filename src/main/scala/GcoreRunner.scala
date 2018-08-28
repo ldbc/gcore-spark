@@ -2,7 +2,7 @@ import compiler.{CompileContext, Compiler, GcoreCompiler}
 import org.apache.spark.sql.SparkSession
 import schema.Catalog
 import spark.SparkCatalog
-import spark.examples.{DummyGraph, PathsGraph, PeopleGraph}
+import spark.examples.{DummyGraph, PeopleGraph}
 
 /** Main entry point of the interpreter. */
 object GcoreRunner {
@@ -23,13 +23,12 @@ object GcoreRunner {
     val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
     gcoreRunner.catalog.registerGraph(DummyGraph(gcoreRunner.sparkSession))
     gcoreRunner.catalog.registerGraph(PeopleGraph(gcoreRunner.sparkSession))
-    gcoreRunner.catalog.registerGraph(PathsGraph(gcoreRunner.sparkSession))
-    gcoreRunner.catalog.setDefaultGraph("paths_graph")
+    gcoreRunner.catalog.setDefaultGraph("people_graph")
 
     gcoreRunner.compiler.compile(
       """
-        | CONSTRUCT (v)
-        | MATCH (v)-/p <:knows*>/->(w)
+        | CONSTRUCT (a :ALabel)-[e0 :e0Label]->(x GROUP p.employer :XLabel {cnt := COUNT(*)})
+        | MATCH (c:Company)<-[e]-(p:Person)
       """.stripMargin)
   }
 }

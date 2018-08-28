@@ -15,8 +15,8 @@ object ConstructTreeBuilder {
   def extractConstructClause(from: SpoofaxBaseTreeNode): ConstructClause = {
     val constructPattern = from.children.head
     val graphs: mutable.ArrayBuffer[Graph] = new mutable.ArrayBuffer[Graph]()
-    val constructClauses: mutable.ArrayBuffer[BasicConstructClause] =
-      new mutable.ArrayBuffer[BasicConstructClause]()
+    val constructClauses: mutable.ArrayBuffer[CondConstructClause] =
+      new mutable.ArrayBuffer[CondConstructClause]()
     val propSets: mutable.ArrayBuffer[PropertySet] = new mutable.ArrayBuffer[PropertySet]()
     val propRemoves: mutable.ArrayBuffer[PropertyRemove] = new mutable.ArrayBuffer[PropertyRemove]()
     val labelRemoves: mutable.ArrayBuffer[LabelRemove] = new mutable.ArrayBuffer[LabelRemove]()
@@ -48,22 +48,22 @@ object ConstructTreeBuilder {
 
     ConstructClause(
       graphs = GraphUnion(graphs),
-      condConstructs = CondConstructClause(constructClauses),
+      condConstructs = CondConstructs(constructClauses),
       setClause = SetClause(propSets),
       removeClause = RemoveClause(propRemoves, labelRemoves))
   }
 
-  /** Creates a [[BasicConstructClause]] from a given BasicConstructPattern node. */
-  private def extractBasicConstructClause(from: SpoofaxBaseTreeNode): BasicConstructClause = {
+  /** Creates a [[CondConstructClause]] from a given BasicConstructPattern node. */
+  private def extractBasicConstructClause(from: SpoofaxBaseTreeNode): CondConstructClause = {
     from.name match {
       case "BasicConstructPattern" =>
-        BasicConstructClause(
+        CondConstructClause(
           constructPattern =
             ConstructPattern(extractConstructTopology(from.children.init, prevRef = None)),
           when = extractWhen(from.children.last))
       case _ =>
         throw QueryParseException(
-          s"Cannot extract BasicConstructClause from node type ${from.name}")
+          s"Cannot extract CondConstructClause from node type ${from.name}")
     }
   }
 
@@ -309,7 +309,7 @@ object ConstructTreeBuilder {
     }
   }
 
-  /** Extracts the condition of a [[BasicConstructClause]] from a ConstructCondition node. */
+  /** Extracts the condition of a [[CondConstructClause]] from a ConstructCondition node. */
   private def extractWhen(from: SpoofaxBaseTreeNode): AlgebraExpression = {
     from.name match {
       case "None" => True

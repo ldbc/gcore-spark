@@ -15,10 +15,10 @@ case class SqlRunner(compileContext: CompileContext) extends RunTargetCodeStage 
     input match {
       case createGraph: GraphCreate =>
         val matchClause: AlgebraTreeNode = createGraph.matchClause
-        val constructClauses: Seq[AlgebraTreeNode] = createGraph.constructClauses
+        val groupConstructs: Seq[AlgebraTreeNode] = createGraph.groupConstructs
 
         val matchData: DataFrame = sparkSqlPlanner.solveBindingTable(matchClause)
-        val graph: PathPropertyGraph = sparkSqlPlanner.constructGraph(matchData, constructClauses)
+        val graph: PathPropertyGraph = sparkSqlPlanner.constructGraph(matchData, groupConstructs)
         graph
 
       case _ =>

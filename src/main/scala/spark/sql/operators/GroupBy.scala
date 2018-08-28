@@ -1,7 +1,7 @@
 package spark.sql.operators
 
 import algebra.expressions._
-import algebra.operators.Column._
+import algebra.operators.Column.ID_COL
 import algebra.target_api
 import algebra.target_api.{BindingTableMetadata, TargetTreeNode}
 import algebra.trees.AlgebraTreeNode
@@ -40,14 +40,9 @@ case class GroupBy(relation: TargetTreeNode,
     */
   private val groupByFields: Map[SchemaFieldName, SchemaField] = {
     groupingAttributes
-      .flatMap {
-        case ref: Reference => Seq(PropertyRef(ref, PropertyKey(ID_COL.columnName)))
-        case groupDecl: GroupDeclaration =>
-          groupDecl.children.map {
-            case propRef: PropertyRef => propRef
-            case other: AlgebraTreeNode =>
-              throw UnsupportedOperation(s"Cannot use ${other.name} in a GroupDeclaration.")
-          }
+      .map {
+        case ref: Reference => PropertyRef(ref, PropertyKey(ID_COL.columnName))
+        case propRef: PropertyRef => propRef
         case other: AlgebraTreeNode =>
           throw UnsupportedOperation(s"Cannot use ${other.name} in a group by clause.")
       }
@@ -86,10 +81,10 @@ case class GroupBy(relation: TargetTreeNode,
             // eg: x.prop2 = AVG(y.prop2)
             case PropertyRef(aggVarRef, PropertyKey(key)) =>
               val aggFieldName: SchemaFieldName = s"${aggVarRef.refName}$$$key" // y$prop2
-              val newPropFieldName: String = s"${newVarRef.refName}$$${propKey.key}"  // x$prop2
+            val newPropFieldName: String = s"${newVarRef.refName}$$${propKey.key}"  // x$prop2
 
               val aggExprStr: String = expandExpression(expr) // AVG(y$prop2)
-              val selectString: String = s"$aggExprStr AS `$newPropFieldName`"
+            val selectString: String = s"$aggExprStr AS `$newPropFieldName`"
 
               val aggStructField: StructField =
                 relationSchemaMap(aggVarRef).find(_.name == aggFieldName).get
@@ -116,7 +111,7 @@ case class GroupBy(relation: TargetTreeNode,
           val newPropFieldName: String = s"${newVarRef.refName}$$${propKey.key}"  // x$prop2
 
           val aggExprStr: String = expandExpression(expr) // COUNT(*)
-          val selectString: String = s"$aggExprStr AS `$newPropFieldName`"
+        val selectString: String = s"$aggExprStr AS `$newPropFieldName`"
 
           val newSchemaField: SchemaField =
             SchemaField(

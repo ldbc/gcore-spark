@@ -16,7 +16,6 @@ import schema.Catalog.{START_BASE_TABLE_INDEX, TABLE_INDEX_INCREMENT}
 import schema.EntitySchema.LabelRestrictionMap
 import schema.{Catalog, SchemaMap, Table}
 import spark._
-import spark.sql.operators.EntityConstruct
 
 /**
   * Verifies that the [[SqlPlanner]] creates correct [[DataFrame]] binding tables and constructs the
@@ -36,30 +35,30 @@ class SqlPlannerTest extends FunSuite
   val parser: SpoofaxParser = SpoofaxParser(ParseContext(db))
   val algebraRewriter: AlgebraRewriter = AlgebraRewriter(AlgebraContext(db))
 
-  val idCol: String = ID_COL.columnName
-  val fromIdCol: String = FROM_ID_COL.columnName
-  val toIdCol: String = TO_ID_COL.columnName
-  val labelCol: String = TABLE_LABEL_COL.columnName
-  val edgesCol: String = EDGE_SEQ_COL.columnName
+  val ID: String = ID_COL.columnName
+  val FROM_ID: String = FROM_ID_COL.columnName
+  val TO_ID: String = TO_ID_COL.columnName
+  val LABEL: String = TABLE_LABEL_COL.columnName
+  val EDGES: String = EDGE_SEQ_COL.columnName
 
   /** MATCH (c:Cat)-[e:Eats]->(f:Food) */
   val bindingTableSchema: StructType =
     StructType(List(
-      StructField(s"c$$$idCol", IntegerType, nullable = false),
-      StructField(s"c$$$labelCol", StringType, nullable = false),
+      StructField(s"c$$$ID", IntegerType, nullable = false),
+      StructField(s"c$$$LABEL", StringType, nullable = false),
       StructField("c$name", StringType, nullable = false),
       StructField("c$age", DoubleType, nullable = false),
       StructField("c$weight", IntegerType, nullable = false),
       StructField("c$onDiet", BooleanType, nullable = false),
 
-      StructField(s"e$$$idCol", IntegerType, nullable = false),
-      StructField(s"e$$$fromIdCol", IntegerType, nullable = false),
-      StructField(s"e$$$toIdCol", IntegerType, nullable = false),
-      StructField(s"e$$$labelCol", StringType, nullable = false),
+      StructField(s"e$$$ID", IntegerType, nullable = false),
+      StructField(s"e$$$FROM_ID", IntegerType, nullable = false),
+      StructField(s"e$$$TO_ID", IntegerType, nullable = false),
+      StructField(s"e$$$LABEL", StringType, nullable = false),
       StructField("e$gramsPerDay", DoubleType, nullable = false),
 
-      StructField(s"f$$$idCol", IntegerType, nullable = false),
-      StructField(s"f$$$labelCol", StringType, nullable = false),
+      StructField(s"f$$$ID", IntegerType, nullable = false),
+      StructField(s"f$$$LABEL", StringType, nullable = false),
       StructField("f$brand", StringType, nullable = false)
     ))
   val bindingTableData: Seq[CatEatsFood] =
@@ -97,14 +96,14 @@ class SqlPlannerTest extends FunSuite
   val bindingTableDuplicateData: DataFrame = {
     val btable1: DataFrame =
       bindingTable
-        .select(s"c$$$idCol", s"f$$$idCol", s"e$$$idCol")
-        .where(s"`c$$$idCol` IN (101, 102)")
-        .toDF(s"c1$$$idCol", s"f1$$$idCol", s"e1$$$idCol")
+        .select(s"c$$$ID", s"f$$$ID", s"e$$$ID")
+        .where(s"`c$$$ID` IN (101, 102)")
+        .toDF(s"c1$$$ID", s"f1$$$ID", s"e1$$$ID")
     val btable2: DataFrame =
       bindingTable
-        .select(s"c$$$idCol", s"f$$$idCol", s"e$$$idCol")
-        .where(s"`c$$$idCol` IN (103, 104)")
-        .toDF(s"c2$$$idCol", s"f2$$$idCol", s"e2$$$idCol")
+        .select(s"c$$$ID", s"f$$$ID", s"e$$$ID")
+        .where(s"`c$$$ID` IN (103, 104)")
+        .toDF(s"c2$$$ID", s"f2$$$ID", s"e2$$$ID")
     btable1.crossJoin(btable2)
   }
 
@@ -140,7 +139,7 @@ class SqlPlannerTest extends FunSuite
           name = Label("Cat"),
           data = {
             // All columns of c are preserved, except for the label column.
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }
         )
@@ -148,7 +147,7 @@ class SqlPlannerTest extends FunSuite
 
       override def edgeData: Seq[Table[DataFrame]] = Seq.empty
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Map(Label("Cat") -> 101L))
   }
 
   test("VertexCreate of bound variable, new properties (expr, const, inline, SET) - " +
@@ -169,7 +168,7 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable
               .select(columns.head, columns.tail: _*)
               .withColumn("c$constInt", lit(1))
@@ -180,7 +179,7 @@ class SqlPlannerTest extends FunSuite
 
       override def edgeData: Seq[Table[DataFrame]] = Seq.empty
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Map(Label("Cat") -> 101))
   }
 
   // TODO: Removing a label is not correctly implemented yet.
@@ -202,7 +201,7 @@ class SqlPlannerTest extends FunSuite
           name = Label("Cat"), // TODO: Change this label to the actual one.
           data = {
             val columns =
-              bindingTable.columns.filter(_.startsWith("c")) diff Seq("c$onDiet", s"c$labelCol")
+              bindingTable.columns.filter(_.startsWith("c")) diff Seq("c$onDiet", s"c$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }
         )
@@ -210,7 +209,9 @@ class SqlPlannerTest extends FunSuite
 
       override def edgeData: Seq[Table[DataFrame]] = Seq.empty
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    // TODO: What label should we use for the key here - if we remove the label, then the vertex
+    // will be assigned a new random label.
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Map.empty)
   }
 
   test("VertexCreate of bound variable, filter binding table - " +
@@ -230,38 +231,14 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*).where("`c$age` >= 5")
           })
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq.empty
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
-  }
-
-  // TODO: Remove label assignment of x, once we fix the multiple/missing label(s).
-  ignore("VertexCreate of unbound variable - CONSTRUCT (x) MATCH (c)") {
-    val vertex = extractConstructClauses("CONSTRUCT (x) MATCH (c)")
-    val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
-    val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
-
-      override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
-
-      override def edgeRestrictions: LabelRestrictionMap = SchemaMap.empty
-
-      override def pathData: Seq[Table[DataFrame]] = Seq.empty
-
-      override def vertexData: Seq[Table[DataFrame]] = Seq(
-        Table(
-          name = Label("Xlabel"),
-          data = bindingTable.withColumn(s"x$$$idCol", lit(1)).select(s"x$$$idCol"))
-      )
-
-      override def edgeData: Seq[Table[DataFrame]] = Seq.empty
-    }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Map(Label("Cat") -> 103))
   }
 
   test("VertexCreate of unbound variable, add prop and label - " +
@@ -282,14 +259,14 @@ class SqlPlannerTest extends FunSuite
           name = Label("XLabel"),
           data =
             bindingTable
-              .withColumn(s"x$$$idCol", lit(1))
+              .withColumn(s"x$$$ID", lit(1))
               .withColumn("x$constInt", lit(1))
-              .select(s"x$$$idCol", "x$constInt"))
+              .select(s"x$$$ID", "x$constInt"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq.empty
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Map(Label("XLabel") -> 1))
   }
 
   // TODO: Remove label assignment of x, once we fix the multiple/missing label(s).
@@ -312,14 +289,14 @@ class SqlPlannerTest extends FunSuite
           data =
             bindingTable
               .groupBy("c$onDiet")
-              .agg(first(s"c$$$idCol"))
-              .withColumn(s"x$$$idCol", lit(1))
-              .select(s"x$$$idCol"))
+              .agg(first(s"c$$$ID"))
+              .withColumn(s"x$$$ID", lit(1))
+              .select(s"x$$$ID"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq.empty
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Map(Label("XLabel") -> 1))
   }
 
   // TODO: Remove label assignment of x, once we fix the multiple/missing label(s).
@@ -345,13 +322,13 @@ class SqlPlannerTest extends FunSuite
             bindingTable
               .groupBy("c$onDiet")
               .agg(avg("c$weight") as "x$avgw")
-              .withColumn(s"x$$$idCol", lit(1))
-              .select(s"x$$$idCol", "x$avgw"))
+              .withColumn(s"x$$$ID", lit(1))
+              .select(s"x$$$ID", "x$avgw"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq.empty
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Map(Label("XLabel") -> 1))
   }
 
   test("EdgeCreate of bound edge and endpoints - CONSTRUCT (c)-[e]->(f) MATCH (c)-[e]->(f)") {
@@ -372,13 +349,13 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
           name = Label("Food"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           })
       )
@@ -387,12 +364,14 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Eats"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("e")) diff Seq(s"e$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("e")) diff Seq(s"e$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           })
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdgeFromTo))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("Cat") -> 101, Label("Eats") -> 201, Label("Food") -> 105),
+      Some(EqEdgeFromTo))
   }
 
   // TODO: Remove b's label once the missing/multiple labels problems is fixed.
@@ -400,7 +379,7 @@ class SqlPlannerTest extends FunSuite
     "CONSTRUCT (c)-[e]->(b) MATCH (c)-[e]->(f)") {
     val edge = extractConstructClauses("CONSTRUCT (c)-[e]->(b :BLabel) MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, edge)
-    val expectedBtable = bindingTable.withColumn(s"b$$$idCol", lit(1))
+    val expectedBtable = bindingTable.withColumn(s"b$$$ID", lit(1))
 
     val expectedGraph = new SparkGraph {
       override def graphName: String = FOO_GRAPH_NAME
@@ -417,24 +396,26 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
           name = Label("BLabel"),
-          data = expectedBtable.select(s"b$$$idCol"))
+          data = expectedBtable.select(s"b$$$ID"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq(
         Table(
           name = Label("Eats"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("e")) diff Seq(s"e$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("e")) diff Seq(s"e$$$LABEL")
             expectedBtable.select(columns.head, columns.tail: _*)
           })
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdgeFrom))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("Cat") -> 101, Label("Eats") -> 201, Label("BLabel") -> 1),
+      Some(EqEdgeFrom))
   }
 
   // TODO: Remove a's and b's labels once we fix the issue with missing or multiple labels.
@@ -444,9 +425,9 @@ class SqlPlannerTest extends FunSuite
     val actualGraph = sparkPlanner.constructGraph(bindingTable, edge)
     val expectedBtable =
       bindingTable
-        .drop(s"e$$$labelCol")
-        .withColumn(s"a$$$idCol", lit(1))
-        .withColumn(s"b$$$idCol", lit(2))
+        .drop(s"e$$$LABEL")
+        .withColumn(s"a$$$ID", lit(1))
+        .withColumn(s"b$$$ID", lit(2))
 
     val expectedGraph = new SparkGraph {
       override def graphName: String = FOO_GRAPH_NAME
@@ -462,10 +443,10 @@ class SqlPlannerTest extends FunSuite
       override def vertexData: Seq[Table[DataFrame]] = Seq(
         Table(
           name = Label("ALabel"),
-          data = expectedBtable.select(s"a$$$idCol")),
+          data = expectedBtable.select(s"a$$$ID")),
         Table(
           name = Label("BLabel"),
-          data = expectedBtable.select(s"b$$$idCol"))
+          data = expectedBtable.select(s"b$$$ID"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq(
@@ -478,7 +459,9 @@ class SqlPlannerTest extends FunSuite
           })
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdge))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("ALabel") -> 1, Label("Eats") -> 201, Label("BLabel") -> 1),
+      Some(EqEdge))
   }
 
   // TODO: Remove labels once we fix the issue with missing or multiple labels.
@@ -501,14 +484,14 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
           name = Label("Food"),
           data = {
             // All columns of f are preserved, except for the label column.
-            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           })
       )
@@ -518,13 +501,15 @@ class SqlPlannerTest extends FunSuite
           name = Label("XLabel"),
           data =
             bindingTable
-              .withColumn(s"x$$$idCol", lit(1))
-              .withColumn(s"x$$$fromIdCol", expr(s"`e$$$fromIdCol`"))
-              .withColumn(s"x$$$toIdCol", expr(s"`e$$$toIdCol`"))
-              .select(s"x$$$idCol", s"x$$$fromIdCol", s"x$$$toIdCol"))
+              .withColumn(s"x$$$ID", lit(1))
+              .withColumn(s"x$$$FROM_ID", expr(s"`e$$$FROM_ID`"))
+              .withColumn(s"x$$$TO_ID", expr(s"`e$$$TO_ID`"))
+              .select(s"x$$$ID", s"x$$$FROM_ID", s"x$$$TO_ID"))
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqFromTo))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("Cat") -> 101, Label("XLabel") -> 1, Label("Food") -> 105),
+      Some(EqFromTo))
   }
 
   // TODO: Remove x, a, b labels, once we fix issue with multiple/missing labels.
@@ -535,11 +520,11 @@ class SqlPlannerTest extends FunSuite
     val actualGraph = sparkPlanner.constructGraph(bindingTable, edge)
     val expectedBtable =
       bindingTable
-        .withColumn(s"a$$$idCol", lit(1))
-        .withColumn(s"b$$$idCol", lit(2))
-        .withColumn(s"x$$$idCol", lit(3))
-        .withColumn(s"x$$$fromIdCol", expr(s"`a$$$idCol`"))
-        .withColumn(s"x$$$toIdCol", expr(s"`b$$$idCol`"))
+        .withColumn(s"a$$$ID", lit(1))
+        .withColumn(s"b$$$ID", lit(2))
+        .withColumn(s"x$$$ID", lit(3))
+        .withColumn(s"x$$$FROM_ID", expr(s"`a$$$ID`"))
+        .withColumn(s"x$$$TO_ID", expr(s"`b$$$ID`"))
 
     val expectedGraph = new SparkGraph {
       override def graphName: String = FOO_GRAPH_NAME
@@ -555,19 +540,21 @@ class SqlPlannerTest extends FunSuite
       override def vertexData: Seq[Table[DataFrame]] = Seq(
         Table(
           name = Label("ALabel"),
-          data = expectedBtable.select(s"a$$$idCol")),
+          data = expectedBtable.select(s"a$$$ID")),
         Table(
           name = Label("BLabel"),
-          data = expectedBtable.select(s"b$$$idCol"))
+          data = expectedBtable.select(s"b$$$ID"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq(
         Table(
           name = Label("XLabel"),
-          data = expectedBtable.select(s"x$$$idCol", s"x$$$fromIdCol", s"x$$$toIdCol"))
+          data = expectedBtable.select(s"x$$$ID", s"x$$$FROM_ID", s"x$$$TO_ID"))
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdge))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("XLabel") -> 1, Label("ALabel") -> 1, Label("BLabel") -> 1),
+      Some(EqEdge))
   }
 
   // TODO: Unignore once we fix issue with multiple/missing labels.
@@ -593,7 +580,7 @@ class SqlPlannerTest extends FunSuite
           name = Label("Cat"),
           data = {
             // All columns of c are preserved, except for the label column.
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
@@ -601,9 +588,9 @@ class SqlPlannerTest extends FunSuite
           data =
             bindingTable
               .groupBy("c$onDiet")
-              .agg(first(s"c$$$idCol"))
-              .withColumn(s"d$$$idCol", lit(1))
-              .select(s"d$$$idCol"))
+              .agg(first(s"c$$$ID"))
+              .withColumn(s"d$$$ID", lit(1))
+              .select(s"d$$$ID"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq(
@@ -611,13 +598,16 @@ class SqlPlannerTest extends FunSuite
           name = Label("XLabel"),
           data =
             bindingTable
-              .withColumn(s"x$$$idCol", lit(1))
-              .withColumn(s"x$$$fromIdCol", expr(s"`e$$$fromIdCol`"))
-              .withColumn(s"x$$$toIdCol", expr(s"`e$$$toIdCol`"))
-              .select(s"x$$$idCol", s"x$$$fromIdCol", s"x$$$toIdCol"))
+              .withColumn(s"x$$$ID", lit(1))
+              .withColumn(s"x$$$FROM_ID", expr(s"`e$$$FROM_ID`"))
+              .withColumn(s"x$$$TO_ID", expr(s"`e$$$TO_ID`"))
+              .select(s"x$$$ID", s"x$$$FROM_ID", s"x$$$TO_ID"))
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdge))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      // TODO: Fill this map correctly once test is un-ignored.
+      Map.empty,
+      Some(EqEdge))
   }
 
   test("EdgeCreate with new properties and labels for endpoints and connection - " +
@@ -643,7 +633,7 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
@@ -651,10 +641,10 @@ class SqlPlannerTest extends FunSuite
           data =
             bindingTable
               .groupBy("c$onDiet")
-              .agg(first(s"c$$$idCol"))
-              .withColumn(s"d$$$idCol", lit(1))
+              .agg(first(s"c$$$ID"))
+              .withColumn(s"d$$$ID", lit(1))
               .withColumn("d$val", expr("`c$onDiet`"))
-              .select(s"d$$$idCol", "d$val"))
+              .select(s"d$$$ID", "d$val"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq(
@@ -662,13 +652,15 @@ class SqlPlannerTest extends FunSuite
           name = Label("OnDiet"),
           data =
             bindingTable
-              .withColumn(s"x$$$idCol", lit(1))
-              .withColumn(s"x$$$fromIdCol", expr(s"`e$$$fromIdCol`"))
-              .withColumn(s"x$$$toIdCol", expr(s"`e$$$toIdCol`"))
-              .select(s"x$$$idCol", s"x$$$fromIdCol", s"x$$$toIdCol"))
+              .withColumn(s"x$$$ID", lit(1))
+              .withColumn(s"x$$$FROM_ID", expr(s"`e$$$FROM_ID`"))
+              .withColumn(s"x$$$TO_ID", expr(s"`e$$$TO_ID`"))
+              .select(s"x$$$ID", s"x$$$FROM_ID", s"x$$$TO_ID"))
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdge))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("Cat") -> 101, Label("OnDiet") -> 1, Label("Boolean") -> 1),
+      Some(EqEdge))
   }
 
   // TODO: Remove label of e0, c1, f1, once we fix the issue with the labels.
@@ -683,10 +675,10 @@ class SqlPlannerTest extends FunSuite
     val e0ids =
       actualGraph.asInstanceOf[SparkGraph]
         .edgeData.head.data
-        .select(s"$idCol").collect().map(_(0))
+        .select(s"$ID").collect().map(_(0))
     val vertexGroups =
       bindingTableDuplicateData
-        .select(s"c1$$$idCol", s"f1$$$idCol")
+        .select(s"c1$$$ID", s"f1$$$ID")
         .collect()
         .map(row => (row(0).toString, row(1).toString))
         .toSet
@@ -717,13 +709,13 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
           name = Label("Food"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           })
       )
@@ -733,21 +725,23 @@ class SqlPlannerTest extends FunSuite
           name = Label("e0Label"),
           data =
             bindingTable
-              .withColumn(s"e0$$$idCol", lit(1))
-              .withColumn(s"e0$$$fromIdCol", expr(s"`e$$$fromIdCol`"))
-              .withColumn(s"e0$$$toIdCol", expr(s"`e$$$toIdCol`"))
-              .select(s"e0$$$idCol", s"e0$$$fromIdCol", s"e0$$$toIdCol")),
+              .withColumn(s"e0$$$ID", lit(1))
+              .withColumn(s"e0$$$FROM_ID", expr(s"`e$$$FROM_ID`"))
+              .withColumn(s"e0$$$TO_ID", expr(s"`e$$$TO_ID`"))
+              .select(s"e0$$$ID", s"e0$$$FROM_ID", s"e0$$$TO_ID")),
         Table(
           name = Label("e1Label"),
           data =
             bindingTable
-              .withColumn(s"e1$$$idCol", lit(1))
-              .withColumn(s"e1$$$fromIdCol", expr(s"`e$$$toIdCol`"))
-              .withColumn(s"e1$$$toIdCol", expr(s"`e$$$fromIdCol`"))
-              .select(s"e1$$$idCol", s"e1$$$fromIdCol", s"e1$$$toIdCol"))
+              .withColumn(s"e1$$$ID", lit(1))
+              .withColumn(s"e1$$$FROM_ID", expr(s"`e$$$TO_ID`"))
+              .withColumn(s"e1$$$TO_ID", expr(s"`e$$$FROM_ID`"))
+              .select(s"e1$$$ID", s"e1$$$FROM_ID", s"e1$$$TO_ID"))
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqFromTo))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("Cat") -> 101, Label("Food") -> 105, Label("e0Label") -> 1, Label("e1Label") -> 1),
+      Some(EqFromTo))
   }
 
   // TODO: Remove label of e0, e1, x once we fix the issue with the labels.
@@ -773,18 +767,18 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
           name = Label("Food"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
           name = Label("XLabel"),
-          data = bindingTable.withColumn(s"x$$$idCol", lit(1)).select(s"x$$$idCol"))
+          data = bindingTable.withColumn(s"x$$$ID", lit(1)).select(s"x$$$ID"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq(
@@ -792,21 +786,24 @@ class SqlPlannerTest extends FunSuite
           name = Label("e0Label"),
           data =
             bindingTable
-              .withColumn(s"e0$$$idCol", lit(1))
-              .withColumn(s"e0$$$fromIdCol", expr(s"`e$$$fromIdCol`"))
-              .withColumn(s"e0$$$toIdCol", expr(s"`e$$$toIdCol`"))
-              .select(s"e0$$$idCol", s"e0$$$fromIdCol", s"e0$$$toIdCol")),
+              .withColumn(s"e0$$$ID", lit(1))
+              .withColumn(s"e0$$$FROM_ID", expr(s"`e$$$FROM_ID`"))
+              .withColumn(s"e0$$$TO_ID", expr(s"`e$$$TO_ID`"))
+              .select(s"e0$$$ID", s"e0$$$FROM_ID", s"e0$$$TO_ID")),
         Table(
           name = Label("e1Label"),
           data =
             bindingTable
-              .withColumn(s"e1$$$idCol", lit(1))
-              .withColumn(s"e1$$$fromIdCol", expr(s"`e$$$toIdCol`"))
-              .withColumn(s"e1$$$toIdCol", expr(s"`e$$$fromIdCol`"))
-              .select(s"e1$$$idCol", s"e1$$$fromIdCol", s"e1$$$toIdCol"))
+              .withColumn(s"e1$$$ID", lit(1))
+              .withColumn(s"e1$$$FROM_ID", expr(s"`e$$$TO_ID`"))
+              .withColumn(s"e1$$$TO_ID", expr(s"`e$$$FROM_ID`"))
+              .select(s"e1$$$ID", s"e1$$$FROM_ID", s"e1$$$TO_ID"))
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdge))
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("Cat") -> 101, Label("Food") -> 105, Label("e0Label") -> 1, Label("e1Label") -> 1,
+        Label("XLabel") -> 1),
+      Some(EqEdge))
   }
 
   // TODO: Remove label of e0, e1, d once we fix the issue with the labels.
@@ -834,13 +831,13 @@ class SqlPlannerTest extends FunSuite
         Table(
           name = Label("Cat"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
           name = Label("Food"),
           data = {
-            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$labelCol")
+            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$LABEL")
             bindingTable.select(columns.head, columns.tail: _*)
           }),
         Table(
@@ -848,9 +845,9 @@ class SqlPlannerTest extends FunSuite
           data =
             bindingTable
               .groupBy("c$onDiet")
-              .agg(first(s"c$$$idCol"))
-              .withColumn(s"d$$$idCol", lit(1))
-              .select(s"d$$$idCol"))
+              .agg(first(s"c$$$ID"))
+              .withColumn(s"d$$$ID", lit(1))
+              .select(s"d$$$ID"))
       )
 
       override def edgeData: Seq[Table[DataFrame]] = Seq(
@@ -858,74 +855,31 @@ class SqlPlannerTest extends FunSuite
           name = Label("e0Label"),
           data =
             bindingTable
-              .withColumn(s"e0$$$idCol", lit(1))
-              .withColumn(s"e0$$$fromIdCol", expr(s"`e$$$toIdCol`"))
-              .withColumn(s"e0$$$toIdCol", expr(s"`e$$$fromIdCol`"))
-              .select(s"e0$$$idCol", s"e0$$$fromIdCol", s"e0$$$toIdCol")),
+              .withColumn(s"e0$$$ID", lit(1))
+              .withColumn(s"e0$$$FROM_ID", expr(s"`e$$$TO_ID`"))
+              .withColumn(s"e0$$$TO_ID", expr(s"`e$$$FROM_ID`"))
+              .select(s"e0$$$ID", s"e0$$$FROM_ID", s"e0$$$TO_ID")),
         Table(
           name = Label("e1Label"),
           data =
             bindingTable
-              .withColumn(s"e1$$$idCol", lit(1))
-              .withColumn(s"e1$$$fromIdCol", expr(s"`e$$$fromIdCol`"))
-              .withColumn(s"e1$$$toIdCol", expr(s"`e$$$toIdCol`"))
-              .select(s"e1$$$idCol", s"e1$$$fromIdCol", s"e1$$$toIdCol"))
+              .withColumn(s"e1$$$ID", lit(1))
+              .withColumn(s"e1$$$FROM_ID", expr(s"`e$$$FROM_ID`"))
+              .withColumn(s"e1$$$TO_ID", expr(s"`e$$$TO_ID`"))
+              .select(s"e1$$$ID", s"e1$$$FROM_ID", s"e1$$$TO_ID"))
       )
     }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph, Some(EqEdge))
-  }
-
-  test("GroupConstruct of the same vertex with contradicting filtering yields the empty table - " +
-    "CONSTRUCT (c) WHEN c.age <= 3, (c) WHEN c.age > 3 MATCH (c)") {
-    val group =
-      extractConstructClauses(
-        query = "CONSTRUCT (c) WHEN c.age <= 3, (c) WHEN c.age > 3 MATCH (c)",
-        expectedNumClauses = 1) // one clause, both BasicConstructs are on the same vertex
-    val actualGraph = sparkPlanner.constructGraph(bindingTable, group)
-    assert(actualGraph.isEmpty)
-  }
-
-  test("GroupConstruct of two vertices, with filtering - " +
-    "CONSTRUCT (c) WHEN c.age <= 3, (f) WHEN c.age <= 3 MATCH (c)-[e]->(f)") {
-    val group =
-      extractConstructClauses(
-        query = "CONSTRUCT (c) WHEN c.age <= 3, (f) WHEN c.age <= 3 MATCH (c)-[e]->(f)",
-        expectedNumClauses = 2)
-    val actualGraph = sparkPlanner.constructGraph(bindingTable, group)
-    val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
-
-      override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
-
-      override def edgeRestrictions: LabelRestrictionMap = SchemaMap.empty
-
-      override def pathData: Seq[Table[DataFrame]] = Seq.empty
-
-      override def vertexData: Seq[Table[DataFrame]] = Seq(
-        Table(
-          name = Label("Cat"),
-          data = {
-            val columns = bindingTable.columns.filter(_.startsWith("c")) diff Seq(s"c$$$labelCol")
-            bindingTable.select(columns.head, columns.tail: _*).where("`c$age` <= 3")
-          }),
-        Table(
-          name = Label("Food"),
-          data = {
-            val columns = bindingTable.columns.filter(_.startsWith("f")) diff Seq(s"f$$$labelCol")
-            bindingTable.select(columns.head, columns.tail: _*).where("`c$age` <= 3")
-          })
-      )
-
-      override def edgeData: Seq[Table[DataFrame]] = Seq.empty
-    }
-    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph)
+    checkGraph(actualGraph.asInstanceOf[SparkGraph], expectedGraph,
+      Map(Label("e0Label") -> 1, Label("e1Label") -> 1, Label("Cat") -> 101, Label("Food") -> 105,
+        Label("DLabel") -> 1),
+      Some(EqEdge))
   }
 
   private def extractConstructClauses(query: String, expectedNumClauses: Int = 1)
   : Seq[AlgebraTreeNode] = {
 
     val createGraph = (parser andThen algebraRewriter) (query)
-    val constructClauses = createGraph.asInstanceOf[GraphCreate].constructClauses
+    val constructClauses = createGraph.asInstanceOf[GraphCreate].groupConstructs
 
     assert(constructClauses.size == expectedNumClauses)
 
@@ -934,7 +888,8 @@ class SqlPlannerTest extends FunSuite
 
   private def checkGraph(actualGraph: SparkGraph,
                          expectedGraph: SparkGraph,
-                         edgeEqualFn: Option[(Table[DataFrame], Table[DataFrame]) => EqEdgeBase] = None)
+                         labelBaseIdMap: Map[Label, Long],
+                         edgeEqualFn: Option[(Table[DataFrame], Table[DataFrame], Long) => EqEdgeBase] = None)
   : Unit = {
 
     // Check that the edge and path restrictions are the expected ones.
@@ -942,15 +897,16 @@ class SqlPlannerTest extends FunSuite
     assert(actualGraph.storedPathRestrictions == expectedGraph.storedPathRestrictions)
 
     // For each entity type, check that we have the expected tables.
-    checkTables(actualGraph.vertexData, expectedGraph.vertexData, EqVertex)
+    checkTables(actualGraph.vertexData, expectedGraph.vertexData, labelBaseIdMap, EqVertex)
 
     if (edgeEqualFn.isDefined)
-      checkTables(actualGraph.edgeData, expectedGraph.edgeData, edgeEqualFn.get)
+      checkTables(actualGraph.edgeData, expectedGraph.edgeData, labelBaseIdMap, edgeEqualFn.get)
   }
 
   private def checkTables(actualTables: Seq[Table[DataFrame]],
                           expectedTables: Seq[Table[DataFrame]],
-                          equalFn: (Table[DataFrame], Table[DataFrame]) => EqBase): Unit = {
+                          labelBaseIdMap: Map[Label, Long],
+                          equalFn: (Table[DataFrame], Table[DataFrame], Long) => EqBase): Unit = {
     // Check we have the same number of tables as expected for this entity.
     assert(actualTables.size == expectedTables.size)
 
@@ -968,7 +924,8 @@ class SqlPlannerTest extends FunSuite
 
     // For each label, check that data correspond to the expected data.
     actualTableMap.foreach {
-      case (label, actualTable) => equalFn(actualTable, expectedTableMap(label)).assertEqual()
+      case (label, actualTable) =>
+        equalFn(actualTable, expectedTableMap(label), labelBaseIdMap(label)).assertEqual()
     }
   }
 
@@ -981,7 +938,13 @@ class SqlPlannerTest extends FunSuite
     */
   sealed abstract class EqBase(actualTable: Table[DataFrame],
                                expectedTable: Table[DataFrame],
-                               idColumnNames: Seq[String]) {
+                               idColumnNames: Seq[String],
+                               // TODO: Once each new table receives its own base id (with the help
+                               // of Catalog.BASE_TABLE_INDEX, this baseId should be changed to:
+                               // START_BASE_TABLE_INDEX +
+                               //    (actualIds.head - START_BASE_TABLE_INDEX) / TABLE_INDEX_INCREMENT * TABLE_INDEX_INCREMENT
+                               // and moved inside the assertCorrectIds() method.
+                               baseId: Long) {
 
     val expectedTableColumnsRenamed: DataFrame = {
       val expectedColumnsRenamed: Seq[String] =
@@ -992,7 +955,7 @@ class SqlPlannerTest extends FunSuite
     val actualHeader: Seq[String] = actualTable.data.columns
 
     val collectedActualIds: Seq[Long] =
-      actualTable.data.select(idCol).collect().map(_.get(0).toString.toLong)
+      actualTable.data.select(ID).collect().map(_.get(0).toString.toLong)
 
     def assertEqual(): Unit = {
       assert(actualTable.name == expectedTable.name)
@@ -1003,9 +966,6 @@ class SqlPlannerTest extends FunSuite
 
     private def assertCorrectIds(): Unit = {
       val actualIds: Seq[Long] = collectedActualIds
-      val baseId: Long =
-        START_BASE_TABLE_INDEX +
-          (actualIds.head - START_BASE_TABLE_INDEX) / TABLE_INDEX_INCREMENT * TABLE_INDEX_INCREMENT
       val expectedIds: Seq[Long] = baseId until (baseId + actualIds.size)
       assert(actualIds.size == actualIds.distinct.size)
       assert(actualIds.toSet == expectedIds.toSet)
@@ -1021,22 +981,24 @@ class SqlPlannerTest extends FunSuite
   }
 
   /** The equals-like operator to test that two vertex [[Table]]s are equal. */
-  sealed case class EqVertex(actualTable: Table[DataFrame], expectedTable: Table[DataFrame])
-    extends EqBase(actualTable, expectedTable, Seq(idCol))
+  sealed case class EqVertex(actualTable: Table[DataFrame], expectedTable: Table[DataFrame],
+                             baseId: Long)
+    extends EqBase(actualTable, expectedTable, Seq(ID), baseId)
 
   /** The base equals-like operator to test the equality of two edge [[Table]]s. */
-  sealed abstract class EqEdgeBase(actualTable: Table[DataFrame], expectedTable: Table[DataFrame])
-    extends EqBase(actualTable, expectedTable, Seq(idCol, fromIdCol, toIdCol)) {
+  sealed abstract class EqEdgeBase(actualTable: Table[DataFrame], expectedTable: Table[DataFrame],
+                                   baseId: Long)
+    extends EqBase(actualTable, expectedTable, Seq(ID, FROM_ID, TO_ID), baseId) {
 
     val btableIdTuples: Seq[(Long, Long, Long)] =
       expectedTableColumnsRenamed
-        .select(idCol, fromIdCol, toIdCol)
+        .select(ID, FROM_ID, TO_ID)
         .collect()
         .map(row =>
           (row.get(0).toString.toLong, row.get(1).toString.toLong, row.get(2).toString.toLong))
     val actualIdTuples: Seq[(Long, Long, Long)] =
       actualTable.data
-        .select(idCol, fromIdCol, toIdCol)
+        .select(ID, FROM_ID, TO_ID)
         .collect()
         .map(row =>
           (row.get(0).toString.toLong, row.get(1).toString.toLong, row.get(2).toString.toLong))
@@ -1059,8 +1021,9 @@ class SqlPlannerTest extends FunSuite
     override val collectedActualIds: Seq[Long] = actualEdgeIds
   }
 
-  sealed case class EqEdge(actualTable: Table[DataFrame], expectedTable: Table[DataFrame])
-    extends EqEdgeBase(actualTable, expectedTable)
+  sealed case class EqEdge(actualTable: Table[DataFrame], expectedTable: Table[DataFrame],
+                           baseId: Long)
+    extends EqEdgeBase(actualTable, expectedTable, baseId)
 
   /**
     * An [[EqEdgeBase]] operator that also checks whether the correlation between edge, source and
@@ -1073,7 +1036,7 @@ class SqlPlannerTest extends FunSuite
     * same applies to the actual table.
     *
     * Furthermore, we know, from the creation process of an entity, that the new ids of each entity
-    * are assigned in the order of the original binding table ids (see [[EntityConstruct]]). This
+    * are assigned in the order of the original binding table ids (see [[AddColumn]]). This
     * means we can create a mapping between the binding table ids and the actual ids, from the
     * ordering of the two.
     *
@@ -1123,8 +1086,9 @@ class SqlPlannerTest extends FunSuite
     * - we assert that expected_source_id == source_id_actual and
     * expected_dest_id == dest_id_actual.
     */
-  sealed case class EqEdgeFromTo(actualTable: Table[DataFrame], expectedTable: Table[DataFrame])
-    extends EqEdgeBase(actualTable, expectedTable) {
+  sealed case class EqEdgeFromTo(actualTable: Table[DataFrame], expectedTable: Table[DataFrame],
+                                 baseId: Long)
+    extends EqEdgeBase(actualTable, expectedTable, baseId) {
 
     override def assertEqual(): Unit = {
       super.assertEqual()
@@ -1144,8 +1108,9 @@ class SqlPlannerTest extends FunSuite
     * ids. Should be used when testing CONSTRUCT clauses in which the source endpoint and the edge
     * variables have been matched.
     */
-  sealed case class EqEdgeFrom(actualTable: Table[DataFrame], expectedTable: Table[DataFrame])
-    extends EqEdgeBase(actualTable, expectedTable) {
+  sealed case class EqEdgeFrom(actualTable: Table[DataFrame], expectedTable: Table[DataFrame],
+                               baseId: Long)
+    extends EqEdgeBase(actualTable, expectedTable, baseId) {
 
     override def assertEqual(): Unit = {
       super.assertEqual()
@@ -1164,8 +1129,9 @@ class SqlPlannerTest extends FunSuite
     * destination ids. Should be used when testing CONSTRUCT clauses in which the source and
     * destinations variables have been matched.
     */
-  sealed case class EqFromTo(actualTable: Table[DataFrame], expectedTable: Table[DataFrame])
-    extends EqEdgeBase(actualTable, expectedTable) {
+  sealed case class EqFromTo(actualTable: Table[DataFrame], expectedTable: Table[DataFrame],
+                             baseId: Long)
+    extends EqEdgeBase(actualTable, expectedTable, baseId) {
 
     override def assertEqual(): Unit = {
       super.assertEqual()
@@ -1198,14 +1164,14 @@ class SqlPlannerTest extends FunSuite
     val actualDf = sparkPlanner.solveBindingTable(scan)
 
     val expectedHeader: Seq[String] =
-      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+      Seq(s"c$$$LABEL", s"c$$$ID", "c$name", "c$age", "c$weight", "c$onDiet")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
       Seq(coby, hosico, maru, grumpy).toDF.withColumn(TABLE_LABEL_COL.columnName, lit("Cat"))
     compareDfs(
-      actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
-      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
+      actualDf.select(s"c$$$LABEL", s"c$$$ID", "c$name", "c$age", "c$weight", "c$onDiet"),
+      expectedDf.select(LABEL, ID, "name", "age", "weight", "onDiet"))
   }
 
   test("Binding table of EdgeScan - (c:Cat)-[e:Eats]->(f:Food)") {
@@ -1214,9 +1180,9 @@ class SqlPlannerTest extends FunSuite
 
     val expectedHeader: Seq[String] =
       Seq(
-        s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet",
-        s"e$$$labelCol", s"e$$$idCol", s"e$$$fromIdCol", s"e$$$toIdCol", "e$gramsPerDay",
-        s"f$$$labelCol", s"f$$$idCol", "f$brand")
+        s"c$$$LABEL", s"c$$$ID", "c$name", "c$age", "c$weight", "c$onDiet",
+        s"e$$$LABEL", s"e$$$ID", s"e$$$FROM_ID", s"e$$$TO_ID", "e$gramsPerDay",
+        s"f$$$LABEL", s"f$$$ID", "f$brand")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -1229,9 +1195,9 @@ class SqlPlannerTest extends FunSuite
     compareDfs(
       actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
       expectedDf.select(
-        s"c$$$labelCol", "catId", "name", "age", "weight", "onDiet",
-        s"e$$$labelCol", "eatsId", s"$fromIdCol", s"$toIdCol", "gramsPerDay",
-        s"f$$$labelCol", "foodId", "brand"))
+        s"c$$$LABEL", "catId", "name", "age", "weight", "onDiet",
+        s"e$$$LABEL", "eatsId", s"$FROM_ID", s"$TO_ID", "gramsPerDay",
+        s"f$$$LABEL", "foodId", "brand"))
   }
 
   test("Binding table of PathScan, isReachableTest = true - (c:Cat)-/@ /->(f:Food)") {
@@ -1241,8 +1207,8 @@ class SqlPlannerTest extends FunSuite
     /** isReachableTest = true => p's attributes are not included in the result. */
     val expectedHeader: Seq[String] =
       Seq(
-        s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet",
-        s"f$$$labelCol", s"f$$$idCol", "f$brand")
+        s"c$$$LABEL", s"c$$$ID", "c$name", "c$age", "c$weight", "c$onDiet",
+        s"f$$$LABEL", s"f$$$ID", "f$brand")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -1253,8 +1219,8 @@ class SqlPlannerTest extends FunSuite
     compareDfs(
       actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
       expectedDf.select(
-        s"c$$$labelCol", "catId", "name", "age", "weight", "onDiet",
-        s"f$$$labelCol", "foodId", "brand"))
+        s"c$$$LABEL", "catId", "name", "age", "weight", "onDiet",
+        s"f$$$LABEL", "foodId", "brand"))
   }
 
   test("Binding table of PathScan, isReachableTest = false, costVarDef = cost - " +
@@ -1269,10 +1235,10 @@ class SqlPlannerTest extends FunSuite
       */
     val expectedHeader: Seq[String] =
       Seq(
-        s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet",
-        s"p$$$labelCol", s"p$$$idCol", s"p$$$fromIdCol", s"p$$$toIdCol", s"p$$$edgesCol",
+        s"c$$$LABEL", s"c$$$ID", "c$name", "c$age", "c$weight", "c$onDiet",
+        s"p$$$LABEL", s"p$$$ID", s"p$$$FROM_ID", s"p$$$TO_ID", s"p$$$EDGES",
         "p$hops", "p$cost",
-        s"f$$$labelCol", s"f$$$idCol", "f$brand")
+        s"f$$$LABEL", s"f$$$ID", "f$brand")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -1287,9 +1253,9 @@ class SqlPlannerTest extends FunSuite
     compareDfs(
       actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
       expectedDf.select(
-        s"c$$$labelCol", "catId", "name", "age", "weight", "onDiet",
-        s"p$$$labelCol", "toGourmandId", s"$fromIdCol", s"$toIdCol", s"$edgesCol", "hops", "cost",
-        s"f$$$labelCol", "foodId", "brand"))
+        s"c$$$LABEL", "catId", "name", "age", "weight", "onDiet",
+        s"p$$$LABEL", "toGourmandId", s"$FROM_ID", s"$TO_ID", s"$EDGES", "hops", "cost",
+        s"f$$$LABEL", "foodId", "brand"))
   }
 
   test("Binding table of UnionAll - (c1:Cat)->(c2:Cat). Each side of the union is padded with " +
@@ -1303,9 +1269,9 @@ class SqlPlannerTest extends FunSuite
       */
     val expectedHeader: Seq[String] =
       Seq(
-        s"c1$$$labelCol", s"c1$$$idCol", "c1$name", "c1$age", "c1$weight", "c1$onDiet",
-        s"e$$$labelCol", s"e$$$idCol", s"e$$$fromIdCol", s"e$$$toIdCol", "e$since", "e$fights",
-        s"c2$$$labelCol", s"c2$$$idCol", "c2$name", "c2$age", "c2$weight", "c2$onDiet")
+        s"c1$$$LABEL", s"c1$$$ID", "c1$name", "c1$age", "c1$weight", "c1$onDiet",
+        s"e$$$LABEL", s"e$$$ID", s"e$$$FROM_ID", s"e$$$TO_ID", "e$since", "e$fights",
+        s"c2$$$LABEL", s"c2$$$ID", "c2$name", "c2$age", "c2$weight", "c2$onDiet")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -1318,9 +1284,9 @@ class SqlPlannerTest extends FunSuite
     compareDfs(
       actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
       expectedDf.select(
-        s"c1$$$labelCol", "c1Id", "c1Name", "c1Age", "c1Weight", "c1OnDiet",
-        "label", "eId", s"$fromIdCol", s"$toIdCol", "since", "fights",
-        s"c2$$$labelCol", "c2Id", "c2Name", "c2Age", "c2Weight", "c2OnDiet"))
+        s"c1$$$LABEL", "c1Id", "c1Name", "c1Age", "c1Weight", "c1OnDiet",
+        "label", "eId", s"$FROM_ID", s"$TO_ID", "since", "fights",
+        s"c2$$$LABEL", "c2Id", "c2Name", "c2Age", "c2Weight", "c2OnDiet"))
   }
 
   test("Binding table of InnerJoin - (f:Food)->(c:Country), (f). Common columns used in the join " +
@@ -1330,9 +1296,9 @@ class SqlPlannerTest extends FunSuite
 
     val expectedHeader: Seq[String] =
       Seq(
-        s"f$$$labelCol", s"f$$$idCol", "f$brand",
-        s"e$$$labelCol", s"e$$$idCol", s"e$$$fromIdCol", s"e$$$toIdCol",
-        s"c$$$labelCol", s"c$$$idCol", "c$name")
+        s"f$$$LABEL", s"f$$$ID", "f$brand",
+        s"e$$$LABEL", s"e$$$ID", s"e$$$FROM_ID", s"e$$$TO_ID",
+        s"c$$$LABEL", s"c$$$ID", "c$name")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -1346,9 +1312,9 @@ class SqlPlannerTest extends FunSuite
     compareDfs(
       actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
       expectedDf.select(
-        s"f$$$labelCol", "foodId", "brand",
-        s"e$$$labelCol", "madeInId", s"$fromIdCol", s"$toIdCol",
-        s"c$$$labelCol", "countryId", "name"))
+        s"f$$$LABEL", "foodId", "brand",
+        s"e$$$LABEL", "madeInId", s"$FROM_ID", s"$TO_ID",
+        s"c$$$LABEL", "countryId", "name"))
   }
 
   test("Binding table of CrossJoin - (f:Food), (c:Country)") {
@@ -1356,7 +1322,7 @@ class SqlPlannerTest extends FunSuite
     val actualDf = sparkPlanner.solveBindingTable(join)
 
     val expectedHeader: Seq[String] =
-      Seq(s"f$$$labelCol", s"f$$$idCol", "f$brand", s"c$$$labelCol", s"c$$$idCol", "c$name")
+      Seq(s"f$$$LABEL", s"f$$$ID", "f$brand", s"c$$$LABEL", s"c$$$ID", "c$name")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -1369,7 +1335,7 @@ class SqlPlannerTest extends FunSuite
 
     compareDfs(
       actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
-      expectedDf.select(s"f$$$labelCol", "foodId", "brand", s"c$$$labelCol", "countryId", "name"))
+      expectedDf.select(s"f$$$LABEL", "foodId", "brand", s"c$$$LABEL", "countryId", "name"))
   }
 
   test("Binding table of LeftOuterJoin - (c1:Cat) OPTIONAL (c1)-[:Enemy]->(c2). Common columns " +
@@ -1379,9 +1345,9 @@ class SqlPlannerTest extends FunSuite
 
     val expectedHeader: Seq[String] =
       Seq(
-        s"c1$$$labelCol", s"c1$$$idCol", "c1$name", "c1$age", "c1$weight", "c1$onDiet",
-        s"e$$$labelCol", s"e$$$idCol", s"e$$$fromIdCol", s"e$$$toIdCol", "e$since", "e$fights",
-        s"c2$$$labelCol", s"c2$$$idCol", "c2$name", "c2$age", "c2$weight", "c2$onDiet")
+        s"c1$$$LABEL", s"c1$$$ID", "c1$name", "c1$age", "c1$weight", "c1$onDiet",
+        s"e$$$LABEL", s"e$$$ID", s"e$$$FROM_ID", s"e$$$TO_ID", "e$since", "e$fights",
+        s"c2$$$LABEL", s"c2$$$ID", "c2$name", "c2$age", "c2$weight", "c2$onDiet")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
@@ -1393,8 +1359,8 @@ class SqlPlannerTest extends FunSuite
     compareDfs(
       actualDf.select(expectedHeader.head, expectedHeader.tail: _*),
       expectedDf.select(
-        s"c1$$$labelCol", "c1Id", "c1Name", "c1Age", "c1Weight", "c1OnDiet",
-        "elabel", "eId", s"$fromIdCol", s"$toIdCol", "since", "fights",
+        s"c1$$$LABEL", "c1Id", "c1Name", "c1Age", "c1Weight", "c1OnDiet",
+        "elabel", "eId", s"$FROM_ID", s"$TO_ID", "since", "fights",
         s"c2Label", "c2Id", "c2Name", "c2Age", "c2Weight", "c2OnDiet"))
   }
 
@@ -1404,14 +1370,14 @@ class SqlPlannerTest extends FunSuite
     val actualDf = sparkPlanner.solveBindingTable(select)
 
     val expectedHeader: Seq[String] =
-      Seq(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet")
+      Seq(s"c$$$LABEL", s"c$$$ID", "c$name", "c$age", "c$weight", "c$onDiet")
     compareHeaders(expectedHeader, actualDf)
 
     val expectedDf =
       Seq(hosico, maru).toDF.withColumn(TABLE_LABEL_COL.columnName, lit("Cat"))
     compareDfs(
-      actualDf.select(s"c$$$labelCol", s"c$$$idCol", "c$name", "c$age", "c$weight", "c$onDiet"),
-      expectedDf.select(labelCol, idCol, "name", "age", "weight", "onDiet"))
+      actualDf.select(s"c$$$LABEL", s"c$$$ID", "c$name", "c$age", "c$weight", "c$onDiet"),
+      expectedDf.select(LABEL, ID, "name", "age", "weight", "onDiet"))
   }
 
   private def extractMatchClause(query: String): AlgebraTreeNode = {
@@ -1438,9 +1404,9 @@ class SqlPlannerTest extends FunSuite
                                      fromRef: String, edgeRef: String, toRef: String): DataFrame = {
     createCatEatsFoodData(tuples)
       .toDF
-      .withColumn(s"$fromRef$$$labelCol", lit("Cat"))
-      .withColumn(s"$edgeRef$$$labelCol", lit("Eats"))
-      .withColumn(s"$toRef$$$labelCol", lit("Food"))
+      .withColumn(s"$fromRef$$$LABEL", lit("Cat"))
+      .withColumn(s"$edgeRef$$$LABEL", lit("Eats"))
+      .withColumn(s"$toRef$$$LABEL", lit("Food"))
   }
 
   private def createCatFoodTable(tuples: Seq[(Cat, Food)],
@@ -1452,8 +1418,8 @@ class SqlPlannerTest extends FunSuite
         CatFood(cat.id, cat.name, cat.age, cat.weight, cat.onDiet, food.id, food.brand)
       })
       .toDF
-      .withColumn(s"$rightRef$$$labelCol", lit("Cat"))
-      .withColumn(s"$leftRef$$$labelCol", lit("Food"))
+      .withColumn(s"$rightRef$$$LABEL", lit("Cat"))
+      .withColumn(s"$leftRef$$$LABEL", lit("Food"))
   }
 
   private
@@ -1468,9 +1434,9 @@ class SqlPlannerTest extends FunSuite
           food.id, food.brand, country.id, country.name, madeIn.id, madeIn.fromId, madeIn.toId)
       })
       .toDF
-      .withColumn(s"$fromRef$$$labelCol", lit("Food"))
-      .withColumn(s"$edgeRef$$$labelCol", lit("MadeIn"))
-      .withColumn(s"$toRef$$$labelCol", lit("Country"))
+      .withColumn(s"$fromRef$$$LABEL", lit("Food"))
+      .withColumn(s"$edgeRef$$$LABEL", lit("MadeIn"))
+      .withColumn(s"$toRef$$$LABEL", lit("Country"))
   }
 
   private def createFoodCountryTable(tuples: Seq[(Food, Country)],
@@ -1482,8 +1448,8 @@ class SqlPlannerTest extends FunSuite
         FoodCountry(food.id, food.brand, country.id, country.name)
       })
       .toDF
-      .withColumn(s"$lhsRef$$$labelCol", lit("Food"))
-      .withColumn(s"$rhsRef$$$labelCol", lit("Country"))
+      .withColumn(s"$lhsRef$$$LABEL", lit("Food"))
+      .withColumn(s"$rhsRef$$$LABEL", lit("Country"))
   }
 
   private
@@ -1502,9 +1468,9 @@ class SqlPlannerTest extends FunSuite
           pathCost)
       })
       .toDF
-      .withColumn(s"$fromRef$$$labelCol", lit("Cat"))
-      .withColumn(s"$pathRef$$$labelCol", lit("ToGourmand"))
-      .withColumn(s"$toRef$$$labelCol", lit("Food"))
+      .withColumn(s"$fromRef$$$LABEL", lit("Cat"))
+      .withColumn(s"$pathRef$$$LABEL", lit("ToGourmand"))
+      .withColumn(s"$toRef$$$LABEL", lit("Food"))
   }
 
   private
@@ -1558,8 +1524,8 @@ class SqlPlannerTest extends FunSuite
       )
 
     spark.createDataFrame(spark.sparkContext.parallelize(lhsTable ++ rhsTable), StructType(schema))
-      .withColumn(s"$fromRef$$$labelCol", lit("Cat"))
-      .withColumn(s"$toRef$$$labelCol", lit("Cat"))
+      .withColumn(s"$fromRef$$$LABEL", lit("Cat"))
+      .withColumn(s"$toRef$$$LABEL", lit("Cat"))
   }
 
   private def createCatEnemyCatTable(nullableTuples: Seq[Cat],
@@ -1605,6 +1571,6 @@ class SqlPlannerTest extends FunSuite
       )
 
     spark.createDataFrame(spark.sparkContext.parallelize(lhsTable ++ rhsTable), StructType(schema))
-      .withColumn(s"$fromRef$$$labelCol", lit("Cat"))
+      .withColumn(s"$fromRef$$$LABEL", lit("Cat"))
   }
 }

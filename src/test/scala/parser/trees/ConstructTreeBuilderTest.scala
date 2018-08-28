@@ -10,12 +10,12 @@ class ConstructTreeBuilderTest extends FunSuite
   with Matchers with Inside with MinimalSpoofaxParser {
 
   /********************************* Construct mix ************************************************/
-  test("(u) => BasicConstructClause(ConstructPattern([VertexConstruct(u)]), True)") {
+  test("(u) => CondConstructClause(ConstructPattern([VertexConstruct(u)]), True)") {
     val algebraTree = extractConstructClause("CONSTRUCT (u) MATCH (u)")
     inside(algebraTree) {
       case ConstructClause(
       _,
-      CondConstructClause(Seq(BasicConstructClause(constructPattern, True))),
+      CondConstructs(Seq(CondConstructClause(constructPattern, True))),
       _, _) =>
 
         constructPattern should matchPattern {
@@ -25,23 +25,23 @@ class ConstructTreeBuilderTest extends FunSuite
   }
 
   test("(u), (v) => " +
-    "CondConstructClause(" +
-    "BasicConstructClause(ConstructPattern(VertexConstruct(u)), True)," +
-    "BasicConstructClause(ConstructPattern(VertexConstruct(v)), True)" +
+    "CondConstructs(" +
+    "CondConstructClause(ConstructPattern(VertexConstruct(u)), True)," +
+    "CondConstructClause(ConstructPattern(VertexConstruct(v)), True)" +
     ")") {
 
     val algebraTree = extractConstructClause("CONSTRUCT (u), (v) MATCH (u), (v)")
     inside(algebraTree) {
       case ConstructClause(
       _,
-      CondConstructClause(condConstructs),
+      CondConstructs(condConstructs),
       _, _) =>
 
         assert(condConstructs.size == 2)
         condConstructs.foreach(
           basicConstructClause =>
             basicConstructClause should matchPattern {
-              case BasicConstructClause(ConstructPattern(Seq(_: ConnectionConstruct)), True) =>
+              case CondConstructClause(ConstructPattern(Seq(_: ConnectionConstruct)), True) =>
             }
         )
     }
