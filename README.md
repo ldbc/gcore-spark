@@ -1,4 +1,4 @@
-# G-CORE interpreter
+# G-CORE interpreter on Spark
 
 ## To build and run
 The project will build successfully under Java 8. Spark 2.2.0 is needed to run
