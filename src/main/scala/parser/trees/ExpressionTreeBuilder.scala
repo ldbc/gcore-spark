@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -123,6 +124,7 @@ object ExpressionTreeBuilder {
       case "False" => False
       case "String" => StringLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
       case "BasicGraphPattern" => Exists(extractGraphPattern(from))
+      case "Null" => Null
 
       /* Default case. */
       case _ => throw QueryParseException(s"Unsupported expression ${from.name}")

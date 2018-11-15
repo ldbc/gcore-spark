@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl)
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -20,7 +21,7 @@
 
 package algebra.expressions
 
-import algebra.types.{GcoreDataType, GcoreBoolean, GcoreInteger, GcoreString}
+import algebra.types._
 
 /** An actual value, such as strings, integers, booleans True and False, dates, etc. */
 abstract class Literal[T](value: T, gcoreType: GcoreDataType) extends AlgebraExpression {
@@ -33,3 +34,6 @@ case class StringLiteral(value: String) extends Literal[String](value, GcoreStri
 abstract class BooleanLiteral(value: Boolean) extends Literal[Boolean](value, GcoreBoolean)
 case object True extends BooleanLiteral(value = true)
 case object False extends BooleanLiteral(value = false)
+
+abstract class NullLiteral(value: Object) extends Literal[Object](value, GcoreNull)
+case object Null extends NullLiteral(value = null)

@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -128,12 +129,14 @@ object SqlQuery {
     expr match {
       /** Expression leaves */
       case propRef: PropertyRef => s"`${propRef.ref.refName}$$${propRef.propKey.key}`"
+      case nodeRef: Reference => s"`${nodeRef.refName}$$id`"
       case StringLiteral(value) =>
         if (value.startsWith("'") && value.endsWith("'")) value else s"'$value'"
       case IntLiteral(value) => value.toString
       case Star => "*"
       case True => "True"
       case False => "False"
+      case Null => "NULL"
 
       /** Exists subclause. */
       case _: Exists =>
