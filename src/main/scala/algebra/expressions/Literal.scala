@@ -4,7 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
- * - Universidad de Talca (www.utalca.cl)
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -37,3 +37,6 @@ case object False extends BooleanLiteral(value = false)
 
 abstract class NullLiteral(value: Object) extends Literal[Object](value, GcoreNull)
 case object Null extends NullLiteral(value = null)
+
+case class DateLiteral(value: String) extends Literal[String](value, GcoreDate)
+case class TimeStampLiteral(value: String) extends Literal[String](value, GcoreTimestamp)

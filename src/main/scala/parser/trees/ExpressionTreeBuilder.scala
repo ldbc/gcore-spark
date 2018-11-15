@@ -125,6 +125,8 @@ object ExpressionTreeBuilder {
       case "String" => StringLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
       case "BasicGraphPattern" => Exists(extractGraphPattern(from))
       case "Null" => Null
+      case "Date" => DateLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
+      case "Timestamp" => TimeStampLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
 
       /* Default case. */
       case _ => throw QueryParseException(s"Unsupported expression ${from.name}")

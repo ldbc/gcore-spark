@@ -137,6 +137,8 @@ object SqlQuery {
       case True => "True"
       case False => "False"
       case Null => "NULL"
+      case DateLiteral(value) => if (value.startsWith("'") && value.endsWith("'")) value else s"'$value'"
+      case TimeStampLiteral(value) => if (value.startsWith("'") && value.endsWith("'")) value else s"'$value'"
 
       /** Exists subclause. */
       case _: Exists =>
