@@ -96,7 +96,7 @@ trait TestGraph {
 
   def catsGraph(sparkSession: SparkSession): SparkGraph = new SparkGraph {
 
-    override def graphName: String = "cats graph"
+    override var graphName: String = "cats graph"
 
     import sparkSession.implicits._
 

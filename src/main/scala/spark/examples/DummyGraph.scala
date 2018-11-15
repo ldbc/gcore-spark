@@ -95,7 +95,7 @@ case class DummyGraph(spark: SparkSession) extends SparkGraph {
 
   import spark.implicits._
 
-  override def graphName: String = "dummy_graph"
+  override var graphName: String = "dummy_graph"
 
   override def vertexData: Seq[Table[DataFrame]] =
     Seq(

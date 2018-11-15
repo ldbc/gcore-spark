@@ -47,7 +47,7 @@ case class PeopleGraph(spark: SparkSession) extends SparkGraph {
 
   import spark.implicits._
 
-  override def graphName: String = "people_graph"
+  override var graphName: String = "people_graph"
 
   override def vertexData: Seq[Table[DataFrame]] =
     Seq(

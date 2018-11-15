@@ -51,7 +51,7 @@ class SparkGraphTest extends FunSuite
     val travelRouteTable = Table(name = Label("travelRoute"), data = travelRouteDf)
 
     val graph = new SparkGraph {
-      override def graphName: String = "test_graph"
+      override var graphName: String = "test_graph"
       override def pathData: Seq[Table[DataFrame]] = Seq(travelRouteTable)
       override def vertexData: Seq[Table[DataFrame]] = Seq(peopleTable, cityTable)
       override def edgeData: Seq[Table[DataFrame]] = Seq(bornInTable, roadTable)

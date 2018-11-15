@@ -219,7 +219,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
 
     // Union all data from construct clauses into a single PathPropertyGraph.
     val graph: SparkGraph = new SparkGraph {
-      override def graphName: String = randomString(length = GRAPH_NAME_LENGTH)
+      override var graphName: String = randomString(length = GRAPH_NAME_LENGTH)
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 

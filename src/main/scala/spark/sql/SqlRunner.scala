@@ -20,12 +20,13 @@
 
 package spark.sql
 
-import algebra.operators.GraphCreate
+import algebra.operators.{Create, Drop, GraphCreate}
 import algebra.trees.AlgebraTreeNode
 import common.exceptions.UnsupportedOperation
 import compiler.{CompileContext, RunTargetCodeStage}
 import org.apache.spark.sql.DataFrame
 import schema.PathPropertyGraph
+import spark.{Directory, SaveGraph}
 
 /** Runs the query plan created by the [[SqlPlanner]] on Spark. */
 case class SqlRunner(compileContext: CompileContext) extends RunTargetCodeStage {
@@ -40,6 +41,27 @@ case class SqlRunner(compileContext: CompileContext) extends RunTargetCodeStage 
         val matchData: DataFrame = sparkSqlPlanner.solveBindingTable(matchClause)
         val graph: PathPropertyGraph = sparkSqlPlanner.constructGraph(matchData, groupConstructs)
         graph
+
+
+      case storeGraph : Create =>
+        var graph: PathPropertyGraph = runStage(storeGraph.children.head)
+        graph.graphName = storeGraph.getGraphName
+        compileContext.catalog.registerGraph(graph)
+
+        val saveGraph = SaveGraph()
+        saveGraph.saveJsonGraph(graph,compileContext.catalog.databaseDirectory)
+        graph
+
+      case dropGraph : Drop =>
+        var graph = compileContext.catalog.graph(dropGraph.graphName)
+        compileContext.catalog.unregisterGraph(graph)
+        var directory: Directory = new Directory
+        var dropped = directory.deleteGraph(graph.graphName,compileContext.catalog.databaseDirectory)
+        if(dropped)
+          println("The graph was successfully dropped")
+        else
+          println("The graph was only dropped from the catalog, please check database directory.")
+        null
 
       case _ =>
         throw UnsupportedOperation(s"Cannot run query on input type ${input.name}")

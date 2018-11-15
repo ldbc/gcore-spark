@@ -39,7 +39,7 @@ trait TestGraphWrapper {
     * path labels:   ToGourmand - hops: Int
     */
   val catsGraph: PathPropertyGraph = new PathPropertyGraph {
-    override def graphName: String = "cats graph"
+    override var graphName: String = "cats graph"
 
     override type StorageType = Nothing
 

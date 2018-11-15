@@ -68,7 +68,7 @@ class SpoofaxParserTest extends FunSuite
   val peopleGraph: PathPropertyGraph = new PathPropertyGraph {
     override type StorageType = Nothing
 
-    override def graphName: String = "people"
+    override var graphName: String = "people"
 
     override def vertexSchema: EntitySchema = peopleVertexSchema
     override def edgeSchema: EntitySchema = peopleEdgeSchema

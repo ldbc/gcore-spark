@@ -146,7 +146,7 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (c) MATCH (c)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -176,7 +176,7 @@ class SqlPlannerTest extends FunSuite
       extractConstructClauses("CONSTRUCT (c {dw := 2 * c.weight}) SET c.constInt := 1 MATCH (c)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -208,7 +208,7 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (c) REMOVE c.onDiet REMOVE c:Cat MATCH (c)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -239,7 +239,7 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (c) WHEN c.age >= 5 MATCH (c)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -266,7 +266,7 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (x :XLabel {constInt := 1}) MATCH (c)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -295,7 +295,7 @@ class SqlPlannerTest extends FunSuite
     val vertex = extractConstructClauses("CONSTRUCT (x GROUP c.onDiet :XLabel) MATCH (c)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -327,7 +327,7 @@ class SqlPlannerTest extends FunSuite
         "CONSTRUCT (x GROUP c.onDiet :XLabel {avgw := AVG(c.weight)}) MATCH (c)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, vertex)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -355,7 +355,7 @@ class SqlPlannerTest extends FunSuite
     val edge = extractConstructClauses("CONSTRUCT (c)-[e]->(f) MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, edge)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -402,7 +402,7 @@ class SqlPlannerTest extends FunSuite
     val expectedBtable = bindingTable.withColumn(s"b$$$ID", lit(1))
 
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -450,7 +450,7 @@ class SqlPlannerTest extends FunSuite
         .withColumn(s"b$$$ID", lit(2))
 
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -490,7 +490,7 @@ class SqlPlannerTest extends FunSuite
     val edge = extractConstructClauses("CONSTRUCT (c)-[x :XLabel]-(f) MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, edge)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -547,7 +547,7 @@ class SqlPlannerTest extends FunSuite
         .withColumn(s"x$$$TO_ID", expr(s"`b$$$ID`"))
 
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -585,7 +585,7 @@ class SqlPlannerTest extends FunSuite
         "CONSTRUCT (c)-[x]->(d GROUP c.onDiet) MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, edge)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -639,7 +639,7 @@ class SqlPlannerTest extends FunSuite
           "MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, edge)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -713,7 +713,7 @@ class SqlPlannerTest extends FunSuite
         "CONSTRUCT (c)-[e0 :e0Label]->(f)-[e1 :e1Label]->(c) MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, group)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -771,7 +771,7 @@ class SqlPlannerTest extends FunSuite
       "CONSTRUCT (c)-[e0 :e0Label]->(x :XLabel)-[e1 :e1Label]->(f) MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, group)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 
@@ -835,7 +835,7 @@ class SqlPlannerTest extends FunSuite
           "MATCH (c)-[e]->(f)")
     val actualGraph = sparkPlanner.constructGraph(bindingTable, group)
     val expectedGraph = new SparkGraph {
-      override def graphName: String = FOO_GRAPH_NAME
+      override var graphName: String = FOO_GRAPH_NAME
 
       override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
 

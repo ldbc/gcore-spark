@@ -43,7 +43,7 @@ abstract class GraphSource(spark: SparkSession) {
   /** Loads a [[SparkGraph]] from a [[GraphJsonConfig]] object. */
   def loadGraph(graphConfig: GraphJsonConfig): SparkGraph =
     new SparkGraph {
-      override def graphName: String = graphConfig.graphName
+      override var graphName: String = graphConfig.graphName
 
       override def pathData: Seq[Table[DataFrame]] = loadData(graphConfig.pathFiles)
 

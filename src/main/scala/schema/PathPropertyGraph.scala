@@ -29,7 +29,7 @@ import algebra.expressions.Label
   */
 abstract class PathPropertyGraph extends GraphSchema with GraphData {
 
-  def graphName: String
+  var graphName: String
 
   def isEmpty: Boolean =
     vertexData.isEmpty && edgeData.isEmpty && pathData.isEmpty
@@ -49,7 +49,7 @@ object PathPropertyGraph {
 
   val empty: PathPropertyGraph = new PathPropertyGraph {
 
-    override def graphName: String = "PathPropertyGraph.empty"
+    override var graphName: String = "PathPropertyGraph.empty"
     override def vertexData: Seq[Table[StorageType]] = Seq.empty
     override def edgeData: Seq[Table[StorageType]] = Seq.empty
     override def pathData: Seq[Table[StorageType]] = Seq.empty

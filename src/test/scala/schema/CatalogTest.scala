@@ -26,14 +26,14 @@ import org.scalatest.FunSuite
 class CatalogTest extends FunSuite {
 
   val graph1: PartialGraph = new PartialGraph {
-    override def graphName: String = "graph1"
+    override var graphName: String = "graph1"
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
   }
 
   val graph2: PartialGraph = new PartialGraph {
-    override def graphName: String = "graph2"
+    override var graphName: String = "graph2"
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
