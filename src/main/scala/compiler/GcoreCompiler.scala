@@ -22,7 +22,7 @@
 package compiler
 
 import algebra.AlgebraRewriter
-import algebra.operators.{Create, Drop, Query}
+import algebra.operators.{Create, Drop, Query, View}
 import algebra.trees.{AlgebraContext, AlgebraTreeNode}
 import parser.SpoofaxParser
 import parser.trees.ParseContext
@@ -56,6 +56,15 @@ case class GcoreCompiler(context: CompileContext) extends Compiler {
           println("The graph " + drop.getGraphName + " not exists")
         else {
           var rewrited: AlgebraTreeNode = rewriter(parsed)
+          target(rewrited)
+        }
+      case view : View =>
+        var qCreate = parsed.asInstanceOf[View]
+        if (qCreate.exist)
+          println("The graph "+ qCreate.getGraphName+ " already exists")
+        else
+        {
+          var rewrited: AlgebraTreeNode  = rewriter(parsed)
           target(rewrited)
         }
     }

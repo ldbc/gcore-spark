@@ -21,7 +21,7 @@
 
 package parser.trees
 
-import algebra.operators.{Create, Drop, _}
+import algebra.operators.{Create, Drop, View, _}
 import algebra.trees.AlgebraTreeNode
 import common.trees.TreeBuilder
 import parser.trees.QueryTreeBuilder.extractQueryClause
@@ -45,6 +45,9 @@ object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNo
         Create(from.children.head.asInstanceOf[SpoofaxLeaf[String]].leafValue.toString,query)
       case "Drop" =>
         Drop(from.children.head.asInstanceOf[SpoofaxLeaf[String]].leafValue.toString)
+      case "View" =>
+        val query: Query = extractQueryClause(from.children(1))
+        View(from.children.head.asInstanceOf[SpoofaxLeaf[String]].leafValue.toString,query)
 
 
     }

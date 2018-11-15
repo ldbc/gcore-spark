@@ -21,7 +21,7 @@
 package parser
 
 import compiler.ParseStage
-import algebra.operators.{Create, Drop, Query}
+import algebra.operators.{Create, Drop, Query, View}
 import algebra.trees.{AlgebraTreeNode, QueryContext}
 import org.metaborg.spoofax.core.Spoofax
 import org.slf4j.{Logger, LoggerFactory}
@@ -60,6 +60,10 @@ case class SpoofaxParser(context: ParseContext) extends ParseStage {
       case drop: Drop =>
         drop.exist = context.catalog.hasGraph(drop.graphName)
         drop
+      case view: View=>
+        view.query.checkWithContext(QueryContext(context.catalog))
+        view.exist = context.catalog.hasGraph(view.graphName)
+        view
     }
   }
 }

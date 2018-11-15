@@ -20,7 +20,7 @@
 
 package spark.sql
 
-import algebra.operators.{Create, Drop, GraphCreate}
+import algebra.operators.{Create, Drop, GraphCreate, View}
 import algebra.trees.AlgebraTreeNode
 import common.exceptions.UnsupportedOperation
 import compiler.{CompileContext, RunTargetCodeStage}
@@ -62,6 +62,12 @@ case class SqlRunner(compileContext: CompileContext) extends RunTargetCodeStage 
         else
           println("The graph was only dropped from the catalog, please check database directory.")
         null
+
+      case viewGraph : View =>
+        var graph: PathPropertyGraph = runStage(viewGraph.children.head)
+        graph.graphName = viewGraph.getGraphName
+        compileContext.catalog.registerGraph(graph)
+        graph
 
       case _ =>
         throw UnsupportedOperation(s"Cannot run query on input type ${input.name}")
