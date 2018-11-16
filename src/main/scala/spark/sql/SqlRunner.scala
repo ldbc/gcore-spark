@@ -50,6 +50,7 @@ case class SqlRunner(compileContext: CompileContext) extends RunTargetCodeStage 
 
         val saveGraph = SaveGraph()
         saveGraph.saveJsonGraph(graph,compileContext.catalog.databaseDirectory)
+        println("The graph was created")
         graph
 
       case dropGraph : Drop =>
@@ -67,6 +68,7 @@ case class SqlRunner(compileContext: CompileContext) extends RunTargetCodeStage 
         var graph: PathPropertyGraph = runStage(viewGraph.children.head)
         graph.graphName = viewGraph.getGraphName
         compileContext.catalog.registerGraph(graph)
+        println("The graph view was created")
         graph
 
       case _ =>
