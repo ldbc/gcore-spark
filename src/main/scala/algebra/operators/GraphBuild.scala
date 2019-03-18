@@ -6,8 +6,8 @@
  * - CWI (www.cwi.nl), 2017-2018
  * - Universidad de Talca (www.utalca.cl), 2018
  *
- * This software is released in open source under the Apache License, 
- * Version 2.0 (the "License"); you may not use this file except in 
+ * This software is released in open source under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -19,19 +19,21 @@
  * limitations under the License.
  */
 
-package algebra.trees
+package algebra.operators
 
-import algebra.operators._
-import common.exceptions.UnsupportedOperation
-import common.trees.TopDownRewriter
+import algebra.trees.AlgebraTreeNode
+import common.compiler.Context
 
-object BasicQueriesToGraphs extends TopDownRewriter[AlgebraTreeNode] {
+/**
+  * The operation of building a new graph from a rewritten [[MatchClause]] clause and all the
+  * rewritten [[CondConstructClause]]s.
+  */
+case class GraphBuild(matchClause: AlgebraTreeNode,
+                      groupConstructs: Seq[AlgebraTreeNode] ,
+                      matchWhere: AlgebraTreeNode) extends GcoreOperator {
 
-  override val rule: BasicQueriesToGraphs.RewriteFuncType = {
-    case q: Query =>
-      GraphBuild(
-        matchClause = q.getMatchClause,
-        groupConstructs = q.getConstructClause.children,
-        matchWhere = q.matchClause.whereClause)
-  }
+
+  children = matchClause  +: groupConstructs
+
+  override def checkWithContext(context: Context): Unit = {}
 }

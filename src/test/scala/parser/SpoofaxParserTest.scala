@@ -208,5 +208,8 @@ class SpoofaxParserTest extends FunSuite
         "CONSTRUCT () " +
         "MATCH ({age > 24})-[{since = 2018}]-({name = Amsterdam}) ON people"
     }
+
   }
+
+
 }

@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -20,7 +21,7 @@
 
 package spark.sql
 
-import algebra.operators.{Create, Drop, GraphCreate, View}
+import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import common.exceptions.UnsupportedOperation
 import compiler.{CompileContext, RunTargetCodeStage}
@@ -34,12 +35,14 @@ case class SqlRunner(compileContext: CompileContext) extends RunTargetCodeStage 
   override def runStage(input: AlgebraTreeNode): PathPropertyGraph = {
     val sparkSqlPlanner: SqlPlanner = SqlPlanner(compileContext)
     input match {
-      case createGraph: GraphCreate =>
-        val matchClause: AlgebraTreeNode = createGraph.matchClause
-        val groupConstructs: Seq[AlgebraTreeNode] = createGraph.groupConstructs
+      case buildGraph: GraphBuild =>
+        val matchClause: AlgebraTreeNode = buildGraph.matchClause
+        val groupConstructs: Seq[AlgebraTreeNode] = buildGraph.groupConstructs
+        val matchWhere: AlgebraTreeNode = buildGraph.matchWhere
 
-        val matchData: DataFrame = sparkSqlPlanner.solveBindingTable(matchClause)
-        val graph: PathPropertyGraph = sparkSqlPlanner.constructGraph(matchData, groupConstructs)
+        val matchData: DataFrame = sparkSqlPlanner.solveBindingTable(matchClause,matchWhere)
+        val constructBindingTable : DataFrame = sparkSqlPlanner.generateConstructBindingTable(matchData, groupConstructs)
+        val graph: PathPropertyGraph = sparkSqlPlanner.constructGraph(constructBindingTable, groupConstructs)
         graph
 
 

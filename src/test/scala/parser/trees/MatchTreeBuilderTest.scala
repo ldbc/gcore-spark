@@ -20,7 +20,7 @@
 
 package parser.trees
 
-import algebra.expressions.Reference
+import algebra.expressions.{Reference, True}
 import algebra.operators.{CondMatchClause, MatchClause, Query, SimpleMatchClause}
 import algebra.trees.AlgebraTreeNode
 import algebra.types._
@@ -35,7 +35,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
     algebraTree should matchPattern {
       case MatchClause(
       /*u =>*/ CondMatchClause(Seq(_: SimpleMatchClause), _),
-      /*v =>*/ Seq(CondMatchClause(Seq(_: SimpleMatchClause), _)))=>
+      /*v =>*/ Seq(CondMatchClause(Seq(_: SimpleMatchClause), _)),True)=>
     }
   }
 
@@ -46,7 +46,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
     inside (algebraTree) {
       case MatchClause(
       /* non optional */ CondMatchClause(Seq(SimpleMatchClause(graphPattern, _)), _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPattern should matchPattern {
           case GraphPattern(
@@ -65,7 +65,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       /*u =>*/ SimpleMatchClause(graphPatternU, _),
       /*v =>*/ SimpleMatchClause(graphPatternV, _)),
       /*where =*/ _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPatternU should matchPattern {
           case GraphPattern(
@@ -88,7 +88,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       Seq(
       /*u->v =>*/ SimpleMatchClause(graphPattern, _)),
       /*where =*/ _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPattern should matchPattern {
           case GraphPattern(
@@ -112,7 +112,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       /*u->v =>*/ SimpleMatchClause(graphPattern1, _),
       /*v->w =>*/ SimpleMatchClause(graphPattern2, _)),
       /*where =*/ _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPattern1 should matchPattern {
           case GraphPattern(
@@ -145,7 +145,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       Seq(
       /*u->v->w =>*/ SimpleMatchClause(graphPattern, _)),
       /*where =*/ _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPattern should matchPattern {
           case GraphPattern(Seq(
@@ -164,7 +164,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       case MatchClause(
       /* non optional */ CondMatchClause(
       Seq(/*u-/p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPattern should matchPattern {
           case GraphPattern(Seq(Path(_, _, _, _, _, _, _, _, false, _))) =>
@@ -179,7 +179,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       case MatchClause(
       /* non optional */ CondMatchClause(
       Seq(/*u-/@p/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPattern should matchPattern {
           case GraphPattern(Seq(Path(_, _, _, _, _, _, _, _, true, _))) =>
@@ -194,7 +194,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       case MatchClause(
       /* non optional */ CondMatchClause(
       Seq(/*u-/@/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graphPattern should matchPattern {
           case GraphPattern(Seq(Path(_, true, _, _, _, _, _, _, _, _))) =>
@@ -209,7 +209,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
       case MatchClause(
       /* non optional */ CondMatchClause(
       Seq(/*u-/@/->v =>*/ SimpleMatchClause(graphPattern, _)), /*where =*/ _),
-      /* optional */ _)=>
+      /* optional */ _,True)=>
 
         graphPattern should matchPattern {
           case GraphPattern(Seq(Path(_, false, _, _, _, _, _, _, _, _))) =>
@@ -224,7 +224,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
     inside (algebraTree) {
       case MatchClause(
       /* non optional */ CondMatchClause(Seq(SimpleMatchClause(_, graph)), _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graph should matchPattern { case DefaultGraph => }
     }
@@ -236,7 +236,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
     inside (algebraTree) {
       case MatchClause(
       /* non optional */ CondMatchClause(Seq(SimpleMatchClause(_, graph)), _),
-      /* optional */_) =>
+      /* optional */_,True) =>
 
         graph should matchPattern { case NamedGraph("social_graph") => }
     }
@@ -248,7 +248,7 @@ class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with Minim
     inside (algebraTree) {
       case MatchClause(
       /* non optional */ CondMatchClause(Seq(SimpleMatchClause(_, graph)), _),
-      /* optional */ _) =>
+      /* optional */ _,True) =>
 
         graph should matchPattern { case _: QueryGraph => }
     }

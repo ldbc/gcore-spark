@@ -4,9 +4,10 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
- * This software is released in open source under the Apache License, 
- * Version 2.0 (the "License"); you may not use this file except in 
+ * This software is released in open source under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -34,10 +35,14 @@ abstract class ConstructLike extends GcoreOperator {
   * unioned with graphs resulting from [[CondConstructs]]s. Additionally, the resulting graph
   * can be updated with [[SetClause]]s and [[RemoveClause]]s.
   */
-case class ConstructClause(graphs: GraphUnion, condConstructs: CondConstructs,
-                           setClause: SetClause, removeClause: RemoveClause) extends ConstructLike {
+case class ConstructClause(constructExp: Seq[ConstructExp]) extends ConstructLike {
 
-  children = List(graphs, condConstructs, setClause, removeClause)
+  children = constructExp
+}
+case class ConstructExp(graphs: GraphUnion, condConstructs: CondConstructs, where: Where,
+                        setClause: SetClause, removeClause: RemoveClause, having:Having) extends  ConstructLike
+{
+  children= List(graphs,condConstructs,where, setClause, removeClause,having)
 }
 
 /** A wrapper over a sequence of [[CondConstructClause]]s. */
@@ -46,11 +51,10 @@ case class CondConstructs(condConstructs: Seq[CondConstructClause]) extends Cons
 }
 
 /**
-  * The most basic construction clause, that specifies a [[ConstructPattern]] for the binding table
-  * and a WHEN condition for additional filtering on the table.
+  * The most basic construction clause, that specifies a [[ConstructPattern]] for the binding table.
   */
-case class CondConstructClause(constructPattern: ConstructPattern, when: AlgebraExpression)
+case class CondConstructClause(constructPattern: ConstructPattern)
   extends ConstructLike {
 
-  children = List(constructPattern, when)
+  children = List(constructPattern)
 }

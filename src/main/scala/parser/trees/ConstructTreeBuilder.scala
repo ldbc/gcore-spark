@@ -4,9 +4,10 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
- * This software is released in open source under the Apache License, 
- * Version 2.0 (the "License"); you may not use this file except in 
+ * This software is released in open source under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -33,44 +34,67 @@ object ConstructTreeBuilder {
 
   /** Creates a [[ConstructClause]] from a given Construct node. */
   def extractConstructClause(from: SpoofaxBaseTreeNode): ConstructClause = {
-    val constructPattern = from.children.head
-    val graphs: mutable.ArrayBuffer[Graph] = new mutable.ArrayBuffer[Graph]()
-    val constructClauses: mutable.ArrayBuffer[CondConstructClause] =
-      new mutable.ArrayBuffer[CondConstructClause]()
-    val propSets: mutable.ArrayBuffer[PropertySet] = new mutable.ArrayBuffer[PropertySet]()
-    val propRemoves: mutable.ArrayBuffer[PropertyRemove] = new mutable.ArrayBuffer[PropertyRemove]()
-    val labelRemoves: mutable.ArrayBuffer[LabelRemove] = new mutable.ArrayBuffer[LabelRemove]()
 
-    constructPattern.children.foreach {
-      case namedGraph: SpoofaxLeaf[_] =>
-        graphs += NamedGraph(namedGraph.asInstanceOf[SpoofaxLeaf[String]].leafValue)
+    val constructs= from.children
+    val constructExps: mutable.ArrayBuffer[ConstructExp] = new mutable.ArrayBuffer[ConstructExp]()
 
-      case queryGraph: SpoofaxTreeNode if queryGraph.name == "BasicQuery" =>
-        graphs += QueryGraph(extractQueryClause(queryGraph))
+    constructs.foreach( constructPattern =>{
+      val constructExp = constructPattern.children.head
+      val constructWhere: mutable.ArrayBuffer[AlgebraExpression] = new mutable.ArrayBuffer[AlgebraExpression]()
+      val constructHaving: mutable.ArrayBuffer[AlgebraExpression] = new mutable.ArrayBuffer[AlgebraExpression]()
+      val graphs: mutable.ArrayBuffer[Graph] = new mutable.ArrayBuffer[Graph]()
+      val constructClauses: mutable.ArrayBuffer[CondConstructClause] = new mutable.ArrayBuffer[CondConstructClause]()
+      val propSets: mutable.ArrayBuffer[PropertySet] = new mutable.ArrayBuffer[PropertySet]()
+      val propRemoves: mutable.ArrayBuffer[PropertyRemove] = new mutable.ArrayBuffer[PropertyRemove]()
+      val labelRemoves: mutable.ArrayBuffer[LabelRemove] = new mutable.ArrayBuffer[LabelRemove]()
 
-      case basicConstruct: SpoofaxTreeNode if basicConstruct.name == "BasicConstructPattern" =>
-        constructClauses += extractBasicConstructClause(basicConstruct)
+      constructExp.children.foreach {
+        case namedGraph: SpoofaxLeaf[_] =>
+          graphs += NamedGraph(namedGraph.asInstanceOf[SpoofaxLeaf[String]].leafValue)
 
-      case propSet: SpoofaxTreeNode if propSet.name == "SetClause" =>
-        propSets += extractPropertySet(propSet)
+        case queryGraph: SpoofaxTreeNode if queryGraph.name == "BasicQuery" =>
+          graphs += QueryGraph(extractQueryClause(queryGraph))
 
-      case remove: SpoofaxTreeNode
-        if (remove.name == "Property") || (remove.name == "Labels") =>
+        case whereCondition: SpoofaxTreeNode if whereCondition.name == "Some" && whereCondition.children.head.name == "ConstructWhere" =>
+          constructWhere += extractWhen(whereCondition)
 
-        val update: AlgebraExpression = extractRemoveClause(remove)
-        update match {
-          case propRemove: PropertyRemove => propRemoves += propRemove
-          case labelRemove: LabelRemove => labelRemoves += labelRemove
-        }
+        case whereCondition: SpoofaxTreeNode if whereCondition.name == "None" => True
 
-      case _ => throw QueryParseException(s"Unknown ConstructPattern child type ${from.name}")
-    }
+        case havingCondition: SpoofaxTreeNode if havingCondition.name == "Some" && havingCondition.children.head.name == "ConstructHaving" =>
+          constructHaving += extractWhen(havingCondition)
 
+        case havingCondition: SpoofaxTreeNode if havingCondition.name == "None" => True
+
+        case basicConstruct: SpoofaxTreeNode if basicConstruct.name == "BasicConstructPattern" =>
+          constructClauses += extractBasicConstructClause(basicConstruct)
+
+        case propSet: SpoofaxTreeNode if propSet.name == "SetClause" =>
+          propSets += extractPropertySet(propSet)
+
+        case remove: SpoofaxTreeNode
+          if (remove.name == "Property") || (remove.name == "Labels") =>
+
+          val update: AlgebraExpression = extractRemoveClause(remove)
+          update match {
+            case propRemove: PropertyRemove => propRemoves += propRemove
+            case labelRemove: LabelRemove => labelRemoves += labelRemove
+          }
+
+        case _ => throw QueryParseException(s"Unknown ConstructPattern child type ${from.name}")
+      }
+      constructExps+=
+        ConstructExp(
+          graphs = GraphUnion(graphs),
+          condConstructs = CondConstructs(constructClauses),
+          where = Where(constructWhere),
+          setClause = SetClause(propSets),
+          removeClause = RemoveClause(propRemoves, labelRemoves),
+          having = Having(constructHaving)
+        )
+    })
     ConstructClause(
-      graphs = GraphUnion(graphs),
-      condConstructs = CondConstructs(constructClauses),
-      setClause = SetClause(propSets),
-      removeClause = RemoveClause(propRemoves, labelRemoves))
+      constructExp = constructExps
+    )
   }
 
   /** Creates a [[CondConstructClause]] from a given BasicConstructPattern node. */
@@ -79,8 +103,7 @@ object ConstructTreeBuilder {
       case "BasicConstructPattern" =>
         CondConstructClause(
           constructPattern =
-            ConstructPattern(extractConstructTopology(from.children.init, prevRef = None)),
-          when = extractWhen(from.children.last))
+            ConstructPattern(extractConstructTopology(from.children, prevRef = None)))
       case _ =>
         throw QueryParseException(
           s"Cannot extract CondConstructClause from node type ${from.name}")
@@ -335,7 +358,8 @@ object ConstructTreeBuilder {
       case "None" => True
       // Some(Where(...)) for match or Some(ConstructCondition(...)) for construct
       case "Some" => extractWhen(from.children.head)
-      case "ConstructCondition" => extractExpression(from.children.head)
+      case "ConstructWhere" => extractExpression(from.children.head)
+      case "ConstructHaving" => extractExpression(from.children.head)
       case _ => throw QueryParseException(s"Cannot extract Expression from node type ${from.name}")
     }
   }

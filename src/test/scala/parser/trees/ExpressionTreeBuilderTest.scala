@@ -36,7 +36,7 @@ class ExpressionTreeBuilderTest extends FunSuite
       _,
       MatchClause(
       /* non optional */ CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr),
-      /* optional */ _)) =>
+      /* optional */ _,True)) =>
 
         expr should matchPattern { case Exists(GraphPattern(_)) => }
     }
@@ -254,7 +254,7 @@ class ExpressionTreeBuilderTest extends FunSuite
       _,
       MatchClause(
       /* non optional */ CondMatchClause(/*simpleMatchClauses =*/ _, /*where =*/ expr),
-      /* optional */ _)) =>
+      /* optional */ _,True)) =>
 
         expr should matchPattern { case `expected` => }
     }

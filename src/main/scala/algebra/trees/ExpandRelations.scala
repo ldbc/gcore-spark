@@ -4,9 +4,10 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
- * This software is released in open source under the Apache License, 
- * Version 2.0 (the "License"); you may not use this file except in 
+ * This software is released in open source under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -91,7 +92,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       // For both non-optional and optional match clauses, replace the SimpleMatchClauses with
       // SimpleMatchRelations and merge all SimpleMatchRelations into the allSimpleMatches buffer.
       // We want to perform label resolution on all patterns as a whole.
-      matchClause.children.foreach(
+      matchClause.children.filter(child => child.isInstanceOf[CondMatchClause]).foreach(
         condMatch => {
           val simpleMatches: Seq[SimpleMatchRelation] =
             toMatchRelations(condMatch.asInstanceOf[CondMatchClause])

@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -185,21 +186,26 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
 
   private val constructClause: RewriteFuncType = {
     case construct: ConstructClause =>
-      val setClause: SetClause = construct.children(2).asInstanceOf[SetClause]
-      val removeClause: RemoveClause = construct.children.last.asInstanceOf[RemoveClause]
-      val refToSetAssignments: Map[Reference, Seq[AlgebraExpression]] = mapRefToPropSets(setClause)
-      val refToRemoveAssignments: Map[Reference, Seq[AlgebraExpression]] =
-        mapRefToRemoves(removeClause)
+      construct.children.foreach(constructPattern=>{
+        val setClause: SetClause = constructPattern.children(3).asInstanceOf[SetClause]
+        val removeClause: RemoveClause = constructPattern.children(4).asInstanceOf[RemoveClause]
+        val refToSetAssignments: Map[Reference, Seq[AlgebraExpression]] = mapRefToPropSets(setClause)
+        val refToRemoveAssignments: Map[Reference, Seq[AlgebraExpression]] =
+          mapRefToRemoves(removeClause)
+        //val where = construct.where
 
-      // Rewrite construct's children to group constructs.
-      val condConstructs: Seq[AlgebraTreeNode] = construct.children(1).children
-      val groupConstructs: Seq[GroupConstruct] =
-        condConstructs.map(condConstruct =>
-          createGroupConstruct(
-            condConstruct.asInstanceOf[CondConstructClause],
-            refToSetAssignments, refToRemoveAssignments))
+        // Rewrite construct's children to group constructs.
+        val condConstructs: Seq[AlgebraTreeNode] = constructPattern.children(1).children
+        val groupConstructs: Seq[GroupConstruct] =
+          condConstructs.map(condConstruct =>
+            createGroupConstruct(
+              condConstruct.asInstanceOf[CondConstructClause],
+              refToSetAssignments, refToRemoveAssignments))
 
-      construct.children = groupConstructs
+        constructPattern.children = groupConstructs
+
+      })
+
       construct
   }
 
@@ -213,20 +219,20 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
 
     val constructPattern: ConstructPattern =
       condConstructClause.children.head.asInstanceOf[ConstructPattern]
-    val when: AlgebraExpression = condConstructClause.children.last.asInstanceOf[AlgebraExpression]
+    //val when: AlgebraExpression = constructPattern. // ex when where aqui
 
     val baseConstructViewName: String = s"${BASE_CONSTRUCT_VIEW_PREFIX}_${randomString()}"
     val vertexConstructViewName: String = s"${VERTEX_CONSTRUCT_VIEW_PREFIX}_${randomString()}"
 
     // Filter the binding table by the expression in WHEN.
-    val filteredBindingTable: RelationLike = Select(relation = bindingTableView, expr = when)
+    val filteredBindingTable: RelationLike = Select(relation = bindingTableView, expr = True)
     val baseConstructTableView: BaseConstructTableView =
       BaseConstructTableView(baseConstructViewName, filteredBindingTable.getBindingSet)
 
     // Create a mapping between each variable in the construct pattern and its respective label and
     // property SET assignments.
     val patternRefToSetAssignments: Map[Reference, Seq[AlgebraExpression]] =
-      mapRefToSets(constructPattern)
+    mapRefToSets(constructPattern)
 
     // Separate vertices by unmatched grouped, unmatched ungrouped and matched.
     val vertexConstructs: Seq[SingleEndpointConstruct] =
@@ -278,25 +284,25 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
     // Create for each vertex the construct rule and add to VertexConstructTable. Each rule receives
     // the SET and REMOVE assignments from the construct clause + the assignments from the pattern.
     val unmatchedUngroupedRules: Seq[ConstructRule] =
-      unmatchedUngroupedVertices.foldLeft(
-        (Seq.empty[ConstructRule], baseConstructTableView.asInstanceOf[TableView])) {
-        case ((accumulator, prevTableView), reference) =>
-          val constructRelation: RelationLike = AddColumn(reference, prevTableView)
-          val constructRelationTableView: ConstructRelationTableView =
-            ConstructRelationTableView(
-              s"${CONSTRUCT_REL_VIEW_PREFIX}_${randomString()}",
-              constructRelation.getBindingSet)
-          val constructRule: ConstructRule =
-            ConstructRule(
-              reference,
-              refToSetAssignments.getOrElse(reference, Seq.empty) ++
-                patternRefToSetAssignments.getOrElse(reference, Seq.empty),
-              refToRemoveAssignments.getOrElse(reference, Seq.empty),
-              constructRelation,
-              Some(constructRelationTableView))
+    unmatchedUngroupedVertices.foldLeft(
+      (Seq.empty[ConstructRule], baseConstructTableView.asInstanceOf[TableView])) {
+      case ((accumulator, prevTableView), reference) =>
+        val constructRelation: RelationLike = AddColumn(reference, prevTableView)
+        val constructRelationTableView: ConstructRelationTableView =
+          ConstructRelationTableView(
+            s"${CONSTRUCT_REL_VIEW_PREFIX}_${randomString()}",
+            constructRelation.getBindingSet)
+        val constructRule: ConstructRule =
+          ConstructRule(
+            reference,
+            refToSetAssignments.getOrElse(reference, Seq.empty) ++
+              patternRefToSetAssignments.getOrElse(reference, Seq.empty),
+            refToRemoveAssignments.getOrElse(reference, Seq.empty),
+            constructRelation,
+            Some(constructRelationTableView))
 
-          (accumulator :+ constructRule, constructRelationTableView)
-      }._1
+        (accumulator :+ constructRule, constructRelationTableView)
+    }._1
     val vertexConstructTable: VertexConstructTable =
       VertexConstructTable(
         unmatchedUngroupedRules,
@@ -358,22 +364,22 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
     // Create for each edge the construct rule and add to VertexConstructTable. Each rule receives
     // the SET and REMOVE assignments from the construct clause + the assignments from the pattern.
     val edgeConstructRules: Seq[ConstructRule] =
-      matchedEdges.map { case (edgeRef, srcRef, dstRef) =>
-        ConstructRule(
-          reference = edgeRef,
-          setAssignments =
-            refToSetAssignments.getOrElse(edgeRef, Seq.empty) ++
-              patternRefToSetAssignments.getOrElse(edgeRef, Seq.empty),
-          removeAssignments = refToRemoveAssignments.getOrElse(edgeRef, Seq.empty),
-          constructRelation =
-            GroupBy(
-              reference = edgeRef,
-              relation = vertexConstructTableView,
-              groupingAttributes = Seq(edgeRef, srcRef, dstRef),
-              aggregateFunctions = Seq.empty),
-          fromRef = Some(srcRef),
-          toRef = Some(dstRef))
-      } ++
+    matchedEdges.map { case (edgeRef, srcRef, dstRef) =>
+      ConstructRule(
+        reference = edgeRef,
+        setAssignments =
+          refToSetAssignments.getOrElse(edgeRef, Seq.empty) ++
+            patternRefToSetAssignments.getOrElse(edgeRef, Seq.empty),
+        removeAssignments = refToRemoveAssignments.getOrElse(edgeRef, Seq.empty),
+        constructRelation =
+          GroupBy(
+            reference = edgeRef,
+            relation = vertexConstructTableView,
+            groupingAttributes = Seq(edgeRef, srcRef, dstRef),
+            aggregateFunctions = Seq.empty),
+        fromRef = Some(srcRef),
+        toRef = Some(dstRef))
+    } ++
       unmatchedEdges.map { case (edgeRef, srcRef, dstRef) =>
         ConstructRule(
           reference = edgeRef,

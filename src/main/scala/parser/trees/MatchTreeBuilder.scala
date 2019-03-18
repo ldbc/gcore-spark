@@ -4,9 +4,10 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
- * This software is released in open source under the Apache License, 
- * Version 2.0 (the "License"); you may not use this file except in 
+ * This software is released in open source under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -33,11 +34,13 @@ object MatchTreeBuilder {
   /** Creates a [[MatchClause]] from a given Match node. */
   def extractMatchClause(from: SpoofaxBaseTreeNode): MatchClause = {
     val fullGraphPatternCondition = from.children.head
-    val optionalClause = from.children.last
+    val optionalClause = from.children(1)
+    val whereClause = from.children.last
 
     MatchClause(
       nonOptMatches = extractCondMatchClause(fullGraphPatternCondition),
-      optMatches = extractOptionalMatches(optionalClause))
+      optMatches = extractOptionalMatches(optionalClause),
+      whereClause = extractWhere(whereClause))
   }
 
   /** Creates a [[CondMatchClause]] from a given FullGraphPatternCondition. */
@@ -50,6 +53,13 @@ object MatchTreeBuilder {
         CondMatchClause(
           extractSimpleMatches(fullGraphPattern),
           extractWhere(where))
+
+      case "FullGraphPattern" =>
+        val fullGraphPattern = from
+        CondMatchClause(
+          extractSimpleMatches(fullGraphPattern),
+          True)
+
 
       case _ =>
         throw QueryParseException(s"Cannot extract CondMatchClause from node type ${from.name}")

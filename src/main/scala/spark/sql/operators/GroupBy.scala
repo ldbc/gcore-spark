@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -171,6 +172,7 @@ case class GroupBy(relation: TargetTreeNode,
 
     val newSchemaMap: Map[Reference, StructType] = createNewSchemaMap
     val newBtableSchema: StructType = StructType(newSchemaMap.values.flatMap(_.fields).toArray)
+
 
     SqlBindingTableMetadata(
       sparkSchemaMap = newSchemaMap,
