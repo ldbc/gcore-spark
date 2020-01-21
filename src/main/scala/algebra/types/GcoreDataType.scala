@@ -4,7 +4,6 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
- * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -40,3 +39,4 @@ case object GcoreArray extends GcoreDataType { override type ScalaType = Int }
 case object GcoreDate extends GcoreDataType { override type ScalaType = String }
 case object GcoreTimestamp extends GcoreDataType { override type ScalaType = String }
 case object GcoreNull extends GcoreDataType { override type ScalaType = Object }
+

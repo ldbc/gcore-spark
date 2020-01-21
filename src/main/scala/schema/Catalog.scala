@@ -4,7 +4,6 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
- * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -49,7 +48,6 @@ abstract class Catalog {
   private var registeredDefaultGraph: PathPropertyGraph = PathPropertyGraph.empty
 
   var databaseDirectory: String = "Default"
-
   /**
     * All available [[PathPropertyGraph]]s in this database (the default graph is by default
     * included in the result).
@@ -115,6 +113,9 @@ abstract class Catalog {
     * deregister the graph from the database.
     */
   def resetDefaultGraph(): Unit = registeredDefaultGraph = PathPropertyGraph.empty
+
+
+  def allGraphsKeys: Seq[String] = registeredGraphs.keys.toSeq
 
 
   override def toString: String = {

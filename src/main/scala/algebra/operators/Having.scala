@@ -33,3 +33,5 @@ abstract class HavingLike extends GcoreOperator {
 case class Having(having: Seq[AlgebraExpression]) extends HavingLike {
   children = having
 }
+
+

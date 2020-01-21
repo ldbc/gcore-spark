@@ -6,8 +6,8 @@
  * - CWI (www.cwi.nl), 2017-2018
  * - Universidad de Talca (www.utalca.cl), 2018
  *
- * This software is released in open source under the Apache License,
- * Version 2.0 (the "License"); you may not use this file except in
+ * This software is released in open source under the Apache License, 
+ * Version 2.0 (the "License"); you may not use this file except in 
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -38,7 +38,7 @@ abstract class MatchLike extends GcoreOperator
 case class MatchClause(nonOptMatches: CondMatchClause, optMatches: Seq[CondMatchClause], whereClause: AlgebraExpression)
   extends MatchLike {
 
-  val where: AlgebraExpression = whereClause
+  val where = whereClause
   children = nonOptMatches +: optMatches
 
   override def checkWithContext(context: Context): Unit = {

@@ -87,14 +87,17 @@ case class VertexConstructTable(unmatchedUngroupedRules: Seq[ConstructRule],
   *                                 placeholder for the vertex table in the [[ConstructRule]]s of
   *                                 the edges in this [[CondConstructClause]].
   * @param edgeConstructRules The [[ConstructRule]]s for edges in the [[CondConstructClause]].
+  * @param pathConstructRules The [[ConstructRule]]s for paths in the [[CondConstructClause]].
+  *
   */
 case class GroupConstruct(baseConstructTable: RelationLike,
                           baseConstructTableView: BaseConstructTableView,
                           vertexConstructTable: VertexConstructTable,
                           vertexConstructTableView: VertexConstructTableView,
-                          edgeConstructRules: Seq[ConstructRule]) extends GcoreOperator {
+                          edgeConstructRules: Seq[ConstructRule],
+                          pathConstructRules: Seq[ConstructRule]) extends GcoreOperator {
 
-  children = List(baseConstructTable, vertexConstructTable) ++ edgeConstructRules
+  children = List(baseConstructTable, vertexConstructTable) ++ edgeConstructRules ++ pathConstructRules
 
   override def checkWithContext(context: Context): Unit = {}
 }

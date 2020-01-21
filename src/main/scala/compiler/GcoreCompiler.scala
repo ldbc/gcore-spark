@@ -4,7 +4,6 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
- * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -40,33 +39,42 @@ case class GcoreCompiler(context: CompileContext) extends Compiler {
     var parsed: AlgebraTreeNode  = parser(query)
 
     parsed match {
-      case create: Create =>
-        var qCreate = parsed.asInstanceOf[Create]
-        if (qCreate.exist)
-          println("The graph " + qCreate.getGraphName + " already exists")
-        else {
-          var rewrited: AlgebraTreeNode = rewriter(parsed)
-          target(rewrited)
-        }
-      case query: Query =>
-        var rewrited: AlgebraTreeNode = rewriter(parsed)
+    case create : Create =>
+      var qCreate = parsed.asInstanceOf[Create]
+      if (qCreate.exist)
+        println("The graph "+ qCreate.getGraphName+ " already exists")
+      else
+      {
+        var rewrited: AlgebraTreeNode  = rewriter(parsed)
         target(rewrited)
-      case drop: Drop =>
-        if (!drop.exist)
-          println("The graph " + drop.getGraphName + " not exists")
-        else {
-          var rewrited: AlgebraTreeNode = rewriter(parsed)
-          target(rewrited)
-        }
-      case view : View =>
-        var qCreate = parsed.asInstanceOf[View]
-        if (qCreate.exist)
-          println("The graph "+ qCreate.getGraphName+ " already exists")
-        else
-        {
-          var rewrited: AlgebraTreeNode  = rewriter(parsed)
-          target(rewrited)
-        }
-    }
+      }
+    case view : View =>
+      var qCreate = parsed.asInstanceOf[View]
+      if (qCreate.exist)
+        println("The graph "+ qCreate.getGraphName+ " already exists")
+      else
+      {
+        var rewrited: AlgebraTreeNode  = rewriter(parsed)
+        target(rewrited)
+      }
+    case query: Query =>
+      var rewrited: AlgebraTreeNode  = rewriter(parsed)
+      target(rewrited)
+    case drop: Drop =>
+      if(!drop.exist)
+        println("The graph "+ drop.getGraphName+ " not exists")
+      else
+      {
+        var rewrited: AlgebraTreeNode  = rewriter(parsed)
+        target(rewrited)
+      }
+
   }
+
+
+  }
+
+
+
+
 }

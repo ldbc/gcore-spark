@@ -58,7 +58,9 @@ object SqlPlanner {
     */
   sealed case class ConstructClauseData(vertexDataMap: Map[Reference, Seq[Table[DataFrame]]],
                                         edgeDataMap: Map[Reference, Seq[Table[DataFrame]]],
-                                        edgeRestrictions: LabelRestrictionMap)
+                                        edgeRestrictions: LabelRestrictionMap,
+                                        pathDataMap: Map[Reference, Seq[Table[DataFrame]]],
+                                        pathRestrictions: LabelRestrictionMap)
 }
 
 /** Creates a physical plan with textual SQL queries. */
@@ -91,7 +93,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
       val constructHavingClause = constructExp.having
       var cBTable= sparkSession.emptyDataFrame
       var btable = sparkSession.emptyDataFrame
-      if (constructWhereClause.children.nonEmpty) {
+      if (!constructWhereClause.children.isEmpty) {
         val sqlRelation: AlgebraTreeNode = rewriter.rewriteTree(constructWhereClause.children.head)
         val exp: String = expandExpression(sqlRelation)
         btable = bindtable.where(exp)
@@ -103,6 +105,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
 
       val vertexTables: mutable.ArrayBuffer[DataFrame] = new mutable.ArrayBuffer()
       val edgeTables: mutable.ArrayBuffer[DataFrame] = new mutable.ArrayBuffer()
+      val pathTables: mutable.ArrayBuffer[DataFrame] = new mutable.ArrayBuffer()
       constructExp.children.foreach(treeNode =>{
         val groupConstruct: GroupConstruct = treeNode.asInstanceOf[GroupConstruct]
         val baseConstructTableDF = rewriteAndSolveBtableOps(groupConstruct.baseConstructTable)
@@ -233,7 +236,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
           }
 
           val vertexTableDF = sparkSession.sql(vtableQuery).selectExpr(selectAttrGroup.distinct:+SOLUTION_IDENTIFICATOR:_*)
-          if (groupConstruct.vertexConstructTable.unmatchedGroupedRules.nonEmpty)
+          if (!groupConstruct.vertexConstructTable.unmatchedGroupedRules.isEmpty)
           {
             val selectVertexTable = vertexTableDF.toDF(vertexTableDF.columns: _*)
             vertexTables += selectVertexTable
@@ -257,6 +260,33 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
             btable = mergeDF(btable,edgeTable,SOLUTION_IDENTIFICATOR)//btable.join(edgeTable,Seq(SOLUTION_IDENTIFICATOR),"full")
             btable.createOrReplaceGlobalTempView(algebra.trees.ConditionalToGroupConstruct.BTABLE_VIEW)
           })
+
+
+          /**
+            *TODO Aldana: path data should always be present in btable right??
+            * and if it doesnt i cannot resolve it with solveBtableOps...
+            * so i should add an exception if i cant find the path data
+            *
+            */
+          groupConstruct.pathConstructRules.foreach(constructRule => {
+            var selectionList = Seq(s"`${constructRule.reference.refName}$$${TO_ID_COL.columnName}`",
+              s"`${constructRule.reference.refName}$$${FROM_ID_COL.columnName}`",
+              s"`${constructRule.reference.refName}$$${EDGE_SEQ_COL.columnName}`",
+              s"`${constructRule.reference.refName}$$${COST_COL.columnName}`",
+              s"`${constructRule.reference.refName}$$${ID_COL.columnName}`",
+              SOLUTION_IDENTIFICATOR)
+            constructRule.setAssignments.foreach(setAssignment => {
+              setAssignment match {
+                case LabelAssignments(Seq(labels)) =>
+                  selectionList = selectionList :+ s""""${labels.value}" AS `${constructRule.reference.refName}$$${TABLE_LABEL_COL.columnName}`"""
+              }
+            })
+            val pathTable = btable.selectExpr(selectionList:_*)
+            pathTables += pathTable
+            btable = mergeDF(btable, pathTable, SOLUTION_IDENTIFICATOR)
+            btable.createOrReplaceGlobalTempView(algebra.trees.ConditionalToGroupConstruct.BTABLE_VIEW)
+
+          })
         }
       })
 
@@ -269,18 +299,21 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
         val joinId = et.columns.head.split('$').head+"$id"
         cBTable = cBTable.join(et,Seq(SOLUTION_IDENTIFICATOR))
       })
+      pathTables.foreach(pt=> {
+        cBTable = cBTable.join(pt, Seq(SOLUTION_IDENTIFICATOR))
+      })
 
-      if (constructHavingClause.children.nonEmpty) {
+      if (!constructHavingClause.children.isEmpty) {
         val sqlRelation: AlgebraTreeNode = rewriter.rewriteTree(constructHavingClause.children.head)
         val exp: String = expandExpression(sqlRelation)
         cBTable = cBTable.where(exp)
         btable = btable.where(exp)
       }
 
-      /*println("cbTable")
-      cBTable.show()
-      println("fullCBTable")
-      fullCBTable.show()*/
+       /*println("cbTable")
+       cBTable.show()
+       println("fullCBTable")
+       fullCBTable.show()*/
       fullCBTable = mergeDF(fullCBTable,cBTable,SOLUTION_IDENTIFICATOR)
       //println("merged fullCBTable")
       //fullCBTable.show()
@@ -288,7 +321,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
        btable.show()
        println("bindtable")
        bindtable.show()*/
-      if(btable.columns.length >= bindtable.columns.length && btable.count() >= bindtable.count())
+      if(btable.columns.size >= bindtable.columns.size && btable.count() >= bindtable.count())
         bindtable= btable
       else
       {
@@ -327,7 +360,7 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
       else
         left = left
           .join(right,right("right."+identificator)===left("left."+identificator),"full").
-          select(leftCols.collect { case c if commonCols.contains(c) =>  when(left("left."+c).isNull,right("right."+c)).otherwise(left("left."+c)).alias(c)} ++
+          select(leftCols.collect { case c if commonCols.contains(c) =>  (when(left("left."+c).isNull,right("right."+c)).otherwise(left("left."+c))).alias(c)} ++
             leftCols.collect { case c if !commonCols.contains(c) => left("left."+c).alias(c) } ++
             rightCols.collect { case c if !commonCols.contains(c) => right("right."+c).alias(c) } : _*)
 
@@ -389,8 +422,14 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
         val fromRef: String = fromToRefs.get._1.refName
         val toRef: String = fromToRefs.get._2.refName
         val ref: String = reference.refName
-        Set(s"`$fromRef$$${ID_COL.columnName}` AS `$ref$$${FROM_ID_COL.columnName}`",
-          s"`$toRef$$${ID_COL.columnName}` AS `$ref$$${TO_ID_COL.columnName}`")
+        if(ref == fromRef && ref == toRef) {
+          Set(s"`$ref$$${FROM_ID_COL.columnName}`",
+            s"`$ref$$${TO_ID_COL.columnName}`")
+        } else {
+          Set(s"`$fromRef$$${ID_COL.columnName}` AS `$ref$$${FROM_ID_COL.columnName}`",
+            s"`$toRef$$${ID_COL.columnName}` AS `$ref$$${TO_ID_COL.columnName}`")
+        }
+
       } else Set.empty
     }
     val setAttributes: Seq[String] =
@@ -440,7 +479,9 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
         ConstructClauseData(
           vertexDataMap = Map.empty,
           edgeDataMap = Map.empty,
-          edgeRestrictions = SchemaMap.empty)
+          edgeRestrictions = SchemaMap.empty,
+          pathDataMap = Map.empty,
+          pathRestrictions = SchemaMap.empty)
       } else {
         // Register a view over the filtered binding table, if it was not empty. We can now start
         // building the vertices of this group construct.
@@ -450,6 +491,8 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
         val vertexData: mutable.ArrayBuffer[(Reference,  Seq[Table[DataFrame]])] =
           new mutable.ArrayBuffer()
         val edgeData: mutable.ArrayBuffer[(Reference, Seq[Table[DataFrame]])] =
+          new mutable.ArrayBuffer()
+        val pathData: mutable.ArrayBuffer[(Reference, Seq[Table[DataFrame]])] =
           new mutable.ArrayBuffer()
         val vertexConstructTable = groupConstruct.vertexConstructTable
 
@@ -506,16 +549,43 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
           edgeFromTo += edgeFromToTuple
         })
 
+        val pathFromTo: mutable.ArrayBuffer[(Reference, (Reference, Reference))] =
+          new mutable.ArrayBuffer()
+        groupConstruct.pathConstructRules.foreach(constructRule => {
+          val entity: Seq[Table[DataFrame]] =
+            createEntity(
+              constructRule.reference,
+              btable,
+              Some(constructRule.fromRef.get, constructRule.toRef.get))
+          val pathTuple: (Reference, Seq[Table[DataFrame]]) = (constructRule.reference, entity)
+          val pathFromToTuple: (Reference, (Reference, Reference)) =
+            (constructRule.reference, (constructRule.fromRef.get, constructRule.toRef.get))
+          pathData += pathTuple
+          pathFromTo += pathFromToTuple
+        })
+
         val vertexDataMap: Map[Reference,  Seq[Table[DataFrame]]] = vertexData.toMap
         val edgeDataMap: Map[Reference,  Seq[Table[DataFrame]]] = edgeData.toMap
+        val pathDataMap: Map[Reference, Seq[Table[DataFrame]]] = pathData.toMap
         val edgeLabelRestrictions: LabelRestrictionMap =
           SchemaMap(
-            edgeFromTo.flatMap {
+            edgeFromTo.map {
               case (edgeRef, (fromRef, toRef)) =>
                 edgeRestriction(edgeRef,fromRef,toRef,btable)
-            }.toMap)
+                /*val edgeLabel: Label = edgeDataMap(edgeRef).head.name
+                val fromLabel: Label = vertexDataMap(fromRef).head.name
+                val toLabel: Label = vertexDataMap(toRef).head.name
+                edgeLabel -> (fromLabel, toLabel)*/
+            }.flatten.toMap)
+        val pathLabelRestrictions: LabelRestrictionMap =
+          SchemaMap(
+            pathFromTo.map {
+              case (pathRef, (fromRef, toRef)) =>
+                pathRestriction(pathRef,fromRef,toRef,btable)
+            }.flatten.toMap
+          )
 
-        ConstructClauseData(vertexDataMap, edgeDataMap, edgeLabelRestrictions)
+        ConstructClauseData(vertexDataMap, edgeDataMap, edgeLabelRestrictions, pathDataMap, pathLabelRestrictions)
       }
     })
 
@@ -523,12 +593,14 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
     val graph: SparkGraph = new SparkGraph {
       override var graphName: String = randomString(length = GRAPH_NAME_LENGTH)
 
-      override def storedPathRestrictions: LabelRestrictionMap = SchemaMap.empty
+      override def storedPathRestrictions: LabelRestrictionMap =
+        constructClauseData.map(_.pathRestrictions).reduce(_ union _)
 
       override def edgeRestrictions: LabelRestrictionMap =
         constructClauseData.map(_.edgeRestrictions).reduce(_ union _)
 
-      override def pathData: Seq[Table[DataFrame]] = Seq.empty
+      override def pathData: Seq[Table[DataFrame]] =
+        joinDataMap(constructClauseData.map(_.pathDataMap).reduce(_ ++ _).values.flatten.toList)
 
       override def vertexData: Seq[Table[DataFrame]] =
         joinDataMap(constructClauseData.map(_.vertexDataMap).reduce(_ ++ _).values.flatten.toList)
@@ -551,12 +623,30 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
     val fromLabelColSelect: String = s"${fromRef.refName}$$${TABLE_LABEL_COL.columnName}"
     val toLabelColSelect: String = s"${toRef.refName}$$${TABLE_LABEL_COL.columnName}"
     val edges = bTable.select(edgeLabelColSelect,fromLabelColSelect,toLabelColSelect).distinct()
-    edges.show()
+edges.show()
     edges.collect().foreach(row =>{
-      val edgeLabel: Label = Label (if (row.get(0) == null) UNLABELED else row.get(0).toString)
-      val fromLabel: Label = Label (if (row.get(1) == null) UNLABELED else row.get(1).toString)
-      val toLabel: Label = Label (if (row.get(2) == null) UNLABELED else row.get(2).toString)
+      val edgeLabel: Label = new Label ((if (row.get(0) == null) UNLABELED else row.get(0).toString))
+      val fromLabel: Label = new Label ((if (row.get(1) == null) UNLABELED else row.get(1).toString))
+      val toLabel: Label = new Label ((if (row.get(2) == null) UNLABELED else row.get(2).toString))
       val rest = edgeLabel -> (fromLabel, toLabel)
+      restrictions += rest
+    })
+    restrictions
+  }
+
+  private def pathRestriction (pathRef: Reference,fromRef:Reference, toRef:Reference, bTable : DataFrame):Seq[(Label,(Label,Label))]=
+  {
+    val restrictions: mutable.ArrayBuffer[(Label,(Label,Label))] = new mutable.ArrayBuffer()
+    val pathLabelColSelect: String = s"${pathRef.refName}$$${TABLE_LABEL_COL.columnName}"
+    val fromLabelColSelect: String = s"${fromRef.refName}$$${TABLE_LABEL_COL.columnName}"
+    val toLabelColSelect: String = s"${toRef.refName}$$${TABLE_LABEL_COL.columnName}"
+    val paths = bTable.select(pathLabelColSelect,fromLabelColSelect,toLabelColSelect).distinct()
+    paths.show()
+    paths.collect().foreach(row =>{
+      val pathLabel: Label = new Label ((if (row.get(0) == null) UNLABELED else row.get(0).toString))
+      val fromLabel: Label = new Label ((if (row.get(1) == null) UNLABELED else row.get(1).toString))
+      val toLabel: Label = new Label ((if (row.get(2) == null) UNLABELED else row.get(2).toString))
+      val rest = pathLabel -> (fromLabel, toLabel)
       restrictions += rest
     })
     restrictions

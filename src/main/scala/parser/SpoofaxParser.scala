@@ -4,7 +4,8 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
- * - Universidad de Talca (www.utalca.cl), 2018
+ * - Universidad de Talca (2018)
+ *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
  * compliance with the License. You may obtain a copy of the License at
@@ -49,21 +50,22 @@ case class SpoofaxParser(context: ParseContext) extends ParseStage {
     val rewriteParseTree: SpoofaxBaseTreeNode = SpoofaxCanonicalRewriter rewriteTree parseTree
     val algebraTree: AlgebraTreeNode = AlgebraTreeBuilder build rewriteParseTree
     logger.info("\n{}", algebraTree.treeString())
+
     algebraTree match {
-      case query: Query =>
-        query.checkWithContext(QueryContext(context.catalog))
-        query
-      case create: Create =>
-        algebraTree.asInstanceOf[Create].query.checkWithContext(QueryContext(context.catalog))
-        create.exist = context.catalog.hasGraph(create.graphName)
-        create
-      case drop: Drop =>
-        drop.exist = context.catalog.hasGraph(drop.graphName)
-        drop
-      case view: View=>
-        view.query.checkWithContext(QueryContext(context.catalog))
-        view.exist = context.catalog.hasGraph(view.graphName)
-        view
+    case query: Query =>
+      query.checkWithContext(QueryContext(context.catalog))
+      query
+    case create: Create=>
+      algebraTree.asInstanceOf[Create].query.checkWithContext(QueryContext(context.catalog))
+      create.exist = context.catalog.hasGraph(create.graphName)
+      create
+    case drop: Drop =>
+      drop.exist = context.catalog.hasGraph(drop.graphName)
+      drop
+    case view: View=>
+      view.query.checkWithContext(QueryContext(context.catalog))
+      view.exist = context.catalog.hasGraph(view.graphName)
+      view
     }
   }
 }

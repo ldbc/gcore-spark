@@ -20,7 +20,7 @@
 
 package algebra.operators
 
-import algebra.expressions.Reference
+import algebra.expressions.{AlgebraExpression, Reference}
 
 /** A relational join-like operation. */
 abstract class JoinLike(lhs: RelationLike,

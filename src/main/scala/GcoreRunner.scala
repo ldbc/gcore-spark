@@ -6,8 +6,8 @@
  * - CWI (www.cwi.nl), 2017-2018
  * - Universidad de Talca (2018)
  *
- * This software is released in open source under the Apache License,
- * Version 2.0 (the "License"); you may not use this file except in
+ * This software is released in open source under the Apache License, 
+ * Version 2.0 (the "License"); you may not use this file except in 
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -47,13 +47,13 @@ object GcoreRunner {
 
   def main(args: Array[String]): Unit = {
 
-    var log = false
+    var log = false;
     activeLog(log)
     var active = true
     val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
 
-    if(args.length > 0 && args.head == "-d"){
-      loadDatabase(gcoreRunner, args.last)
+    if(args.size > 0 && args.head == "-d"){
+        loadDatabase(gcoreRunner, args.last)
     }
     else{
       gcoreRunner.catalog.registerGraph(DummyGraph(gcoreRunner.sparkSession))
@@ -90,21 +90,21 @@ object GcoreRunner {
           if(option.length >0 && option.substring(option.length-1).trim == ";") {
 
             var query = option.replace(";", "").trim
-            try {
-            println(query)
-            gcoreRunner.compiler.compile(
-              query)
-            }
+           /* try {*/
+              println(query)
+              gcoreRunner.compiler.compile(
+                query)
+            /*}
             catch {
-              case parseException: parser.exceptions.QueryParseException => println(" Query type unsupported for the moment")
-              case defaultgNotAvalilable: algebra.exceptions.DefaultGraphNotAvailableException => println(" No default graph available")
-              case analysisException: org.apache.spark.sql.AnalysisException => println("Error: " + analysisException.getMessage())
-              case unsupportedOperation: common.exceptions.UnsupportedOperation => println("Error: " + unsupportedOperation.getMessage)
-              case matchError: scala.MatchError => println("Error: " + matchError.getMessage())
-              case disjunctLabels: algebra.exceptions.DisjunctLabelsException => println("Error: " + disjunctLabels.getMessage)
-              case schemaExeption: SchemaException => println("Error: " + schemaExeption.getMessage)
-              case _: Throwable => println("Unexpected exception")
-            }
+              //case parseException: parser.exceptions.QueryParseException => println(" Query type unsupported for the moment")
+              //case defaultgNotAvalilable: algebra.exceptions.DefaultGraphNotAvailableException => println(" No default graph available")
+              //case analysisException: org.apache.spark.sql.AnalysisException => println("Error: " + analysisException.getMessage())
+              //case unsupportedOperation: common.exceptions.UnsupportedOperation => println("Error: " + unsupportedOperation.getMessage)
+              //case matchError: scala.MatchError => println("Error: " + matchError.getMessage())
+              //case disjunctLabels: algebra.exceptions.DisjunctLabelsException => println("Error: " + disjunctLabels.getMessage)
+              //case schemaExeption: SchemaException => println("Error: " + schemaExeption.getMessage)
+              //case _: Throwable => println("Unexpected exception")
+            }*/
           }
           else
             println("Invalid Option")
@@ -124,7 +124,7 @@ object GcoreRunner {
       gcoreRunner.catalog.setDefaultGraph(r_graph)
       println(r_graph +" "+ "set as default graph." )
     }
-    graphp
+    return graphp
   }
 
   def unregisterGraph(gcoreRunner: GcoreRunner , graphp: String) :Unit =
@@ -134,7 +134,7 @@ object GcoreRunner {
   }
 
 
-  def options :Unit =
+  def options: Unit =
   {
     println(
       """
@@ -146,7 +146,7 @@ object GcoreRunner {
         |\d Graph information. (\d graph)
         |\v Log.
         |\q Quit.
-      """.stripMargin)
+      """.stripMargin);
   }
 
   def loadDatabase(gcoreRunner: GcoreRunner, folder:String):Unit=
@@ -161,7 +161,7 @@ object GcoreRunner {
       println("The database entered was not loaded correctly")
   }
 
-  def activeLog(log: Boolean):Unit =
+  def activeLog(log: Boolean) =
   {
     if(log)
     {

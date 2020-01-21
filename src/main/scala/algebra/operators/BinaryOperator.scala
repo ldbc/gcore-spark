@@ -20,6 +20,8 @@
 
 package algebra.operators
 
+import algebra.expressions.AlgebraExpression
+
 /**
   * A [[RelationalOperator]] between two [[RelationLike]]s. By default, the [[BindingSet]] of the
   * resulting [[RelationLike]] becomes the union of the [[BindingSet]]s of the two operands.

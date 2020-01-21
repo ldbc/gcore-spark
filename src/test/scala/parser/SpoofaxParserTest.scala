@@ -66,6 +66,17 @@ class SpoofaxParserTest extends FunSuite
 
   /** Graph to test on. All the checks are at schema level, so we do not define data. */
   val peopleGraph: PathPropertyGraph = new PathPropertyGraph {
+    override def vertexYARSPG(): String = ""
+
+    override def vertexAttributes(attributes: String, name:String): String = ""
+
+    override def edgeYARSPG(): String = ""
+
+    override def edgeAttributes(attributes: String,name: String): String = ""
+
+    override def pathYARNSPG(): String = ""
+
+    override def pathAttributes(attributes: String, name :String): String = ""
     override type StorageType = Nothing
 
     override var graphName: String = "people"

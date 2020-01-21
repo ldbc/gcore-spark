@@ -19,8 +19,15 @@
  */
 
 package schema
-import algebra.expressions.Label
+import java.io.File
 
+import algebra.expressions.Label
+import org.apache.spark.sql.DataFrame
+import org.json4s.{DefaultFormats, JsonAST}
+import org.json4s.JsonAST._
+import org.json4s.jackson.JsonMethods._
+import org.json4s.jackson.Serialization.write
+import org.json4s.jackson.Serialization.writePretty
 /**
   * The path property graph is the queryable unit of G-CORE. The graph retains information about
   * vertices, edges and paths. The stored information refers to labels and key-value attributes
@@ -43,6 +50,31 @@ abstract class PathPropertyGraph extends GraphSchema with GraphData {
       s"[*] Vertex schema:\n$vertexSchema" +
       s"[*] Edge schema:\n$edgeSchema" +
       s"[*] Path schema:\n$pathSchema"
+
+  def yarspg: String =
+  {
+    var  yarspg =
+      vertexYARSPG()+"\n\n"+
+      edgeYARSPG()+"\n\n"+
+      pathYARNSPG()+"\n"
+
+
+    implicit val formats = DefaultFormats
+    //pretty(parse(json))
+    yarspg
+
+  }
+
+  def vertexYARSPG(): String
+
+  def vertexAttributes(attributes:String, name:String):String
+
+  def edgeYARSPG(): String
+
+  def edgeAttributes(attributes:String, name: String):String
+  def pathYARNSPG(): String
+
+  def pathAttributes(attributes:String, name: String):String
 }
 
 object PathPropertyGraph {
@@ -59,5 +91,17 @@ object PathPropertyGraph {
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
+
+    override def vertexYARSPG(): String = ""
+
+    override def vertexAttributes(attributes: String,name: String): String = ""
+
+    override def edgeYARSPG(): String = ""
+
+    override def edgeAttributes(attributes: String, name: String): String = ""
+
+    override def pathYARNSPG(): String = ""
+
+    override def pathAttributes(attributes: String, name: String): String = ""
   }
 }

@@ -3,7 +3,7 @@
  * language by the Linked Data Benchmark Council (LDBC) - ldbcouncil.org
  *
  * The copyrights of the source code in this file belong to:
- * - Universidad de Talca(www.utalca.cl), 2018
+ * - Universidad de Talca (2018)
  *
  * This software is released in open source under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except in

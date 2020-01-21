@@ -3,7 +3,7 @@
  * language by the Linked Data Benchmark Council (LDBC) - ldbcouncil.org
  *
  * The copyrights of the source code in this file belong to:
- * - Universidad de Talca (www.utalca.cl), 2018
+ * - Universidad de Talca (2018)
  *
  * This software is released in open source under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except in
@@ -51,10 +51,6 @@ case class SaveGraph() {
     implicit val formats = Serialization.formats(NoTypeHints)
 
 
-    val dir = new File(graph_root_dir)
-    if (!dir.exists) {
-      dir.mkdir
-    }
 
     val directory = new File(graphDirectory)
     if (!directory.exists) {
@@ -65,7 +61,9 @@ case class SaveGraph() {
     write(json,outputStream)
     outputStream.close()
 
-    graph.vertexData foreach(x => {x.data.asInstanceOf[DataFrame].repartition(1).write.json(graphDirectory +File.separator+x.name.value)})
+    graph.vertexData foreach(x => {
+      x.data.asInstanceOf[DataFrame].repartition(1).write.json(graphDirectory +File.separator+x.name.value)
+    })
     graph.edgeData foreach(x => {x.data.asInstanceOf[DataFrame].repartition(1).write.json(graphDirectory +File.separator+ x.name.value)})
     graph.pathData foreach(x => {x.data.asInstanceOf[DataFrame].repartition(1).write.json(graphDirectory +File.separator+ x.name.value)})
 

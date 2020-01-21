@@ -6,8 +6,8 @@
  * - CWI (www.cwi.nl), 2017-2018
  * - Universidad de Talca (www.utalca.cl), 2018
  *
- * This software is released in open source under the Apache License,
- * Version 2.0 (the "License"); you may not use this file except in
+ * This software is released in open source under the Apache License, 
+ * Version 2.0 (the "License"); you may not use this file except in 
  * compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
@@ -309,10 +309,6 @@ object MatchTreeBuilder {
       case "MarcoNameRef" =>
         MacroNameReference(Reference(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value))
       case "KleeneStar" =>
-        val disjunctLabels =
-          DisjunctLabels(
-            from.children.head.children.map(
-              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
         val (lowerBound, upperBound) = from.children.last.name match {
           case "None" => (0, Int.MaxValue)
           case "Some" =>
@@ -333,7 +329,16 @@ object MatchTreeBuilder {
             }
         }
 
-        KleeneStar(disjunctLabels, lowerBound, upperBound)
+        from.children.head.name match {
+          case "DisjunctLabels" =>
+            val disjunctLabels =
+              DisjunctLabels(
+                from.children.head.children.map(
+                  label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+            SimpleKleeneStar(disjunctLabels, lowerBound, upperBound)
+          case _ =>
+            KleeneStar(extractPathExpression(from.children.head), lowerBound, upperBound)
+        }
       case "Concatenation" =>
         KleeneConcatenation(
           lhs = extractPathExpression(from.children.head),
@@ -342,6 +347,39 @@ object MatchTreeBuilder {
         KleeneUnion(
           lhs = extractPathExpression(from.children.head),
           rhs = extractPathExpression(from.children.last))
+      case "DisjunctLabels" =>
+        val disjunctLabels = DisjunctLabels(
+          from.children.head.children.map(
+            label => Label(label.asInstanceOf[SpoofaxLeaf[String]].value)))
+        //Spoofax parses a <:Label> as a KleeneStar, so i'll use the bound limits to differentiate between <:Label> and <:Label*>
+        SimpleKleeneStar(disjunctLabels, 1, 1)
+      case "KleenePlus" =>
+        from.children.head.name match {
+          case "DisjunctLabels" =>
+            val disjunctLabels =
+              DisjunctLabels(
+                from.children.head.children.map(
+                  label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+            SimpleKleenePlus(disjunctLabels)
+          case _ =>
+            KleenePlus(extractPathExpression(from.children.head))
+        }
+      case "KleeneNot" =>
+        val disjunctLabels =
+          DisjunctLabels(
+            from.children.head.children.map(
+              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+        KleeneNot(disjunctLabels)
+      case "KleeneOptional" =>
+        KleeneOptional(extractPathExpression(from.children.head))
+      case "Reverse" =>
+        val disjunctLabels =
+          DisjunctLabels(
+            from.children.head.children.map(
+              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+        Reverse(disjunctLabels)
+      case "Wildcard" =>
+        Wildcard()
       case other =>
         throw QueryParseException(s"Cannot extract PathExpression from node type $other")
     }

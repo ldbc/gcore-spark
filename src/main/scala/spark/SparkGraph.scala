@@ -4,7 +4,6 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
- * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -26,7 +25,13 @@ import algebra.types._
 import common.exceptions.UnsupportedOperation
 import org.apache.spark
 import org.apache.spark.sql.DataFrame
+import org.json4s.DefaultFormats
+import org.json4s.JsonAST.JObject
+import org.json4s.jackson.JsonMethods.{parse, pretty}
+import org.json4s.jackson.Serialization.write
 import schema._
+
+import scala.collection.mutable
 
 /**
   * A [[PathPropertyGraph]] that uses Spark's [[DataFrame]]s to store graph data. Each tableName in the
@@ -66,6 +71,96 @@ abstract class SparkGraph extends PathPropertyGraph {
 
         aggSchema union EntitySchema(SchemaMap(Map(table.name -> schemaMap)))
     }
+
+
+  val nodes: mutable.HashMap[String, String] = new mutable.HashMap[String,String]()
+
+  def vertexYARSPG(): String =
+  {
+    nodes.clear()
+    var yarspg =""
+    this.vertexData foreach(x =>
+    {
+      var dataframe= x.data.asInstanceOf[DataFrame]
+      dataframe.toJSON.collect().foreach(att=> yarspg+=x.name+vertexAttributes(att,x.name.value)+"\n")
+    })
+
+    yarspg
+  }
+
+  def vertexAttributes(attributes:String,name:String):String=
+  {
+    implicit val formats = DefaultFormats
+    var values = parse(attributes)
+    var id= (values \ "id").extractOrElse("null")
+    var values_minus_id = values.asInstanceOf[JObject].obj.filterNot(_._1 == "id")
+    var json_atrrib = write(values_minus_id).replace("{","").replace("}","")
+    var yarspg =""
+
+    nodes += (id -> name)
+    yarspg +=id+"{\""+name+"\"}"
+    yarspg +=json_atrrib
+
+    yarspg
+  }
+
+
+  def edgeYARSPG(): String =
+  {
+    var yarspg =""
+    this.edgeData foreach(x =>
+    {
+      var dataframe= x.data.asInstanceOf[DataFrame]
+      dataframe.toJSON.collect().foreach(att=> yarspg+= edgeAttributes(att,x.name.value)+"\n")
+    })
+
+    yarspg
+  }
+
+  def edgeAttributes(attributes:String, name:String):String=
+  {
+    implicit val formats = DefaultFormats
+    var values = parse(attributes)
+    var id= (values \ "id").extractOrElse("null")
+    var fromId= (values \ "fromId").extractOrElse("null")
+    var toId= (values \ "toId").extractOrElse("null")
+    var values_minus_id = values.asInstanceOf[JObject].obj.filterNot(_._1 == "id").filterNot(_._1 == "fromId").filterNot(_._1 == "toId")
+    var json_atrrib = write(values_minus_id).replace("{","").replace("}","")
+    var yarspg ="("+nodes(fromId)+fromId+")-{\""+name+"\"}"+json_atrrib+"->("+nodes(toId)+toId+")"
+
+
+
+    yarspg
+  }
+
+
+  def pathYARNSPG(): String =
+  {
+    var yarnspg =""
+    this.pathData foreach(x =>
+    {
+      var dataframe= x.data.asInstanceOf[DataFrame]
+      dataframe.toJSON.collect().foreach(att=> yarnspg+=("\n"+pathAttributes(att, x.name.value)))
+    })
+    yarnspg
+  }
+
+  def pathAttributes(attributes:String, name: String):String=
+  {
+    implicit val formats = DefaultFormats
+    var values = parse(attributes)
+    var id= (values \ "id").extract[String]
+    var fromId= (values \ "fromId").extract[String]
+    var toId= (values \ "toId").extract[String]
+    var edges = (values \ "edges").extract[Seq[Int]]
+    var values_minus_id = values.asInstanceOf[JObject].obj.filterNot(_._1 == "id").filterNot(_._1 == "fromId").filterNot(_._1 == "toId").filterNot(_._1 == "edges")
+    var json_atrrib = write(values_minus_id).replace("{","").replace("}","")
+
+    var yarnspg ="("+nodes(fromId)+fromId+")-/{\""+name+"\"}"+json_atrrib+"["+edges+"]"+"/->("+nodes(toId)+toId+")"
+
+
+    yarnspg
+  }
 
   /** Maps a [[spark.sql.types.DataType]] to an algebraic [[GcoreDataType]]. */
   // TODO: Check that the array type can only be the sequence of edges that define a path.

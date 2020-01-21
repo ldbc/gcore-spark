@@ -70,6 +70,7 @@ case class DummyGraph(spark: SparkSession) extends SparkGraph {
   val hosico = Cat(102, "Hosico", 4, 7, onDiet = true)
   val maru = Cat(103, "Maru", 8, 8, onDiet = true)
   val grumpy = Cat(104, "Grumpy", 0.5, 2, onDiet = false)
+  val michi = Cat(110, "Michi", 2, 3, onDiet = false)
   val purina = Food(105, "Purina")
   val whiskas = Food(106, "Whiskas")
   val gourmand = Food(107, "Gourmand")
@@ -84,6 +85,14 @@ case class DummyGraph(spark: SparkSession) extends SparkGraph {
   val hosicoFriendWithCobby = Friend(206, "Dec 2017", 102, 101)
   val maruEnemyGrumpy = Enemy(207, "Jan 2018", 5, 103, 104)
   val grumpyEnemyMaru = Enemy(208, "Jan 2018", 5, 104, 103)
+  val michiEnemyHosico = Enemy(212, "Aug 2019", 2, 110, 102)
+  val hosicoEnemyMichi = Enemy(213, "Aug 2019", 2, 102, 110)
+  val michiFriendGrumpy = Friend(214, "Jul 2019", 110, 104)
+  val grumpyFriendMichi = Friend(215, "Jul 2019", 104, 110)
+  val cobyFriendMichi = Friend(216, "Aug 2019", 101, 110)
+  val michiFriendCoby = Friend(217, "Aug 2019", 110, 101)
+  val maruEnemyMichi = Enemy (218, "Jan 2019", 1, 103, 110)
+  val michiEnemyMaru = Enemy(219, "Jan 2019", 1, 110, 103)
   val purinaMadeInGermany = MadeIn(209, 105, 108)
   val whiskasMadeInGermany = MadeIn(210, 106, 108)
   val gourmandMadeInFrance = MadeIn(211, 107, 109)
@@ -99,7 +108,7 @@ case class DummyGraph(spark: SparkSession) extends SparkGraph {
 
   override def vertexData: Seq[Table[DataFrame]] =
     Seq(
-      Table(Label("Cat"), Seq(coby, hosico, maru, grumpy).toDF()),
+      Table(Label("Cat"), Seq(coby, hosico, maru, grumpy, michi).toDF()),
       Table(Label("Food"), Seq(purina, whiskas, gourmand).toDF()),
       Table(Label("Country"), Seq(germany, france).toDF()))
 
@@ -108,8 +117,8 @@ case class DummyGraph(spark: SparkSession) extends SparkGraph {
       Table(
         Label("Eats"),
         Seq(cobyEatsPurina, hosicoEatsGourmand, maruEatsWhiskas, grumpyEatsGourmand).toDF()),
-      Table(Label("Friend"), Seq(cobyFriendWithHosico, hosicoFriendWithCobby).toDF()),
-      Table(Label("Enemy"), Seq(maruEnemyGrumpy, grumpyEnemyMaru).toDF()),
+      Table(Label("Friend"), Seq(cobyFriendWithHosico, hosicoFriendWithCobby, michiFriendGrumpy, grumpyFriendMichi, cobyFriendMichi, michiFriendCoby).toDF()),
+      Table(Label("Enemy"), Seq(maruEnemyGrumpy, grumpyEnemyMaru, michiEnemyHosico, hosicoEnemyMichi, maruEnemyMichi, michiEnemyMaru).toDF()),
       Table(
         Label("MadeIn"),
         Seq(purinaMadeInGermany, whiskasMadeInGermany, gourmandMadeInFrance).toDF())

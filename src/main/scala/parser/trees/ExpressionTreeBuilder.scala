@@ -4,7 +4,6 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
- * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -51,6 +50,7 @@ object ExpressionTreeBuilder {
       case "Lt" => Lt(extractExpression(from.children.head), extractExpression(from.children.last))
       case "Lte" =>
         Lte(extractExpression(from.children.head), extractExpression(from.children.last))
+
 
       /* Math expressions. */
       case "Pow" =>
