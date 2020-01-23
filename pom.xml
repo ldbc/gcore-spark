@@ -182,7 +182,14 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.22.1</version>
+            </plugin>
+
             <!-- Plugin to run tests with mvn test -->
+
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
@@ -202,6 +209,7 @@
                     </execution>
                 </executions>
             </plugin>
+
 
             <!-- This plugin adds all dependencies to JAR file during 'package'
             command. -->
