@@ -21,8 +21,11 @@
 package parser.trees
 
 import algebra.operators.Query
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Matchers}
 
+@RunWith(classOf[JUnitRunner])
 class AlgebraTreeBuilderTest extends FunSuite with Matchers with MinimalSpoofaxParser {
 
   test("Builds a Query node") {

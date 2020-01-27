@@ -21,8 +21,11 @@
 package parser.trees
 
 import algebra.operators.{ConstructClause, MatchClause, Query}
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Matchers}
 
+@RunWith(classOf[JUnitRunner])
 class QueryTreeBuilderTest extends FunSuite with Matchers with MinimalSpoofaxParser {
 
   test("Query node has children: ConstructClause, MatchClause") {

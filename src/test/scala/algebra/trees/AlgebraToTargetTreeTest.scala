@@ -25,10 +25,13 @@ import algebra.operators._
 import algebra.target_api
 import algebra.target_api.TargetPlanner
 import algebra.types.{AllPaths, DefaultGraph, Graph, OutConn}
+import org.junit.runner.RunWith
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Matchers}
 import schema.Catalog
 
+@RunWith(classOf[JUnitRunner])
 class AlgebraToTargetTreeTest extends FunSuite with Matchers with MockFactory {
 
   val mockedTargetPlanner: TargetPlanner = stub[TargetPlanner]

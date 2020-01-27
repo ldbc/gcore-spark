@@ -22,8 +22,11 @@ package schema
 
 import algebra.expressions.{Label, PropertyKey}
 import algebra.types.{GcoreInteger, GcoreString}
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class EntitySchemaTest extends FunSuite {
 
   val schema1 = EntitySchema(SchemaMap(Map(

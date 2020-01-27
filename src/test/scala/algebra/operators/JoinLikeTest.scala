@@ -22,8 +22,11 @@ package algebra.operators
 
 import algebra.expressions.Reference
 import algebra.operators.BinaryOperator.reduceLeft
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class JoinLikeTest extends FunSuite {
 
   /**       rel1 | rel2 | rel3 | rel4 | rel5

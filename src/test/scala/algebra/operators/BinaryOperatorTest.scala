@@ -22,8 +22,11 @@ package algebra.operators
 
 import algebra.expressions.Reference
 import algebra.operators.BinaryOperator.reduceLeft
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Inside, Matchers}
 
+@RunWith(classOf[JUnitRunner])
 class BinaryOperatorTest extends FunSuite with Matchers with Inside {
 
   val rel1 = SimpleRel(Reference("a"))

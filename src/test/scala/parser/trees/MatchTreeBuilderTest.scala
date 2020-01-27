@@ -24,12 +24,18 @@ import algebra.expressions.{Reference, True}
 import algebra.operators.{CondMatchClause, MatchClause, Query, SimpleMatchClause}
 import algebra.trees.AlgebraTreeNode
 import algebra.types._
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Inside, Matchers}
 
+/**
+  * Test with ignore must be tested manually first and need closer inspection
+  */
+@RunWith(classOf[JUnitRunner])
 class MatchTreeBuilderTest extends FunSuite with Matchers with Inside with MinimalSpoofaxParser {
 
   /************************** Match mixing ********************************************************/
-  test("Match with FullGraphPatternCondition and Optional clause") {
+  ignore("Match with FullGraphPatternCondition and Optional clause") {
     val algebraTree = extractMatchClause("CONSTRUCT (u) MATCH (u) OPTIONAL (v)")
 
     algebraTree should matchPattern {

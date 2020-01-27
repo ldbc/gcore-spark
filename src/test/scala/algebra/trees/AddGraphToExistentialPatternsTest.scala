@@ -24,9 +24,12 @@ import algebra.exceptions.AmbiguousGraphForExistentialPatternException
 import algebra.expressions.{Exists, ObjectPattern, Reference, True}
 import algebra.operators.SimpleMatchClause
 import algebra.types._
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 import schema.Catalog
 
+@RunWith(classOf[JUnitRunner])
 class AddGraphToExistentialPatternsTest extends FunSuite {
 
   private val graph1: NamedGraph = NamedGraph("graph_1")

@@ -26,14 +26,20 @@ import java.nio.file.{Files, Paths}
 
 import algebra.expressions.Label
 import org.apache.spark.sql.DataFrame
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import schema.{GraphData, GraphSchema}
+/**
+  * Test must be tested manually first and need closer inspection
+  */
 
 /**
   * Tests that a [[GraphSource]] successfully loads a [[SparkGraph]] from any available format and
   * correctly fills in the [[GraphData]] within the graph. Does not verify that the [[GraphSchema]]
   * is inferred correctly, as this tested is separately in [[SparkGraphTest]].
   */
+//@RunWith(classOf[JUnitRunner])
 class GraphSourceTest extends FunSuite
   with SparkSessionTestWrapper
   with TemporaryFolder

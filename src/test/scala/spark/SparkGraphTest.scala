@@ -23,10 +23,13 @@ package spark
 import algebra.expressions.{Label, PropertyKey}
 import algebra.types.{GcoreArray, GcoreBoolean, GcoreInteger, GcoreString}
 import org.apache.spark.sql.DataFrame
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 import schema._
 
 /** Verifies that the [[GraphSchema]] is inferred correctly from the [[GraphData]]. */
+@RunWith(classOf[JUnitRunner])
 class SparkGraphTest extends FunSuite
   with SparkSessionTestWrapper
   with SimpleTestGraph {

@@ -23,6 +23,8 @@ package algebra.trees
 import algebra.expressions.{Exists, Label, Reference}
 import algebra.operators._
 import algebra.trees.CustomMatchers._
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
 import parser.SpoofaxParser
 import parser.trees.ParseContext
@@ -30,6 +32,10 @@ import parser.trees.ParseContext
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+/**
+  * Test with ignore must be tested manually first and need closer inspection
+  */
+@RunWith(classOf[JUnitRunner])
 class ExpandRelationsTest extends FunSuite
   with BeforeAndAfterAll with Matchers with TestGraphWrapper {
 
@@ -349,7 +355,7 @@ class ExpandRelationsTest extends FunSuite
     testChainedPattern(query, expectedEdgeOrPath, expectedVertex)
   }
 
-  test("Optional clauses participate in label inference: (f:Food), OPTIONAL (f)->(c)") {
+  ignore("Optional clauses participate in label inference: (f:Food), OPTIONAL (f)->(c)") {
     val query = "CONSTRUCT () MATCH (f:Food) OPTIONAL (f)-[e]->(c)"
     val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
       Map(
@@ -374,7 +380,7 @@ class ExpandRelationsTest extends FunSuite
     testChainedPattern(query, expectedEdgeOrPath, expectedVertex = Map.empty)
   }
 
-  test("Solve chained patterns: (c:Cat)->(f:Food) OPTIONAL (c)->(c2:Cat)") {
+  ignore("Solve chained patterns: (c:Cat)->(f:Food) OPTIONAL (c)->(c2:Cat)") {
     val query =
       "CONSTRUCT () MATCH (c:Cat)-[e1]->(f:Food) OPTIONAL (c)-[e2]->(c2:Cat)"
     val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
@@ -389,7 +395,7 @@ class ExpandRelationsTest extends FunSuite
     testChainedPattern(query, expectedEdgeOrPath, expectedVertex = Map.empty)
   }
 
-  test("Exists clauses participate in label inference: (c) WHERE ()-[:Enemy]->(c)") {
+  ignore("Exists clauses participate in label inference: (c) WHERE ()-[:Enemy]->(c)") {
     val query = "CONSTRUCT () MATCH (c) WHERE (v)-[e:Enemy]->(c)"
     val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =
       Map(Reference("e") -> Seq((Label("Cat"), Label("Enemy"), Label("Cat"))))
@@ -397,7 +403,7 @@ class ExpandRelationsTest extends FunSuite
     testChainedPattern(query, expectedEdgeOrPath, expectedVertex)
   }
 
-  test("Exists clauses participate in label inference for optional matches: " +
+  ignore("Exists clauses participate in label inference for optional matches: " +
     "(c) OPTIONAL (c)->(f) WHERE (f:Food)") {
     val query = "CONSTRUCT () MATCH (c) OPTIONAL (c)-[e]->(f) WHERE (f:Food)"
     val expectedEdgeOrPath: Map[Reference, Seq[(Label, Label, Label)]] =

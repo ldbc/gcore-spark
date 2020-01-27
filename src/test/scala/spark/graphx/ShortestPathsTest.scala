@@ -22,10 +22,13 @@ package spark.graphx
 
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.rdd.RDD
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 import spark.SparkSessionTestWrapper
 import spark.graphx.ShortestPaths.{Distance, EdgeId, VertexInfoMap}
 
+@RunWith(classOf[JUnitRunner])
 class ShortestPathsTest extends FunSuite with SparkSessionTestWrapper {
 
   type SourceId = VertexId

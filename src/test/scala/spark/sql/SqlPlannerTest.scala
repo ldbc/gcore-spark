@@ -29,6 +29,8 @@ import compiler.CompileContext
 import org.apache.spark.sql.functions.{avg, expr, first, lit}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuite}
 import parser.SpoofaxParser
 import parser.trees.ParseContext
@@ -36,6 +38,10 @@ import schema.Catalog.{START_BASE_TABLE_INDEX, TABLE_INDEX_INCREMENT}
 import schema.EntitySchema.LabelRestrictionMap
 import schema.{Catalog, SchemaMap, Table}
 import spark._
+/**
+  * Test must be tested manually first and need closer inspection
+  */
+
 
 /**
   * Verifies that the [[SqlPlanner]] creates correct [[DataFrame]] binding tables and constructs the
@@ -43,6 +49,7 @@ import spark._
   * operators with Spark produces the expected results. The operators are not tested individually -
   * we only look at the results obtained by running the code produced by these operators.
   */
+//@RunWith(classOf[JUnitRunner])
 class SqlPlannerTest extends FunSuite
   with TestGraph with BeforeAndAfterEach with BeforeAndAfterAll with SparkSessionTestWrapper {
 

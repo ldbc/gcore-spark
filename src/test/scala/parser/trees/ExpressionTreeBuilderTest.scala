@@ -23,8 +23,14 @@ package parser.trees
 import algebra.expressions._
 import algebra.operators.{CondMatchClause, MatchClause, Query}
 import algebra.types.GraphPattern
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Inside, Matchers}
 
+/**
+  * Test must be tested manually first and need closer inspection
+  */
+//@RunWith(classOf[JUnitRunner])
 class ExpressionTreeBuilderTest extends FunSuite
   with Matchers with Inside with MinimalSpoofaxParser {
 

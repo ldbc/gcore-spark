@@ -23,11 +23,14 @@ package spark.graphx
 import algebra.operators.Column.{EDGE_SEQ_COL, FROM_ID_COL, ID_COL, TO_ID_COL}
 import org.apache.spark.graphx.VertexId
 import org.apache.spark.sql.{DataFrame, Row}
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 import spark.SparkSessionTestWrapper
 import spark.graphx.ShortestPaths.{Distance, EdgeId}
 import spark.graphx.Utils.COST_COL
 
+@RunWith(classOf[JUnitRunner])
 class UtilsTest extends FunSuite with SparkSessionTestWrapper {
 
   test("Create virtual path data as a DataFrame") {

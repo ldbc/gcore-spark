@@ -23,8 +23,11 @@ package algebra.trees
 import algebra.expressions.{ObjectPattern, Reference, True}
 import algebra.trees.ExtractReferenceTuples.extractReferenceTuples
 import algebra.types._
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class ExtractReferenceTuplesTest extends FunSuite {
 
   private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)

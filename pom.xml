@@ -149,7 +149,7 @@
 
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
-        <testSourceDirectory>src/test/scala/newtests</testSourceDirectory>
+        <testSourceDirectory>src/test/scala</testSourceDirectory>
         <plugins>
             <!-- Compiler plugin for Scala source files. -->
             <plugin>
@@ -186,16 +186,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.1</version>
-                <executions>
-                    <execution>
-                        <id>default-test</id>
-                        <phase>none</phase>
-                    </execution>
-                </executions>
             </plugin>
 
             <!-- Plugin to run tests with mvn test -->
-
+            <!-- Scalatest is not compatible with Surefire and it doesnt work with Jenkins -->
+            <!--
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
@@ -215,6 +210,7 @@
                     </execution>
                 </executions>
             </plugin>
+            -->
 
 
             <!-- This plugin adds all dependencies to JAR file during 'package'

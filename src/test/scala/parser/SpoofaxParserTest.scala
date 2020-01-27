@@ -25,6 +25,8 @@ import algebra.expressions.{Label, PropertyKey}
 import algebra.trees.AlgebraTreeNode
 import algebra.types._
 import common.exceptions.UnsupportedOperation
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 import parser.trees.ParseContext
 import schema._
@@ -35,6 +37,7 @@ import schema._
   * Tests the exception throwing behavior of the [[AlgebraTreeNode]]s in the presence of semantic
   * errors in the queries.
   */
+@RunWith(classOf[JUnitRunner])
 class SpoofaxParserTest extends FunSuite
   with BeforeAndAfter
   with Matchers {

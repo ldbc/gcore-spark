@@ -23,8 +23,11 @@ package algebra.trees
 import algebra.expressions._
 import algebra.operators._
 import algebra.types._
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Matchers}
 
+@RunWith(classOf[JUnitRunner])
 class PatternsToRelationsTest extends FunSuite with Matchers {
 
   private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)

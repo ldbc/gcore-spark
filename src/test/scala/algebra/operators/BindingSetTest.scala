@@ -21,8 +21,11 @@
 package algebra.operators
 
 import algebra.expressions.Reference
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class BindingSetTest extends FunSuite {
 
   test("++ with other table") {

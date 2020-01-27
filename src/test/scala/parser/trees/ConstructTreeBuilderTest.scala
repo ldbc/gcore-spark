@@ -24,8 +24,11 @@ import algebra.expressions._
 import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import algebra.types._
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Inside, Matchers}
 
+@RunWith(classOf[JUnitRunner])
 class ConstructTreeBuilderTest extends FunSuite
   with Matchers with Inside with MinimalSpoofaxParser {
 

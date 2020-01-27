@@ -25,6 +25,8 @@ import algebra.target_api.TargetTreeNode
 import algebra.types.GraphPattern
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import spark.SparkSessionTestWrapper
 import spark.sql.SqlQuery.{expandExpression, expressionToSelectionPred}
@@ -36,6 +38,7 @@ import spark.sql.operators.SqlBindingTableMetadata
   * header mimics that of a binding table's (column names begin with variable name followed by a
   * dollar sign) - this allows us to test the [[PropertyRef]] expression as well.
   */
+@RunWith(classOf[JUnitRunner])
 class SqlQueryTest extends FunSuite with BeforeAndAfterAll with SparkSessionTestWrapper {
 
   override def beforeAll() {

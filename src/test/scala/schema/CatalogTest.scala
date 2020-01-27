@@ -21,8 +21,11 @@
 package schema
 
 import algebra.expressions.Label
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class CatalogTest extends FunSuite {
 
   val graph1: PartialGraph = new PartialGraph {
