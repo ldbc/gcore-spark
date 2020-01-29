@@ -189,14 +189,19 @@
                 </executions>
             </plugin>
 
+            <!-- Plugin to run tests with mvn test -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.1</version>
             </plugin>
 
-            <!-- Plugin to run tests with mvn test -->
-            <!-- Scalatest is not compatible with Surefire and it doesnt work with Jenkins -->
+
+            <!-- Scalatest was the plugin used initially to run test.
+                 Scalatest wasn't working with Jenkins so we decided to change it for Maven Surefire,
+                 but in the end Jenkins was still not working. Finally, we kept Maven Surefire and
+                 disabled Jenkins support, so tests will be executed locally.
+            -->
             <!--
             <plugin>
                 <groupId>org.scalatest</groupId>
