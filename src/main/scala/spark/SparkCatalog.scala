@@ -20,9 +20,11 @@
 
 package spark
 
+import java.io.File
 import java.nio.file.Path
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.json4s.FileInput
 import schema.{Catalog, PathPropertyGraph}
 
 /** A [[Catalog]] for [[PathPropertyGraph]]s backed by [[DataFrame]]s. */
@@ -40,6 +42,17 @@ case class SparkCatalog(sparkSession: SparkSession) extends Catalog {
   // TODO: Cache already registered graphs.
   def registerGraph(graphSource: GraphSource, configPath: Path): Unit = {
     val graph = graphSource.loadGraph(configPath)
+    super.registerGraph(graph)
+
+  }
+
+  /**
+    * Register a graph coming from a [[GraphSource]] and fully contained in a single JSON file
+    */
+  def registerGraph(graphSource: GraphSource, jsonFile: File): Unit = {
+    val graph = graphSource.loadGraph(jsonFile)
+
+
     super.registerGraph(graph)
   }
 }

@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -33,11 +34,13 @@ object MatchTreeBuilder {
   /** Creates a [[MatchClause]] from a given Match node. */
   def extractMatchClause(from: SpoofaxBaseTreeNode): MatchClause = {
     val fullGraphPatternCondition = from.children.head
-    val optionalClause = from.children.last
+    val optionalClause = from.children(1)
+    val whereClause = from.children.last
 
     MatchClause(
       nonOptMatches = extractCondMatchClause(fullGraphPatternCondition),
-      optMatches = extractOptionalMatches(optionalClause))
+      optMatches = extractOptionalMatches(optionalClause),
+      whereClause = extractWhere(whereClause))
   }
 
   /** Creates a [[CondMatchClause]] from a given FullGraphPatternCondition. */
@@ -50,6 +53,13 @@ object MatchTreeBuilder {
         CondMatchClause(
           extractSimpleMatches(fullGraphPattern),
           extractWhere(where))
+
+      case "FullGraphPattern" =>
+        val fullGraphPattern = from
+        CondMatchClause(
+          extractSimpleMatches(fullGraphPattern),
+          True)
+
 
       case _ =>
         throw QueryParseException(s"Cannot extract CondMatchClause from node type ${from.name}")
@@ -299,10 +309,6 @@ object MatchTreeBuilder {
       case "MarcoNameRef" =>
         MacroNameReference(Reference(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value))
       case "KleeneStar" =>
-        val disjunctLabels =
-          DisjunctLabels(
-            from.children.head.children.map(
-              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
         val (lowerBound, upperBound) = from.children.last.name match {
           case "None" => (0, Int.MaxValue)
           case "Some" =>
@@ -323,7 +329,16 @@ object MatchTreeBuilder {
             }
         }
 
-        KleeneStar(disjunctLabels, lowerBound, upperBound)
+        from.children.head.name match {
+          case "DisjunctLabels" =>
+            val disjunctLabels =
+              DisjunctLabels(
+                from.children.head.children.map(
+                  label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+            SimpleKleeneStar(disjunctLabels, lowerBound, upperBound)
+          case _ =>
+            KleeneStar(extractPathExpression(from.children.head), lowerBound, upperBound)
+        }
       case "Concatenation" =>
         KleeneConcatenation(
           lhs = extractPathExpression(from.children.head),
@@ -332,6 +347,39 @@ object MatchTreeBuilder {
         KleeneUnion(
           lhs = extractPathExpression(from.children.head),
           rhs = extractPathExpression(from.children.last))
+      case "DisjunctLabels" =>
+        val disjunctLabels = DisjunctLabels(
+          from.children.head.children.map(
+            label => Label(label.asInstanceOf[SpoofaxLeaf[String]].value)))
+        //Spoofax parses a <:Label> as a KleeneStar, so i'll use the bound limits to differentiate between <:Label> and <:Label*>
+        SimpleKleeneStar(disjunctLabels, 1, 1)
+      case "KleenePlus" =>
+        from.children.head.name match {
+          case "DisjunctLabels" =>
+            val disjunctLabels =
+              DisjunctLabels(
+                from.children.head.children.map(
+                  label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+            SimpleKleenePlus(disjunctLabels)
+          case _ =>
+            KleenePlus(extractPathExpression(from.children.head))
+        }
+      case "KleeneNot" =>
+        val disjunctLabels =
+          DisjunctLabels(
+            from.children.head.children.map(
+              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+        KleeneNot(disjunctLabels)
+      case "KleeneOptional" =>
+        KleeneOptional(extractPathExpression(from.children.head))
+      case "Reverse" =>
+        val disjunctLabels =
+          DisjunctLabels(
+            from.children.head.children.map(
+              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
+        Reverse(disjunctLabels)
+      case "Wildcard" =>
+        Wildcard()
       case other =>
         throw QueryParseException(s"Cannot extract PathExpression from node type $other")
     }

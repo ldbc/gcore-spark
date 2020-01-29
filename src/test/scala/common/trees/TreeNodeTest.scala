@@ -20,13 +20,16 @@
 
 package common.trees
 
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
 /**
   * Tests for the [[TreeNode]]. Every test in this suite that changes the test tree compares the
   * pre-order traversal of the changed tree to an expected one. For the test tree used in the tests,
   * the canonical pre-order traversal is: 1, 2, 4, 5, 3.
   */
+@RunWith(classOf[JUnitRunner])
 class TreeNodeTest extends FunSuite with TestTreeWrapper {
 
   val f: PartialFunction[IntTree, IntTree] = {

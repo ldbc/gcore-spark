@@ -51,6 +51,7 @@ object ExpressionTreeBuilder {
       case "Lte" =>
         Lte(extractExpression(from.children.head), extractExpression(from.children.last))
 
+
       /* Math expressions. */
       case "Pow" =>
         Power(extractExpression(from.children.head), extractExpression(from.children.last))
@@ -123,6 +124,9 @@ object ExpressionTreeBuilder {
       case "False" => False
       case "String" => StringLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
       case "BasicGraphPattern" => Exists(extractGraphPattern(from))
+      case "Null" => Null
+      case "Date" => DateLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
+      case "Timestamp" => TimeStampLiteral(from.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
 
       /* Default case. */
       case _ => throw QueryParseException(s"Unsupported expression ${from.name}")

@@ -53,7 +53,7 @@ case class PathsGraph(spark: SparkSession) extends SparkGraph {
 
   import spark.implicits._
 
-  override def graphName: String = "paths_graph"
+  override var graphName: String = "paths_graph"
 
   override def vertexData: Seq[Table[DataFrame]] = Seq(
     Table(

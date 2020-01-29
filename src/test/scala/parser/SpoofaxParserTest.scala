@@ -25,6 +25,8 @@ import algebra.expressions.{Label, PropertyKey}
 import algebra.trees.AlgebraTreeNode
 import algebra.types._
 import common.exceptions.UnsupportedOperation
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfter, FunSuite, Matchers}
 import parser.trees.ParseContext
 import schema._
@@ -35,6 +37,10 @@ import schema._
   * Tests the exception throwing behavior of the [[AlgebraTreeNode]]s in the presence of semantic
   * errors in the queries.
   */
+/**
+  * Test works on local but doesn't on Jenkins server
+  */
+//@RunWith(classOf[JUnitRunner])
 class SpoofaxParserTest extends FunSuite
   with BeforeAndAfter
   with Matchers {
@@ -66,9 +72,20 @@ class SpoofaxParserTest extends FunSuite
 
   /** Graph to test on. All the checks are at schema level, so we do not define data. */
   val peopleGraph: PathPropertyGraph = new PathPropertyGraph {
+    override def vertexYARSPG(): String = ""
+
+    override def vertexAttributes(attributes: String, name:String): String = ""
+
+    override def edgeYARSPG(): String = ""
+
+    override def edgeAttributes(attributes: String,name: String): String = ""
+
+    override def pathYARNSPG(): String = ""
+
+    override def pathAttributes(attributes: String, name :String): String = ""
     override type StorageType = Nothing
 
-    override def graphName: String = "people"
+    override var graphName: String = "people"
 
     override def vertexSchema: EntitySchema = peopleVertexSchema
     override def edgeSchema: EntitySchema = peopleEdgeSchema
@@ -208,5 +225,8 @@ class SpoofaxParserTest extends FunSuite
         "CONSTRUCT () " +
         "MATCH ({age > 24})-[{since = 2018}]-({name = Amsterdam}) ON people"
     }
+
   }
+
+
 }

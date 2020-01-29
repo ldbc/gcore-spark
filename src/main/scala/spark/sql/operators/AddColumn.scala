@@ -25,7 +25,7 @@ import algebra.operators.Column.{CONSTRUCT_ID_COL, ID_COL}
 import algebra.target_api
 import algebra.target_api.TargetTreeNode
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
-import spark.sql.SqlQuery
+import spark.sql.{SqlPlanner, SqlQuery}
 
 case class AddColumn(reference: Reference, relation: TargetTreeNode)
   extends target_api.AddColumn(reference, relation) {
@@ -51,7 +51,7 @@ case class AddColumn(reference: Reference, relation: TargetTreeNode)
 
     val addIdQuery: String =
       s"""
-      SELECT $allColumnsSelect, $idSelect AS `$idColumnName` FROM ($addMonotonicIdQuery)"""
+      SELECT $allColumnsSelect, concat('${reference.refName}',sid) AS `$idColumnName` FROM ($addMonotonicIdQuery)"""
 
     // If this variable needed an aggregation, it already has properties in the table so it will be
     // in schema. In this case, we only need to update its schema, otherwise we need to add it to

@@ -20,7 +20,7 @@
 
 package algebra.expressions
 
-import algebra.types.{GcoreDataType, GcoreBoolean, GcoreInteger, GcoreString}
+import algebra.types.{GcoreDataType, GcoreBoolean, GcoreInteger, GcoreString, GcoreNull, GcoreDate,GcoreTimestamp}
 
 /** An actual value, such as strings, integers, booleans True and False, dates, etc. */
 abstract class Literal[T](value: T, gcoreType: GcoreDataType) extends AlgebraExpression {
@@ -33,3 +33,12 @@ case class StringLiteral(value: String) extends Literal[String](value, GcoreStri
 abstract class BooleanLiteral(value: Boolean) extends Literal[Boolean](value, GcoreBoolean)
 case object True extends BooleanLiteral(value = true)
 case object False extends BooleanLiteral(value = false)
+
+
+abstract class NullLiteral(value: Object) extends Literal[Object](value, GcoreNull)
+case object Null extends NullLiteral(value = null)
+
+case class DateLiteral(value: String) extends Literal[String](value, GcoreDate)
+
+
+case class TimeStampLiteral(value: String) extends Literal[String](value, GcoreTimestamp)

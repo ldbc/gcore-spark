@@ -39,7 +39,7 @@ trait TestGraphWrapper {
     * path labels:   ToGourmand - hops: Int
     */
   val catsGraph: PathPropertyGraph = new PathPropertyGraph {
-    override def graphName: String = "cats graph"
+    override var graphName: String = "cats graph"
 
     override type StorageType = Nothing
 
@@ -114,5 +114,17 @@ trait TestGraphWrapper {
     override def vertexData: Seq[Table[Nothing]] = Seq.empty
     override def edgeData: Seq[Table[Nothing]] = Seq.empty
     override def pathData: Seq[Table[Nothing]] = Seq.empty
+
+    override def vertexYARSPG(): String = ""
+
+    override def vertexAttributes(attributes: String, name: String): String = ""
+
+    override def edgeYARSPG(): String = ""
+
+    override def edgeAttributes(attributes: String,name: String): String = ""
+
+    override def pathYARNSPG(): String = ""
+
+    override def pathAttributes(attributes: String, name :String): String = ""
   }
 }

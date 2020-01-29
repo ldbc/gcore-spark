@@ -172,6 +172,7 @@ case class GroupBy(relation: TargetTreeNode,
     val newSchemaMap: Map[Reference, StructType] = createNewSchemaMap
     val newBtableSchema: StructType = StructType(newSchemaMap.values.flatMap(_.fields).toArray)
 
+
     SqlBindingTableMetadata(
       sparkSchemaMap = newSchemaMap,
       sparkBtableSchema = newBtableSchema,

@@ -21,8 +21,11 @@
 package algebra.trees
 
 import algebra.expressions.Reference
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class BindingContextTest extends FunSuite {
 
   test("allRefs") {

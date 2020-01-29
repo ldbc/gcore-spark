@@ -27,5 +27,5 @@ case class LeftOuterJoin(lhs: TargetTreeNode, rhs: TargetTreeNode) extends Join(
 
   override def joinTypeSql: String = "LEFT OUTER JOIN"
 
-  override def joinCondition: String = commonColumnsForJoin(lhsSchema, rhsSchema)
+  override def joinCondition: String = commonColumnsForJoin(lhsSchema, rhsSchema,lhsAlias, rhsAlias)
 }

@@ -25,6 +25,7 @@ import algebra.target_api.{BindingTableMetadata, TargetTreeNode}
 import org.apache.spark.sql.types.StructType
 import spark.sql.SqlQuery
 import SqlQuery.mergeSchemas
+import common.RandomNameGenerator.randomString
 
 /** A generic join of two relations: [[lhs]] JOIN [[rhs]]. */
 abstract class Join(lhs: TargetTreeNode, rhs: TargetTreeNode) extends target_api.Join(lhs, rhs) {
@@ -43,13 +44,17 @@ abstract class Join(lhs: TargetTreeNode, rhs: TargetTreeNode) extends target_api
   val lhsSchema: StructType = lhsBtable.btableSchema
   val rhsSchema: StructType = rhsBtable.btableSchema
 
+  var lhsAlias: String = randomString()
+  var rhsAlias: String = randomString()
+
+
   override val bindingTable: BindingTableMetadata = {
     val mergedSchemas: StructType = mergeSchemas(lhsSchema, rhsSchema)
 
     val joinQuery: String =
       s"""
-      SELECT * FROM (${lhsBtable.btable.resQuery})
-      $joinTypeSql (${rhsBtable.btable.resQuery})
+      SELECT $commonCols FROM (${lhsBtable.btable.resQuery}) $lhsAlias
+      $joinTypeSql (${rhsBtable.btable.resQuery}) $rhsAlias
       $joinCondition"""
 
     val sqlJoinQuery: SqlQuery = SqlQuery(resQuery = joinQuery)
@@ -60,5 +65,15 @@ abstract class Join(lhs: TargetTreeNode, rhs: TargetTreeNode) extends target_api
       sparkSchemaMap = lhsBtable.schemaMap ++ rhsBtable.schemaMap,
       sparkBtableSchema = unifiedSchema,
       btableOps = sqlJoinQuery)
+  }
+
+  def commonCols : String ={
+    val leftTable = s"${lhsSchema.map(f => s"$lhsAlias.`${f.name}`").mkString(" , ")}"
+    val rightTable =  s"${rhsSchema.diff(lhsSchema).map(f => s"$rhsAlias.`${f.name}`").mkString(" , ")}"
+
+    if (rightTable.length>0)
+      leftTable+","+rightTable
+    else
+      leftTable
   }
 }

@@ -86,7 +86,7 @@ case object AllPaths extends PathQuantifier
 /********************************** Path expression. **********************************************/
 abstract class PathExpression extends AlgebraType
 
-case class KleeneStar(labels: DisjunctLabels, lowerBound: Int, upperBound: Int)
+case class SimpleKleeneStar(labels: DisjunctLabels, lowerBound: Int, upperBound: Int)
   extends PathExpression with SemanticCheck {
 
   children = List(labels)
@@ -94,28 +94,59 @@ case class KleeneStar(labels: DisjunctLabels, lowerBound: Int, upperBound: Int)
   override def name: String = s"${super.name} [lowerBound = $lowerBound, upperBound = $upperBound]"
 
   override def check(): Unit = {
-    if (lowerBound > 0 || upperBound < Int.MaxValue)
+    //The grammar parses <:Label> and <:Label*> both as KleeneStar, this should be changed?
+    //Bounds (1,1) will represent <:Label>
+    //Bounds (0,Int.MaxValue) will represent <:Label*>
+    //Any other is unsupported for now
+    if ((lowerBound != 1 || upperBound != 1) && (lowerBound != 0 || upperBound != Int.MaxValue))
       throw UnsupportedOperation("Kleene bounds are not supported in path expressions.")
   }
 }
 
 case class KleeneUnion(lhs: PathExpression, rhs: PathExpression)
-  extends PathExpression with SemanticCheck {
+  extends PathExpression {
 
   children = List(lhs, rhs)
-
-  override def check(): Unit =
-    throw UnsupportedOperation("Path expression union is not supported.")
 }
 
 case class KleeneConcatenation(lhs: PathExpression, rhs: PathExpression)
-  extends PathExpression with SemanticCheck {
+  extends PathExpression {
 
   children = List(lhs, rhs)
-
-  override def check(): Unit =
-    throw UnsupportedOperation("Path expression concatenation is not supported.")
 }
+
+case class KleeneStar(expression: PathExpression, lowerBound: Int, upperBound: Int)
+  extends PathExpression with SemanticCheck {
+
+  children = List(expression)
+
+  override def check(): Unit = {
+    if (lowerBound > 0 || upperBound < Int.MaxValue)
+      throw UnsupportedOperation("Kleene bounds are not supported in path expressions.")
+  }
+}
+
+case class SimpleKleenePlus(labels: DisjunctLabels) extends PathExpression{
+  children = List(labels)
+}
+
+case class KleenePlus(expression: PathExpression) extends PathExpression{
+  children = List(expression)
+}
+
+case class KleeneOptional(expression: PathExpression) extends PathExpression{
+  children = List(expression)
+}
+
+case class KleeneNot(labels: DisjunctLabels) extends PathExpression{
+  children = List(labels)
+}
+
+case class Reverse(labels: DisjunctLabels) extends PathExpression{
+  children = List(labels)
+}
+
+case class Wildcard() extends PathExpression
 
 case class MacroNameReference(reference: Reference) extends PathExpression {
   children = List(reference)

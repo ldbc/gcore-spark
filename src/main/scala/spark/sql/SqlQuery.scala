@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (2018)
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -91,8 +92,8 @@ object SqlQuery {
   }
 
   /** Creates the string for selecting the common columns of two schemas for a JOIN clause. */
-  def commonColumnsForJoin(lhsSchema: StructType, rhsSchema: StructType): String = {
-    s"USING (${lhsSchema.intersect(rhsSchema).map(f => s"`${f.name}`").mkString(", ")})"
+  def commonColumnsForJoin(lhsSchema: StructType, rhsSchema: StructType, lhsAlias :String,rhsAlias: String): String = {
+    s"ON (${lhsSchema.intersect(rhsSchema).map(f => s"$lhsAlias.`${f.name}` <=> $rhsAlias.`${f.name}` ").mkString(" AND ")})"
   }
 
   /**
@@ -128,12 +129,16 @@ object SqlQuery {
     expr match {
       /** Expression leaves */
       case propRef: PropertyRef => s"`${propRef.ref.refName}$$${propRef.propKey.key}`"
+      case nodeRef: Reference => s"`${nodeRef.refName}$$id`"
       case StringLiteral(value) =>
         if (value.startsWith("'") && value.endsWith("'")) value else s"'$value'"
       case IntLiteral(value) => value.toString
+      case DateLiteral(value) => if (value.startsWith("'") && value.endsWith("'")) value else s"'$value'"
+      case TimeStampLiteral(value) => if (value.startsWith("'") && value.endsWith("'")) value else s"'$value'"
       case Star => "*"
       case True => "True"
       case False => "False"
+      case Null => "NULL"
 
       /** Exists subclause. */
       case _: Exists =>
@@ -155,6 +160,7 @@ object SqlQuery {
         s"""
         EXISTS
         (SELECT * FROM (${existsBtable.btable.resQuery}) $tempName WHERE $selectConds)"""
+
 
       /** Particular cases that need to be treated before generic Binary-/UnaryExpression. */
       case e: MathExpression =>

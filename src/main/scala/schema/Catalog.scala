@@ -47,6 +47,7 @@ abstract class Catalog {
   private var registeredGraphs: Map[String, PathPropertyGraph] = Map.empty
   private var registeredDefaultGraph: PathPropertyGraph = PathPropertyGraph.empty
 
+  var databaseDirectory: String = "Default"
   /**
     * All available [[PathPropertyGraph]]s in this database (the default graph is by default
     * included in the result).
@@ -112,6 +113,9 @@ abstract class Catalog {
     * deregister the graph from the database.
     */
   def resetDefaultGraph(): Unit = registeredDefaultGraph = PathPropertyGraph.empty
+
+
+  def allGraphsKeys: Seq[String] = registeredGraphs.keys.toSeq
 
 
   override def toString: String = {

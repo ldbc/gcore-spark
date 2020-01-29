@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (2018)
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -34,6 +35,20 @@ import parser.trees.QueryTreeBuilder.extractQueryClause
 object AlgebraTreeBuilder extends TreeBuilder[SpoofaxBaseTreeNode, AlgebraTreeNode] {
 
   override def build(from: SpoofaxBaseTreeNode): AlgebraTreeNode = {
-    extractQueryClause(from)
+
+    from.name match {
+      case "BasicQuery" =>
+        val query: Query = extractQueryClause(from)
+        query
+      case "Create" =>
+        val query: Query = extractQueryClause(from.children(1))
+        Create(from.children.head.asInstanceOf[SpoofaxLeaf[String]].leafValue.toString,query)
+      case "Drop" =>
+        Drop(from.children.head.asInstanceOf[SpoofaxLeaf[String]].leafValue.toString)
+      case "View" =>
+        val query: Query = extractQueryClause(from.children(1))
+        View(from.children.head.asInstanceOf[SpoofaxLeaf[String]].leafValue.toString,query)
+
+    }
   }
 }

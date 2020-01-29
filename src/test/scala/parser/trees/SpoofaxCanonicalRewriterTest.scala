@@ -20,9 +20,15 @@
 
 package parser.trees
 
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfterEach, FunSuite, Inside, Matchers}
 import parser.utils.VarBinder
 
+/**
+  * Test must be tested manually first and need closer inspection
+  */
+//@RunWith(classOf[JUnitRunner])
 class SpoofaxCanonicalRewriterTest extends FunSuite
   with Matchers with Inside with BeforeAndAfterEach with MinimalSpoofaxParser {
 

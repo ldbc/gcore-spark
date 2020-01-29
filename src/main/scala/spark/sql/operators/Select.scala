@@ -44,7 +44,7 @@ case class Select(relation: TargetTreeNode, expr: AlgebraExpression)
     val selectQuery: String =
       s"""
       SELECT * FROM (${relationBtable.btable.resQuery}) $fromAlias
-      WHERE ${expressionToSelectionPred(expr, relationBtable.schemaMap, fromAlias)}"""
+      WHERE (${expressionToSelectionPred(expr, relationBtable.schemaMap, fromAlias)})"""
 
     relationBtable.copy(btableOps = SqlQuery(resQuery = selectQuery))
   }

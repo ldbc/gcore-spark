@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -34,9 +35,10 @@ abstract class MatchLike extends GcoreOperator
   * The top-most match clause of the query. It contains a non-optional [[CondMatchClause]] and zero
   * or more optional [[CondMatchClause]]s.
   */
-case class MatchClause(nonOptMatches: CondMatchClause, optMatches: Seq[CondMatchClause])
+case class MatchClause(nonOptMatches: CondMatchClause, optMatches: Seq[CondMatchClause], whereClause: AlgebraExpression)
   extends MatchLike {
 
+  val where = whereClause
   children = nonOptMatches +: optMatches
 
   override def checkWithContext(context: Context): Unit = {
@@ -86,7 +88,7 @@ case class SimpleMatchClause(graphPattern: GraphPattern, graph: Graph) extends M
           else
             throw NamedGraphNotAvailableException(graphName)
 
-        case _: QueryGraph => // TODO: What checks should we add here?
+        case  QueryGraph(query) => // TODO: What checks should we add here?
           throw UnsupportedOperation("Query graphs are not supported.")
       }
     }

@@ -23,10 +23,13 @@ package spark
 import algebra.expressions.{Label, PropertyKey}
 import algebra.types.{GcoreArray, GcoreBoolean, GcoreInteger, GcoreString}
 import org.apache.spark.sql.DataFrame
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 import schema._
 
 /** Verifies that the [[GraphSchema]] is inferred correctly from the [[GraphData]]. */
+@RunWith(classOf[JUnitRunner])
 class SparkGraphTest extends FunSuite
   with SparkSessionTestWrapper
   with SimpleTestGraph {
@@ -51,7 +54,7 @@ class SparkGraphTest extends FunSuite
     val travelRouteTable = Table(name = Label("travelRoute"), data = travelRouteDf)
 
     val graph = new SparkGraph {
-      override def graphName: String = "test_graph"
+      override var graphName: String = "test_graph"
       override def pathData: Seq[Table[DataFrame]] = Seq(travelRouteTable)
       override def vertexData: Seq[Table[DataFrame]] = Seq(peopleTable, cityTable)
       override def edgeData: Seq[Table[DataFrame]] = Seq(bornInTable, roadTable)

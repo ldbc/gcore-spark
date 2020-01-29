@@ -27,5 +27,5 @@ case class InnerJoin(lhs: TargetTreeNode, rhs: TargetTreeNode) extends Join(lhs,
 
   override def joinTypeSql: String = "INNER JOIN"
 
-  override def joinCondition: String = commonColumnsForJoin(lhsSchema, rhsSchema)
+  override def joinCondition: String = commonColumnsForJoin(lhsSchema, rhsSchema,lhsAlias, rhsAlias)
 }

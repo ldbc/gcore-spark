@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -91,7 +92,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       // For both non-optional and optional match clauses, replace the SimpleMatchClauses with
       // SimpleMatchRelations and merge all SimpleMatchRelations into the allSimpleMatches buffer.
       // We want to perform label resolution on all patterns as a whole.
-      matchClause.children.foreach(
+      matchClause.children.filter(child => child.isInstanceOf[CondMatchClause]).foreach(
         condMatch => {
           val simpleMatches: Seq[SimpleMatchRelation] =
             toMatchRelations(condMatch.asInstanceOf[CondMatchClause])
@@ -342,9 +343,10 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
       case SimpleMatchRelation(
       VirtualPathRelation(ref, _, fromRel, toRel, _, pathExpr), matchContext, _) =>
         val graphSchema: GraphSchema = extractGraphSchema(matchContext, catalog)
+        graphSchema.edgeSchema.labels
         changed |=
           analyseVirtualPath(
-            ref, fromRel, toRel, pathExpr, graphSchema.edgeRestrictions, restrictedBindings)
+            ref, fromRel, toRel, pathExpr, graphSchema.edgeRestrictions, restrictedBindings, graphSchema.edgeSchema.labels)
     }
 
     if (changed)
@@ -369,20 +371,29 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
                                  toRel: VertexRelation,
                                  pathExpression: Option[PathExpression],
                                  schemaRestrictions: LabelRestrictionMap,
-                                 restrictedBindings: BindingToLabelsMmap): Boolean = {
+                                 restrictedBindings: BindingToLabelsMmap,
+                                 edgeLabels: Seq[Label]): Boolean = {
     pathExpression match {
-      case Some(KleeneStar(DisjunctLabels(labels), _, _)) =>
-        val fromEdgeLabel: Label = labels.head
-        val toEdgeLabel: Label = labels.last
+      case Some(KleeneConcatenation(_, _))
+           | Some(KleeneUnion(_, _))
+           | Some(KleeneStar(_, _, _))
+           | Some(SimpleKleeneStar(_,_,_))
+           | Some(SimpleKleenePlus(_))
+           | Some(KleenePlus(_))
+           | Some(KleeneNot(_))
+           | Some(Reverse(_))
+           | Some(KleeneOptional(_))
+           | Some(Wildcard()) =>
+        val pathLabels: mutable.Set[Label] = getPathExpressionLabels(pathExpression.get, edgeLabels)
         val fromEdgeReference: Reference = vpathFromEdgeReference(reference)
         val toEdgeReference: Reference = vpathToEdgeReference(reference)
 
         val fromLabelUpdated: Boolean =
           tryUpdateFromLabel(fromEdgeReference, fromRel, schemaRestrictions, restrictedBindings)
         val fromEdgeLabelUpdated: Boolean =
-          tryUpdateStrictLabel(fromEdgeReference, fromEdgeLabel, restrictedBindings)
+          tryUpdatePathLabel(fromEdgeReference, pathLabels, restrictedBindings)
         val toEdgeLabelUpdated: Boolean =
-          tryUpdateStrictLabel(toEdgeReference, toEdgeLabel, restrictedBindings)
+          tryUpdatePathLabel(toEdgeReference, pathLabels, restrictedBindings)
         val toLabelUpdated: Boolean =
           tryUpdateToLabel(toEdgeReference, toRel, schemaRestrictions, restrictedBindings)
 
@@ -424,6 +435,48 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
     changed
   }
 
+  private def getPathExpressionLabels(pathExpression: PathExpression,
+                                      edgeLabels: Seq[Label]): mutable.Set[Label] = {
+
+    pathExpression match {
+      case SimpleKleeneStar(DisjunctLabels(labels), _, _) =>
+        mutable.Set(labels :_*)
+      case SimpleKleenePlus(DisjunctLabels(labels)) =>
+        mutable.Set(labels :_*)
+      case KleeneUnion(lhs, rhs) =>
+        getPathExpressionLabels(lhs, edgeLabels) ++ getPathExpressionLabels(rhs, edgeLabels)
+      case KleeneConcatenation(lhs, rhs) =>
+        getPathExpressionLabels(lhs, edgeLabels) ++ getPathExpressionLabels(rhs, edgeLabels)
+      case KleeneStar(exp, _, _) =>
+        getPathExpressionLabels(exp, edgeLabels)
+      case KleenePlus(exp) =>
+        getPathExpressionLabels(exp, edgeLabels)
+      case KleeneOptional(exp) =>
+        getPathExpressionLabels(exp, edgeLabels)
+      case KleeneNot(DisjunctLabels(labels)) =>
+        mutable.Set(edgeLabels.filterNot(l => {
+          l == labels.head
+        }) :_*)
+      case Reverse(DisjunctLabels(labels)) =>
+        mutable.Set(labels :_*)
+      case Wildcard() =>
+        mutable.Set(edgeLabels :_*)
+    }
+  }
+
+  private def tryUpdatePathLabel(reference: Reference,
+                                 labels: mutable.Set[Label],
+                                 restrictedBindings: BindingToLabelsMmap): Boolean = {
+    var changed: Boolean = false
+    val currentBindings: mutable.Set[Label] = restrictedBindings(reference)
+    if (!currentBindings.equals(labels)) {
+      restrictedBindings.update(reference, labels)
+      changed = true
+    }
+
+    changed
+  }
+
   private def tryUpdateFromLabel(edgeReference: Reference,
                                  fromRel: VertexRelation,
                                  schemaRestrictions: LabelRestrictionMap,
@@ -446,7 +499,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
               .map(_._1) // take left endpoint of tuple (from)
               .toSeq: _*)
         val intersection: mutable.Set[Label] = currentBindings intersect newBindings
-        if (currentBindings.size != intersection.size) {
+        if (currentBindings.size != intersection.size && intersection.size > 0) {
           restrictedBindings.update(fromRel.ref, intersection)
           changed = true
         }
@@ -477,7 +530,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
               .map(_._2) // take right endpoint of tuple (to)
               .toSeq: _*)
         val intersection: mutable.Set[Label] = currentBindings intersect newBindings
-        if (currentBindings.size != intersection.size) {
+        if (currentBindings.size != intersection.size && intersection.size > 0) {
           restrictedBindings.update(toRel.ref, intersection)
           changed = true
         }

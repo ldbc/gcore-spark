@@ -23,8 +23,11 @@ package algebra.trees
 import algebra.expressions._
 import algebra.operators.{CondMatchClause, SimpleMatchClause}
 import algebra.types.{GraphPattern, NamedGraph, Vertex}
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
+@RunWith(classOf[JUnitRunner])
 class MapBindingToGraphTest extends FunSuite with BeforeAndAfterAll with TestGraphWrapper {
 
   private val emptyObjPattern: ObjectPattern = ObjectPattern(True, True)

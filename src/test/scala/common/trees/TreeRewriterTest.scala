@@ -20,8 +20,11 @@
 
 package common.trees
 
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class TreeRewriterTest extends FunSuite with TestTreeWrapper {
 
   val fEven: PartialFunction[IntTree, IntTree] = {

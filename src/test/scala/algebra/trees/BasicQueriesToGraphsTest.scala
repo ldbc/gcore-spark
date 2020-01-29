@@ -22,8 +22,11 @@ package algebra.trees
 
 import algebra.expressions.True
 import algebra.operators._
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class BasicQueriesToGraphsTest extends FunSuite {
 
   test("Query becomes a GraphCreate, if GraphUnion is empty in the CONSTRUCT clause. The " +

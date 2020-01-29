@@ -21,7 +21,8 @@
 package compiler
 
 import algebra.AlgebraRewriter
-import algebra.trees.AlgebraContext
+import algebra.operators.{Create, Drop, Query, View}
+import algebra.trees.{AlgebraContext, AlgebraTreeNode}
 import parser.SpoofaxParser
 import parser.trees.ParseContext
 import spark.sql.SqlRunner
@@ -34,5 +35,46 @@ case class GcoreCompiler(context: CompileContext) extends Compiler {
   val target: RunTargetCodeStage = SqlRunner(context)
 
   override def compile(query: String): Unit =
-    (parser andThen rewriter andThen target) (query)
+  {
+    var parsed: AlgebraTreeNode  = parser(query)
+
+    parsed match {
+    case create : Create =>
+      var qCreate = parsed.asInstanceOf[Create]
+      if (qCreate.exist)
+        println("The graph "+ qCreate.getGraphName+ " already exists")
+      else
+      {
+        var rewrited: AlgebraTreeNode  = rewriter(parsed)
+        target(rewrited)
+      }
+    case view : View =>
+      var qCreate = parsed.asInstanceOf[View]
+      if (qCreate.exist)
+        println("The graph "+ qCreate.getGraphName+ " already exists")
+      else
+      {
+        var rewrited: AlgebraTreeNode  = rewriter(parsed)
+        target(rewrited)
+      }
+    case query: Query =>
+      var rewrited: AlgebraTreeNode  = rewriter(parsed)
+      target(rewrited)
+    case drop: Drop =>
+      if(!drop.exist)
+        println("The graph "+ drop.getGraphName+ " not exists")
+      else
+      {
+        var rewrited: AlgebraTreeNode  = rewriter(parsed)
+        target(rewrited)
+      }
+
+  }
+
+
+  }
+
+
+
+
 }

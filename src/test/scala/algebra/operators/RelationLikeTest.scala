@@ -22,8 +22,11 @@ package algebra.operators
 
 import algebra.expressions.{Label, Reference, True}
 import algebra.types.AllPaths
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class RelationLikeTest extends FunSuite {
 
   test("Empty BindingSet for Relation") {

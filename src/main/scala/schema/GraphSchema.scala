@@ -93,7 +93,8 @@ case class SchemaMap[K, V](map: Map[K, V]) {
     val newMap = other.map.foldLeft(map) {
       case (currMap, (k, v)) =>
         if (currMap.contains(k))
-          throw SchemaException(s"Key $k with value $v is already present in this SchemaMap.")
+          currMap
+          //throw SchemaException(s"Key $k with value $v is already present in this SchemaMap.")
         else
           currMap + (k -> v)
     }

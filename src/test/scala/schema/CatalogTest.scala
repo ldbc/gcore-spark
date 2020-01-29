@@ -21,19 +21,44 @@
 package schema
 
 import algebra.expressions.Label
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class CatalogTest extends FunSuite {
 
   val graph1: PartialGraph = new PartialGraph {
-    override def graphName: String = "graph1"
+    override def vertexYARSPG(): String = ""
+
+    override def vertexAttributes(attributes: String, name:String): String = ""
+
+    override def edgeYARSPG(): String = ""
+
+    override def edgeAttributes(attributes: String,name: String): String = ""
+
+    override def pathYARNSPG(): String = ""
+
+    override def pathAttributes(attributes: String, name :String): String = ""
+    override var graphName: String = "graph1"
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
   }
 
   val graph2: PartialGraph = new PartialGraph {
-    override def graphName: String = "graph2"
+    override def vertexYARSPG(): String = ""
+
+    override def vertexAttributes(attributes: String, name:String): String = ""
+
+    override def edgeYARSPG(): String = ""
+
+    override def edgeAttributes(attributes: String,name: String): String = ""
+
+    override def pathYARNSPG(): String = ""
+
+    override def pathAttributes(attributes: String, name :String): String = ""
+    override var graphName: String = "graph2"
 
     override def edgeRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty
     override def storedPathRestrictions: SchemaMap[Label, (Label, Label)] = SchemaMap.empty

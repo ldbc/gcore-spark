@@ -38,3 +38,5 @@ case object GcoreBoolean extends GcoreDataType { override type ScalaType = Boole
 case object GcoreArray extends GcoreDataType { override type ScalaType = Int }
 case object GcoreDate extends GcoreDataType { override type ScalaType = String }
 case object GcoreTimestamp extends GcoreDataType { override type ScalaType = String }
+case object GcoreNull extends GcoreDataType { override type ScalaType = Object }
+

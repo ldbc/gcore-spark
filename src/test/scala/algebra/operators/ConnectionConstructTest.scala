@@ -23,8 +23,11 @@ package algebra.operators
 import algebra.exceptions.AmbiguousMerge
 import algebra.expressions._
 import algebra.types._
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FunSuite, Inside, Matchers}
 
+@RunWith(classOf[JUnitRunner])
 class ConnectionConstructTest extends FunSuite with Matchers with Inside {
 
   test("Conflicting references throw exception - (u) merge (v)") {

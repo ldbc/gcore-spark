@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (2018)
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -21,7 +22,7 @@
 package parser
 
 import compiler.ParseStage
-import algebra.operators.Query
+import algebra.operators.{Create, Drop, Query, View}
 import algebra.trees.{AlgebraTreeNode, QueryContext}
 import org.metaborg.spoofax.core.Spoofax
 import org.slf4j.{Logger, LoggerFactory}
@@ -49,7 +50,22 @@ case class SpoofaxParser(context: ParseContext) extends ParseStage {
     val rewriteParseTree: SpoofaxBaseTreeNode = SpoofaxCanonicalRewriter rewriteTree parseTree
     val algebraTree: AlgebraTreeNode = AlgebraTreeBuilder build rewriteParseTree
     logger.info("\n{}", algebraTree.treeString())
-    algebraTree.asInstanceOf[Query].checkWithContext(QueryContext(context.catalog))
-    algebraTree
+
+    algebraTree match {
+    case query: Query =>
+      query.checkWithContext(QueryContext(context.catalog))
+      query
+    case create: Create=>
+      algebraTree.asInstanceOf[Create].query.checkWithContext(QueryContext(context.catalog))
+      create.exist = context.catalog.hasGraph(create.graphName)
+      create
+    case drop: Drop =>
+      drop.exist = context.catalog.hasGraph(drop.graphName)
+      drop
+    case view: View=>
+      view.query.checkWithContext(QueryContext(context.catalog))
+      view.exist = context.catalog.hasGraph(view.graphName)
+      view
+    }
   }
 }

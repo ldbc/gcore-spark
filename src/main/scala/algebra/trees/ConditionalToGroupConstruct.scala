@@ -4,6 +4,7 @@
  *
  * The copyrights of the source code in this file belong to:
  * - CWI (www.cwi.nl), 2017-2018
+ * - Universidad de Talca (www.utalca.cl), 2018
  *
  * This software is released in open source under the Apache License, 
  * Version 2.0 (the "License"); you may not use this file except in 
@@ -185,21 +186,26 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
 
   private val constructClause: RewriteFuncType = {
     case construct: ConstructClause =>
-      val setClause: SetClause = construct.children(2).asInstanceOf[SetClause]
-      val removeClause: RemoveClause = construct.children.last.asInstanceOf[RemoveClause]
-      val refToSetAssignments: Map[Reference, Seq[AlgebraExpression]] = mapRefToPropSets(setClause)
-      val refToRemoveAssignments: Map[Reference, Seq[AlgebraExpression]] =
-        mapRefToRemoves(removeClause)
+      construct.children.foreach(constructPattern=>{
+        val setClause: SetClause = constructPattern.children(3).asInstanceOf[SetClause]
+        val removeClause: RemoveClause = constructPattern.children(4).asInstanceOf[RemoveClause]
+        val refToSetAssignments: Map[Reference, Seq[AlgebraExpression]] = mapRefToPropSets(setClause)
+        val refToRemoveAssignments: Map[Reference, Seq[AlgebraExpression]] =
+          mapRefToRemoves(removeClause)
+        //val where = construct.where
 
-      // Rewrite construct's children to group constructs.
-      val condConstructs: Seq[AlgebraTreeNode] = construct.children(1).children
-      val groupConstructs: Seq[GroupConstruct] =
-        condConstructs.map(condConstruct =>
-          createGroupConstruct(
-            condConstruct.asInstanceOf[CondConstructClause],
-            refToSetAssignments, refToRemoveAssignments))
+        // Rewrite construct's children to group constructs.
+        val condConstructs: Seq[AlgebraTreeNode] = constructPattern.children(1).children
+        val groupConstructs: Seq[GroupConstruct] =
+          condConstructs.map(condConstruct =>
+            createGroupConstruct(
+              condConstruct.asInstanceOf[CondConstructClause],
+              refToSetAssignments, refToRemoveAssignments))
 
-      construct.children = groupConstructs
+        constructPattern.children = groupConstructs
+
+      })
+
       construct
   }
 
@@ -213,13 +219,13 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
 
     val constructPattern: ConstructPattern =
       condConstructClause.children.head.asInstanceOf[ConstructPattern]
-    val when: AlgebraExpression = condConstructClause.children.last.asInstanceOf[AlgebraExpression]
+    //val when: AlgebraExpression = constructPattern. // ex when where aqui
 
     val baseConstructViewName: String = s"${BASE_CONSTRUCT_VIEW_PREFIX}_${randomString()}"
     val vertexConstructViewName: String = s"${VERTEX_CONSTRUCT_VIEW_PREFIX}_${randomString()}"
 
     // Filter the binding table by the expression in WHEN.
-    val filteredBindingTable: RelationLike = Select(relation = bindingTableView, expr = when)
+    val filteredBindingTable: RelationLike = Select(relation = bindingTableView, expr = True)
     val baseConstructTableView: BaseConstructTableView =
       BaseConstructTableView(baseConstructViewName, filteredBindingTable.getBindingSet)
 
@@ -234,6 +240,7 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
         .collect {
           case vertex: VertexConstruct => Seq(vertex)
           case edge: EdgeConstruct => Seq(edge.leftEndpoint, edge.rightEndpoint)
+          case path: StoredPathConstruct => Seq(path.leftEndpoint, path.rightEndpoint)
         }
         .flatten
     val unmatchedUngroupedVertices: Seq[Reference] =
@@ -357,23 +364,23 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
 
     // Create for each edge the construct rule and add to VertexConstructTable. Each rule receives
     // the SET and REMOVE assignments from the construct clause + the assignments from the pattern.
-    val edgeConstructRules: Seq[ConstructRule] =
-      matchedEdges.map { case (edgeRef, srcRef, dstRef) =>
-        ConstructRule(
-          reference = edgeRef,
-          setAssignments =
-            refToSetAssignments.getOrElse(edgeRef, Seq.empty) ++
-              patternRefToSetAssignments.getOrElse(edgeRef, Seq.empty),
-          removeAssignments = refToRemoveAssignments.getOrElse(edgeRef, Seq.empty),
-          constructRelation =
-            GroupBy(
-              reference = edgeRef,
-              relation = vertexConstructTableView,
-              groupingAttributes = Seq(edgeRef, srcRef, dstRef),
-              aggregateFunctions = Seq.empty),
-          fromRef = Some(srcRef),
-          toRef = Some(dstRef))
-      } ++
+    var edgeConstructRules: Seq[ConstructRule] =
+    matchedEdges.map { case (edgeRef, srcRef, dstRef) =>
+      ConstructRule(
+        reference = edgeRef,
+        setAssignments =
+          refToSetAssignments.getOrElse(edgeRef, Seq.empty) ++
+            patternRefToSetAssignments.getOrElse(edgeRef, Seq.empty),
+        removeAssignments = refToRemoveAssignments.getOrElse(edgeRef, Seq.empty),
+        constructRelation =
+          GroupBy(
+            reference = edgeRef,
+            relation = vertexConstructTableView,
+            groupingAttributes = Seq(edgeRef, srcRef, dstRef),
+            aggregateFunctions = Seq.empty),
+        fromRef = Some(srcRef),
+        toRef = Some(dstRef))
+    } ++
       unmatchedEdges.map { case (edgeRef, srcRef, dstRef) =>
         ConstructRule(
           reference = edgeRef,
@@ -394,11 +401,64 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
           toRef = Some(dstRef))
       }
 
+    val pathConstructs: Seq[(Reference, Reference, Reference)] =
+      constructPattern.topology
+        .collect { case path: StoredPathConstruct => path }
+        .map(pathConstruct => {
+          val (srcRef, dstRef): (Reference, Reference) = pathConstruct.connType match {
+            case OutConn => (pathConstruct.leftEndpoint.getRef, pathConstruct.rightEndpoint.getRef)
+            case InConn => (pathConstruct.rightEndpoint.getRef, pathConstruct.leftEndpoint.getRef)
+          }
+          (pathConstruct.connName, srcRef, dstRef)
+        })
+        .distinct
+    val pathConstructRules: Seq[ConstructRule] =
+      pathConstructs.map { case (pathRef, srcRef, dstRef) =>
+        ConstructRule(
+          reference = pathRef,
+          setAssignments =
+            refToSetAssignments.getOrElse(pathRef, Seq.empty) ++
+              patternRefToSetAssignments.getOrElse(pathRef, Seq.empty),
+          removeAssignments = refToRemoveAssignments.getOrElse(pathRef, Seq.empty),
+          constructRelation =
+            GroupBy(
+              reference = pathRef,
+              relation = vertexConstructTableView,
+              groupingAttributes = Seq(srcRef, dstRef),
+              aggregateFunctions = Seq.empty),
+          fromRef = Some(srcRef),
+          toRef = Some(dstRef))
+      }
+
+      pathConstructRules.foreach(pathConstructRule => (
+        edgeConstructRules = edgeConstructRules :+ ConstructRule(
+            reference = Reference(pathConstructRule.reference.refName + "_edge"),
+            setAssignments =
+              refToSetAssignments.getOrElse(Reference(pathConstructRule.reference.refName + "_edge"), Seq.empty) ++
+                patternRefToSetAssignments.getOrElse(Reference(pathConstructRule.reference.refName + "_edge"), Seq.empty),
+            removeAssignments = refToRemoveAssignments.getOrElse(Reference(pathConstructRule.reference.refName + "_edge"), Seq.empty),
+            constructRelation =
+              AddColumn(
+                reference = Reference(pathConstructRule.reference.refName + "_edge"),
+                relation =
+                  GroupBy(
+                    reference = Reference(pathConstructRule.reference.refName + "_edge"),
+                    relation = vertexConstructTableView,
+                    groupingAttributes = Seq(pathConstructRule.fromRef.get, pathConstructRule.toRef.get),
+                    aggregateFunctions = Seq.empty)),
+            fromRef = Some(Reference(pathConstructRule.reference.refName + "_edge")),
+            toRef = Some(Reference(pathConstructRule.reference.refName + "_edge"))
+        )
+      ))
+
+      //TODO Aldana: for every pathConstructRule, check edges and add edgeConstructRules... but i dont have the path expression...
+
+
     // Create and return group construct.
     GroupConstruct(
       filteredBindingTable, baseConstructTableView,
       vertexConstructTable, vertexConstructTableView,
-      edgeConstructRules)
+      edgeConstructRules, pathConstructRules)
   }
 
   /**
@@ -416,6 +476,12 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
         _, _, expr) =>
           mapRefToSets(ref, expr) ++ mapRefToSets(leftRef, leftExpr) ++
             mapRefToSets(rightRef, rightExpr)
+
+        case StoredPathConstruct(
+        ref, _,
+        VertexConstruct(leftRef, _, _, leftExpr), VertexConstruct(rightRef, _, _, rightExpr),
+        _, expr) =>
+          mapRefToSets(ref, expr) ++ mapRefToSets(leftRef, leftExpr) ++ mapRefToSets(rightRef, rightExpr)
       }
       // group by reference
       .groupBy(_._1) // Map[Reference, Seq[(Reference, Seq[AlgebraExpression])]]
