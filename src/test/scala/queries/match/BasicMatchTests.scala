@@ -1,23 +1,22 @@
-package queries
+package `match`
 
 import algebra.AlgebraRewriter
 import algebra.expressions.Label
 import algebra.trees.{AlgebraContext, AlgebraTreeNode}
 import compiler.{CompileContext, ParseStage, RewriteStage, RunTargetCodeStage}
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.junit.runner.RunWith
 import org.scalatest.FunSuite
 import org.scalatest.junit.JUnitRunner
-import org.junit.runner.RunWith
 import parser.SpoofaxParser
 import parser.trees.ParseContext
-import schema.PathPropertyGraph
+import schema.{PathPropertyGraph, Table}
 import spark.SparkCatalog
 import spark.examples.SocialGraph
 import spark.sql.SqlRunner
-import schema.Table
 
 @RunWith(classOf[JUnitRunner])
-class BasicQueryTests extends FunSuite{
+class BasicMatchTests extends FunSuite{
 
   val sparkSession: SparkSession = SparkSession
     .builder()
@@ -76,31 +75,6 @@ class BasicQueryTests extends FunSuite{
     assert(resultPlace.select("founded","id","name").except(expectedPlace).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("IsLocatedIn")).asInstanceOf[Table[DataFrame]].data
-    assert(resultEdge.except(expectedEdge).count == 0)
-  }
-
-  test("Create new edge with property assignment"){
-    val query = "CONSTRUCT (n)-[e:Related {prop:='value'}]->(m) MATCH (n:Tag), (m:Place)"
-    val expectedTag = Seq(
-      ("106","Wagner")
-    ).toDF("id", "name")
-    val expectedPlace = Seq(
-      ("2020-01-29","105","Houston")
-    ).toDF("founded","id","name")
-    val expectedEdge = Seq(
-      ("106","105","e0","value")
-    ).toDF("fromId", "toId", "id", "prop")
-
-    val rewrited: AlgebraTreeNode = rewriter(parser(query))
-    val graph: PathPropertyGraph = target(rewrited)
-
-    val resultTag: DataFrame = graph.tableMap(Label("Tag")).asInstanceOf[Table[DataFrame]].data
-    assert(resultTag.except(expectedTag).count == 0)
-
-    val resultPlace: DataFrame = graph.tableMap(Label("Place")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPlace.select("founded","id","name").except(expectedPlace).count == 0)
-
-    val resultEdge: DataFrame = graph.tableMap(Label("Related")).asInstanceOf[Table[DataFrame]].data
     assert(resultEdge.except(expectedEdge).count == 0)
   }
 }
