@@ -25,6 +25,7 @@ import algebra.operators._
 import algebra.trees.AlgebraTreeNode
 import common.exceptions.UnsupportedOperation
 import compiler.{CompileContext, RunTargetCodeStage}
+import gui.GcoreGUI
 import org.apache.commons.io.output.ByteArrayOutputStream
 import org.apache.spark.sql.DataFrame
 import schema.PathPropertyGraph
@@ -45,6 +46,21 @@ case class SqlRunner(compileContext: CompileContext)  extends RunTargetCodeStage
         val matchData: DataFrame = sparkSqlPlanner.solveBindingTable(matchClause,matchWhere)
         val constructBindingTable : DataFrame = sparkSqlPlanner.generateConstructBindingTable(matchData, groupConstructs)
         val graph: PathPropertyGraph = sparkSqlPlanner.constructGraph(constructBindingTable, groupConstructs)
+
+        if(GcoreGUI.resultArea != null)
+          GcoreGUI.resultArea.setText(graph.yarspg)
+        if (GcoreGUI.resultTabularArea != null)
+        {
+          val outCapture = new ByteArrayOutputStream
+          Console.withOut(outCapture) {
+            constructBindingTable.show(false)
+          }
+          val result = new String(outCapture.toByteArray)
+          GcoreGUI.resultTabularArea.setText(result)
+
+        }
+        if (GcoreGUI.resultInfo != null)
+          GcoreGUI.resultInfo.setText(graph.toString)
 
         println(graph.yarspg)
         graph

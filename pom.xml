@@ -145,11 +145,18 @@
             <version>1.2</version>
         </dependency>
 
+        <!-- ScalaFX for graphical interface -->
+        <dependency>
+            <groupId>org.scalafx</groupId>
+            <artifactId>scalafx_2.11</artifactId>
+            <version>11-R16</version>
+        </dependency>
+
     </dependencies>
 
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
-        <testSourceDirectory>src/test/scala/newtests</testSourceDirectory>
+        <testSourceDirectory>src/test/scala/queries</testSourceDirectory>
         <plugins>
             <!-- Compiler plugin for Scala source files. -->
             <plugin>
@@ -212,7 +219,6 @@
             </plugin>
             -->
 
-
             <!-- This plugin adds all dependencies to JAR file during 'package'
             command. -->
             <plugin>
@@ -224,7 +230,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>GcoreRunner</mainClass>
+                            <mainClass>gui.GcoreGUI</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
