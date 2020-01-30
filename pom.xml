@@ -189,7 +189,7 @@
                 </executions>
             </plugin>
 
-            <!-- Plugin to run tests with mvn test -->
+            <!-- Plugin to run tests with mvn test comment for jenkins-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
