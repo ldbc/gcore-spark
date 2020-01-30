@@ -158,6 +158,29 @@
         <sourceDirectory>src/main/scala</sourceDirectory>
         <testSourceDirectory>src/test/scala/queries</testSourceDirectory>
         <plugins>
+
+            <plugin>
+                <groupId>com.zenjava</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>1.3</version>
+                <executions>
+                    <execution>
+                        <id>create-final-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>build-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <vendor>A happy ScalaFX User</vendor>
+                    <mainClass>org.example.scalajfx.World</mainClass>
+                    <permissions>
+                        <permission>all-permissions</permission>
+                    </permissions>
+                </configuration>
+            </plugin>
+
             <!-- Compiler plugin for Scala source files. -->
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
