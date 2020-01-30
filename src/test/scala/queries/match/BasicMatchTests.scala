@@ -31,7 +31,7 @@ class BasicMatchTests extends FunSuite{
   val parser: ParseStage = SpoofaxParser(ParseContext(context.catalog))
   val rewriter: RewriteStage = AlgebraRewriter(AlgebraContext(context.catalog))
   val target: RunTargetCodeStage = SqlRunner(context)
-/*
+
   test("Node match with label") {
     val query = "CONSTRUCT (n) MATCH (n:Person)"
     val expected = Seq(
@@ -56,8 +56,8 @@ class BasicMatchTests extends FunSuite{
       ("Hoffman","104","Acme","Alice","Yale")
     ).toDF("lastName", "id","employer","firstName","university")
     val expectedPlace = Seq(
-      ("2020-01-29","105","Houston")
-    ).toDF("founded","id","name")
+      ("105","Houston")
+    ).toDF("id","name")
     val expectedEdge = Seq(
       ("400", "101", "105"),
       ("402", "104", "105"),
@@ -72,7 +72,7 @@ class BasicMatchTests extends FunSuite{
 
     //Place also has a timestamp field that is filled at execution time
     val resultPlace: DataFrame = graph.tableMap(Label("Place")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPlace.select("founded","id","name").except(expectedPlace).count == 0)
+    assert(resultPlace.select("id","name").except(expectedPlace).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("IsLocatedIn")).asInstanceOf[Table[DataFrame]].data
     assert(resultEdge.except(expectedEdge).count == 0)
@@ -101,8 +101,8 @@ class BasicMatchTests extends FunSuite{
       ("Hoffman","104","Acme","Alice","Yale")
     ).toDF("lastName", "id","employer","firstName","university")
     val expectedPlace = Seq(
-      ("2020-01-29","105","Houston")
-    ).toDF("founded","id","name")
+      ("105","Houston")
+    ).toDF("id","name")
     val expectedEdge = Seq(
       ("400", "101", "105"),
       ("402", "104", "105"),
@@ -117,7 +117,7 @@ class BasicMatchTests extends FunSuite{
 
     //Place also has a timestamp field that is filled at execution time
     val resultPlace: DataFrame = graph.tableMap(Label("Place")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPlace.select("founded","id","name").except(expectedPlace).count == 0)
+    assert(resultPlace.select("id","name").except(expectedPlace).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("IsLocatedIn")).asInstanceOf[Table[DataFrame]].data
     assert(resultEdge.except(expectedEdge).count == 0)
@@ -137,10 +137,5 @@ class BasicMatchTests extends FunSuite{
     val graph: PathPropertyGraph = target(rewrited)
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
     assert(result.except(expected).count == 0)
-  }
-  */
-
-  test("Simple test"){
-    assert(true)
   }
 }

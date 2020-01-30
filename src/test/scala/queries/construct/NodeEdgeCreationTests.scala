@@ -31,15 +31,15 @@ class NodeEdgeCreationTests extends FunSuite{
   val parser: ParseStage = SpoofaxParser(ParseContext(context.catalog))
   val rewriter: RewriteStage = AlgebraRewriter(AlgebraContext(context.catalog))
   val target: RunTargetCodeStage = SqlRunner(context)
-/*
+
   test("Create new edge with property assignment"){
     val query = "CONSTRUCT (n)-[e:Related {prop:='value'}]->(m) MATCH (n:Tag), (m:Place)"
     val expectedTag = Seq(
       ("106","Wagner")
     ).toDF("id", "name")
     val expectedPlace = Seq(
-      ("2020-01-29","105","Houston")
-    ).toDF("founded","id","name")
+      ("105","Houston")
+    ).toDF("id","name")
     val expectedEdge = Seq(
       ("106","105","e0","value")
     ).toDF("fromId", "toId", "id", "prop")
@@ -51,14 +51,9 @@ class NodeEdgeCreationTests extends FunSuite{
     assert(resultTag.except(expectedTag).count == 0)
 
     val resultPlace: DataFrame = graph.tableMap(Label("Place")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPlace.select("founded","id","name").except(expectedPlace).count == 0)
+    assert(resultPlace.select("id","name").except(expectedPlace).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("Related")).asInstanceOf[Table[DataFrame]].data
     assert(resultEdge.except(expectedEdge).count == 0)
-  }
-  */
-
-  test("Simple test"){
-    assert(true)
   }
 }
