@@ -32,7 +32,7 @@ class BasicMatchTests extends FunSuite{
   val rewriter: RewriteStage = AlgebraRewriter(AlgebraContext(context.catalog))
   val target: RunTargetCodeStage = SqlRunner(context)
 
-  test("Node match with label") {
+  test("1.1.1 Node match with label") {
     val query = "CONSTRUCT (n) MATCH (n:Person)"
     val expected = Seq(
       ("Doe","101","Acme","John","Oxford"),
@@ -48,7 +48,7 @@ class BasicMatchTests extends FunSuite{
     assert(result.except(expected).count == 0)
   }
 
-  test("Edge match with only edge label"){
+  test("1.1.2 Edge match with only edge label"){
     val query = "CONSTRUCT (n)-[e]->(m) MATCH (n)-[e:IsLocatedIn]->(m)"
     val expectedPerson = Seq(
       ("Doe","101","Acme","John","Oxford"),
@@ -78,7 +78,7 @@ class BasicMatchTests extends FunSuite{
     assert(resultEdge.except(expectedEdge).count == 0)
   }
 
-  test("Edge match with node and edge labels"){
+  test("1.1.3 Edge match with node and edge labels"){
     val query = "CONSTRUCT (n) MATCH (n:Person)-[:IsLocatedIn]->(m:Place)"
     val expected = Seq(
       ("Doe","101","Acme","John","Oxford"),
@@ -93,7 +93,7 @@ class BasicMatchTests extends FunSuite{
     assert(result.except(expected).count == 0)
   }
 
-  test("Edge match with only node labels"){
+  test("1.1.4 Edge match with only node labels"){
     val query = "CONSTRUCT (n)-[e]->(m) MATCH (n:Person)-[e]->(m:Place)"
     val expectedPerson = Seq(
       ("Doe","101","Acme","John","Oxford"),
@@ -123,7 +123,7 @@ class BasicMatchTests extends FunSuite{
     assert(resultEdge.except(expectedEdge).count == 0)
   }
 
-  test("Multiple match patterns"){
+  test("1.1.5 Multiple match patterns"){
     val query = "CONSTRUCT (n) MATCH (n:Person), (m:Tag)"
     val expected = Seq(
       ("Doe","101","Acme","John","Oxford"),
@@ -135,6 +135,21 @@ class BasicMatchTests extends FunSuite{
 
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.except(expected).count == 0)
+  }
+
+  test("1.1.6 Edge direction"){
+    val query = "CONSTRUCT (n) MATCH (m:Place)<-[:IsLocatedIn]-(n:Person)"
+    val expected = Seq(
+      ("Doe","101","Acme","John","Oxford"),
+      ("Mayer","103","HAL","Celine","Harvard"),
+      ("Hoffman","104","Acme","Alice","Yale")
+    ).toDF("lastName", "id","employer","firstName","university")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
     assert(result.except(expected).count == 0)
   }
