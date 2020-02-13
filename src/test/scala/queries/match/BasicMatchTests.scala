@@ -12,7 +12,7 @@ import parser.SpoofaxParser
 import parser.trees.ParseContext
 import schema.{PathPropertyGraph, Table}
 import spark.SparkCatalog
-import spark.examples.SocialGraph
+import spark.examples.SocialTestGraph
 import spark.sql.SqlRunner
 
 @RunWith(classOf[JUnitRunner])
@@ -25,8 +25,8 @@ class BasicMatchTests extends FunSuite{
     .getOrCreate()
   import sparkSession.implicits._
   val catalog: SparkCatalog = SparkCatalog(sparkSession)
-  catalog.registerGraph(SocialGraph(sparkSession))
-  catalog.setDefaultGraph("social_graph")
+  catalog.registerGraph(SocialTestGraph(sparkSession))
+  catalog.setDefaultGraph("social_test_graph")
   val context = CompileContext(catalog, sparkSession)
   val parser: ParseStage = SpoofaxParser(ParseContext(context.catalog))
   val rewriter: RewriteStage = AlgebraRewriter(AlgebraContext(context.catalog))
@@ -45,7 +45,7 @@ class BasicMatchTests extends FunSuite{
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(result.except(expected).count == 0)
+    assert(result.select("lastName", "id", "employer", "firstName", "university").except(expected).count == 0)
   }
 
   test("1.1.2 Edge match with only edge label"){
@@ -68,14 +68,14 @@ class BasicMatchTests extends FunSuite{
     val graph: PathPropertyGraph = target(rewrited)
 
     val resultPerson: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPerson.except(expectedPerson).count == 0)
+    assert(resultPerson.select("lastName", "id","employer","firstName","university").except(expectedPerson).count == 0)
 
     //Place also has a timestamp field that is filled at execution time
     val resultPlace: DataFrame = graph.tableMap(Label("Place")).asInstanceOf[Table[DataFrame]].data
     assert(resultPlace.select("id","name").except(expectedPlace).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("IsLocatedIn")).asInstanceOf[Table[DataFrame]].data
-    assert(resultEdge.except(expectedEdge).count == 0)
+    assert(resultEdge.select("id", "fromId", "toId").except(expectedEdge).count == 0)
   }
 
   test("1.1.3 Edge match with node and edge labels"){
@@ -90,7 +90,7 @@ class BasicMatchTests extends FunSuite{
     val graph: PathPropertyGraph = target(rewrited)
 
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(result.except(expected).count == 0)
+    assert(result.select("lastName", "id","employer","firstName","university").except(expected).count == 0)
   }
 
   test("1.1.4 Edge match with only node labels"){
@@ -113,14 +113,13 @@ class BasicMatchTests extends FunSuite{
     val graph: PathPropertyGraph = target(rewrited)
 
     val resultPerson: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPerson.except(expectedPerson).count == 0)
+    assert(resultPerson.select("lastName", "id","employer","firstName","university").except(expectedPerson).count == 0)
 
-    //Place also has a timestamp field that is filled at execution time
     val resultPlace: DataFrame = graph.tableMap(Label("Place")).asInstanceOf[Table[DataFrame]].data
     assert(resultPlace.select("id","name").except(expectedPlace).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("IsLocatedIn")).asInstanceOf[Table[DataFrame]].data
-    assert(resultEdge.except(expectedEdge).count == 0)
+    assert(resultEdge.select("id", "fromId", "toId").except(expectedEdge).count == 0)
   }
 
   test("1.1.5 Multiple match patterns"){
@@ -136,7 +135,7 @@ class BasicMatchTests extends FunSuite{
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(result.except(expected).count == 0)
+    assert(result.select("lastName", "id","employer","firstName","university").except(expected).count == 0)
   }
 
   test("1.1.6 Edge direction"){
@@ -151,6 +150,6 @@ class BasicMatchTests extends FunSuite{
     val graph: PathPropertyGraph = target(rewrited)
 
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(result.except(expected).count == 0)
+    assert(result.select("lastName", "id","employer","firstName","university").except(expected).count == 0)
   }
 }
