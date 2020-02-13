@@ -35,17 +35,13 @@ class BasicMatchTests extends FunSuite{
   test("1.1.1 Node match with label") {
     val query = "CONSTRUCT (n) MATCH (n:Person)"
     val expected = Seq(
-      ("Doe","101","Acme","John","Oxford"),
-      ("Mayer","103","HAL","Celine","Harvard"),
-      ("Hoffman","104","Acme","Alice","Yale"),
-      ("Smith","102",null,"Peter","Stanford"),
-      ("Gold","100","[MIT][CWI]","Frank","Harvard")
-    ).toDF("lastName", "id","employer","firstName","university")
+      ("100"), ("101"), ("102"), ("103"), ("104")
+    ).toDF("id")
 
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(result.select("lastName", "id", "employer", "firstName", "university").except(expected).count == 0)
+    assert(result.select("id").except(expected).count == 0)
   }
 
   test("1.1.2 Edge match with only edge label"){
