@@ -34,72 +34,110 @@ class MultipleConditionTests extends FunSuite {
   test("2.2.1 AND Operator on Node"){
     val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer='Acme' AND n.university='Yale'"
     val expected = Seq(
-      ("Hoffman","104","Acme","Alice","Yale")
-    ).toDF("lastName", "id","employer","firstName","university")
+      ("104")
+    ).toDF("id")
 
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(result.select("lastName", "id","employer","firstName","university").except(expected).count == 0)
+    assert(result.select("id").except(expected).count == 0)
   }
 
   test("2.2.2 AND Operator on Edge"){
     val query = "CONSTRUCT (n)-[e]->(m) MATCH (n:Person)-[e:Knows]->(m:Person) WHERE e.nr_messages='3' AND e.fromId='102'"
     val expectedPerson = Seq(
-      ("Hoffman","104","Acme","Alice","Yale"),
-      ("Smith","102",null,"Peter","Stanford")
-    ).toDF("lastName", "id","employer","firstName","university")
+      ("104"), ("102")
+    ).toDF("id")
     val expectedEdge = Seq(
-      ("205","102","104","3")
-    ).toDF("id","fromId","toId","nr_messages")
+      ("205")
+    ).toDF("id")
 
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
 
     val resultPerson: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPerson.select("lastName", "id","employer","firstName","university").except(expectedPerson).count == 0)
+    assert(resultPerson.select("id").except(expectedPerson).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("Knows")).asInstanceOf[Table[DataFrame]].data
-    assert(resultEdge.select("id","fromId","toId","nr_messages").except(expectedEdge).count == 0)
+    assert(resultEdge.select("id").except(expectedEdge).count == 0)
   }
 
   test("2.2.3 OR Operator on Node"){
     val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer='Acme' OR n.employer='HAL'"
     val expected = Seq(
-      ("Doe","101","Acme","John","Oxford"),
-      ("Mayer","103","HAL","Celine","Harvard"),
-      ("Hoffman","104","Acme","Alice","Yale")
-    ).toDF("lastName", "id","employer","firstName","university")
+      ("101"), ("103"), ("104")
+    ).toDF("id")
 
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(result.select("lastName", "id","employer","firstName","university").except(expected).count == 0)
+    assert(result.select("id").except(expected).count == 0)
   }
 
   test("2.2.4 OR Operator on Edge"){
     val query = "CONSTRUCT (n)-[e]->(m) MATCH (n:Person)-[e:Knows]->(m:Person) WHERE e.nr_messages='3' OR e.nr_messages='2'"
     val expectedPerson = Seq(
-      ("Hoffman","104","Acme","Alice","Yale"),
-      ("Smith","102",null,"Peter","Stanford"),
-      ("Gold","100","[MIT][CWI]","Frank","Harvard")
-    ).toDF("lastName", "id","employer","firstName","university")
+      ("104"), ("102"), ("100")
+    ).toDF("id")
     val expectedEdge = Seq(
-      ("204","100","102","2"),
-      ("205","102","104","3"),
-      ("210","102","100","2"),
-      ("211","104","102","3")
-    ).toDF("id","fromId","toId","nr_messages")
+      ("204"), ("205"), ("210"), ("211")
+    ).toDF("id")
 
     val rewrited: AlgebraTreeNode = rewriter(parser(query))
     val graph: PathPropertyGraph = target(rewrited)
 
     val resultPerson: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
-    assert(resultPerson.select("lastName", "id","employer","firstName","university").except(expectedPerson).count == 0)
+    assert(resultPerson.select("id").except(expectedPerson).count == 0)
 
     val resultEdge: DataFrame = graph.tableMap(Label("Knows")).asInstanceOf[Table[DataFrame]].data
-    assert(resultEdge.select("id","fromId","toId","nr_messages").except(expectedEdge).count == 0)
+    assert(resultEdge.select("id").except(expectedEdge).count == 0)
   }
 
-  //AND-OR with IS NULL and IS NOT NULL
+  test("2.2.5 AND Operator with IS NULL Operator"){
+    val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer IS NULL AND n.university = 'Stanford'"
+    val expected = Seq(
+      ("102")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.select("id").except(expected).count == 0)
+  }
+
+  test("2.2.6 AND Operator with IS NOT NULL Operator"){
+    val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer IS NOT NULL AND n.university = 'Harvard'"
+    val expected = Seq(
+      ("100"),("103")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.select("id").except(expected).count == 0)
+  }
+
+  test("2.2.7 OR Operator with IS NULL Operator"){
+    val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer IS NULL OR n.employer = 'HAL'"
+    val expected = Seq(
+      ("102"),("103")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.select("id").except(expected).count == 0)
+  }
+
+  test("2.2.8 OR Operator with IS NOT NULL Operator"){
+    val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer IS NOT NULL OR n.university = 'Stanford'"
+    val expected = Seq(
+      ("100"),("101"),("102"),("103"),("104")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.select("id").except(expected).count == 0)
+  }
 }
