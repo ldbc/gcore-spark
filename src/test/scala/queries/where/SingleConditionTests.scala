@@ -286,4 +286,41 @@ class SingleConditionTests extends FunSuite{
     val resultEdge: DataFrame = graph.tableMap(Label("IsLocatedIn")).asInstanceOf[Table[DataFrame]].data
     assert(resultEdge.select("id").except(expectedEdge).count == 0)
   }
+
+  test("2.1.15 NOT Operator on node"){
+    val query = "CONSTRUCT (n) MATCH (n:Person) WHERE NOT n.employer = 'Acme'"
+    val expected = Seq(
+      ("100"), ("102"), ("103")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.select("id").except(expected).count == 0)
+  }
+
+  test("2.1.16 NOT Operator on edge"){
+    val query = "CONSTRUCT (n)-[e]->(m) MATCH (n)-[e:IsLocatedIn]->(m) WHERE NOT e.bool = 'true'"
+    val expectedPerson = Seq(
+      ("101"), ("104")
+    ).toDF("id")
+    val expectedPlace = Seq(
+      ("105")
+    ).toDF("id")
+    val expectedEdge = Seq(
+      ("400"),("402")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+
+    val resultPerson: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(resultPerson.select("id").except(expectedPerson).count == 0)
+
+    val resultPlace: DataFrame = graph.tableMap(Label("Place")).asInstanceOf[Table[DataFrame]].data
+    assert(resultPlace.select("id").except(expectedPlace).count == 0)
+
+    val resultEdge: DataFrame = graph.tableMap(Label("IsLocatedIn")).asInstanceOf[Table[DataFrame]].data
+    assert(resultEdge.select("id").except(expectedEdge).count == 0)
+  }
 }

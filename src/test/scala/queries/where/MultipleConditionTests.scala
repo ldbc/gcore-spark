@@ -140,4 +140,28 @@ class MultipleConditionTests extends FunSuite {
     val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
     assert(result.select("id").except(expected).count == 0)
   }
+
+  test("2.2.9 AND Operator with NOT Operator"){
+    val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer = 'Acme' AND NOT n.university = 'Yale'"
+    val expected = Seq(
+      ("101")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.select("id").except(expected).count == 0)
+  }
+
+  test("2.2.10 OR Operator with NOT Operator"){
+    val query = "CONSTRUCT (n) MATCH (n:Person) WHERE n.employer = 'Acme' OR NOT n.university = 'Harvard'"
+    val expected = Seq(
+      ("101"),("102"),("104")
+    ).toDF("id")
+
+    val rewrited: AlgebraTreeNode = rewriter(parser(query))
+    val graph: PathPropertyGraph = target(rewrited)
+    val result: DataFrame = graph.tableMap(Label("Person")).asInstanceOf[Table[DataFrame]].data
+    assert(result.select("id").except(expected).count == 0)
+  }
 }
