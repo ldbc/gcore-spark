@@ -88,12 +88,12 @@ case class PathSearch(pathRelation: VirtualPathRelation,
     val joinPathOnFrom: String =
       s"""
       SELECT * FROM ($selectPath) INNER JOIN ($addLabelFrom) ON
-      `${pathRef}_edge$$${FROM_ID_COL.columnName}` = `$fromRef$$${ID_COL.columnName}`"""
+      `${pathRef}$$edge$$${FROM_ID_COL.columnName}` = `$fromRef$$${ID_COL.columnName}`"""
 
     val joinPathOnFromAndTo: String =
       s"""
       SELECT * FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
-      `${pathRef}_edge$$${TO_ID_COL.columnName}` = `$toRef$$${ID_COL.columnName}`"""
+      `${pathRef}$$edge$$${TO_ID_COL.columnName}` = `$toRef$$${ID_COL.columnName}`"""
 
     val newPathSchema: StructType = refactorScanSchema(pathData.schema, pathRelation.ref)
     val newFromSchema: StructType = refactorScanSchema(fromData.schema, pathRelation.fromRel.ref)
@@ -258,7 +258,6 @@ case class PathSearch(pathRelation: VirtualPathRelation,
     var edges: DataFrame = physGraph.edgeData.head.asInstanceOf[Table[DataFrame]].data
     edges = edges.withColumn("table_label", lit(physGraph.edgeData.head.name.value))
     physGraph.edgeData.drop(1).foreach(table => {
-      //TODO what if edges have different attributes?
       val edgeTable = table.asInstanceOf[Table[DataFrame]].data
         .withColumn("table_label", lit(table.name.value))
       val cols1 = edges.columns.toSet
@@ -274,14 +273,13 @@ case class PathSearch(pathRelation: VirtualPathRelation,
     edges = edges.select(renamedColumns:_*)
 
     pathsNoZero.join(edges, arrayJoinUdf(pathsNoZero("edges"), edges(prefix+"id")), "left")
-
   }
 
   def selectAllPrependOptional(table: DataFrame, ref: Reference, optional: String): String ={
     table.columns
       .map(col =>
         if (col.startsWith(optional)){
-          s"`$col` AS `${ref.refName}_$col`"
+          s"`$col` AS `${ref.refName}$$$col`"
         }else {
           s"$col AS `${ref.refName}$$$col`"
         }
