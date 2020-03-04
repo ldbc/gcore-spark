@@ -88,12 +88,12 @@ case class PathSearch(pathRelation: VirtualPathRelation,
     val joinPathOnFrom: String =
       s"""
       SELECT * FROM ($selectPath) INNER JOIN ($addLabelFrom) ON
-      `${pathRef}$$edge$$${FROM_ID_COL.columnName}` = `$fromRef$$${ID_COL.columnName}`"""
+      `${pathRef}_edge$$${FROM_ID_COL.columnName}` = `$fromRef$$${ID_COL.columnName}`"""
 
     val joinPathOnFromAndTo: String =
       s"""
       SELECT * FROM ($joinPathOnFrom) INNER JOIN ($addLabelTo) ON
-      `${pathRef}$$edge$$${TO_ID_COL.columnName}` = `$toRef$$${ID_COL.columnName}`"""
+      `${pathRef}_edge$$${TO_ID_COL.columnName}` = `$toRef$$${ID_COL.columnName}`"""
 
     val newPathSchema: StructType = refactorScanSchema(pathData.schema, pathRelation.ref)
     val newFromSchema: StructType = refactorScanSchema(fromData.schema, pathRelation.fromRel.ref)
@@ -279,7 +279,7 @@ case class PathSearch(pathRelation: VirtualPathRelation,
     table.columns
       .map(col =>
         if (col.startsWith(optional)){
-          s"`$col` AS `${ref.refName}$$$col`"
+          s"`$col` AS `${ref.refName}_$col`"
         }else {
           s"$col AS `${ref.refName}$$$col`"
         }

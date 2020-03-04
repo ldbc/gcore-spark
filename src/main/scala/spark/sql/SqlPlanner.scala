@@ -737,7 +737,6 @@ edges.show()
                            fromToRefs: Option[(Reference, Reference)] = None): Seq[Table[DataFrame]] = {
     val labelColSelect: String = s"${reference.refName}$$${TABLE_LABEL_COL.columnName}"
 
-
     val entityFields: Set[String] =
       constructRelation.columns
         .filter(_.startsWith(s"${reference.refName}$$"))
@@ -752,7 +751,7 @@ edges.show()
 
     val labels = entityDf.select(labelColSelect).distinct().collect().map(_(0)).toList
     val newColumnNames: Seq[String] =
-      entityDf.columns.map(columnName => columnName.split(s"${reference.refName}\\$$")(1))
+      entityDf.columns.map(columnName => columnName.split(s"${reference.refName.replace("$",s"\\$$")}\\$$")(1))
     // Log DF before stripping the variable$ prefix.
     entityDf.show
 

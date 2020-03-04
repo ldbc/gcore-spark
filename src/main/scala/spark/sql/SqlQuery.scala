@@ -67,7 +67,8 @@ object SqlQuery {
     val newSchema: StructType =
       schema.foldLeft(new StructType())(
         (aggStruct, structField) => {
-          aggStruct.add(structField.copy(name = s"${ref.refName}$$${structField.name}"))
+          //aggStruct.add(structField.copy(name = s"${ref.refName}$$${structField.name}"))
+          aggStruct.add(structField.copy(name = (if (structField.name.contains("$")) s"${ref.refName}_${structField.name}" else s"${ref.refName}$$${structField.name}")))
         })
     newSchema.add(name = s"${ref.refName}$$${TABLE_LABEL_COL.columnName}", dataType = "String")
   }
