@@ -451,8 +451,6 @@ case class ConditionalToGroupConstruct(context: AlgebraContext)
         )
       ))
 
-      //TODO Aldana: for every pathConstructRule, check edges and add edgeConstructRules... but i dont have the path expression...
-
 
     // Create and return group construct.
     GroupConstruct(
