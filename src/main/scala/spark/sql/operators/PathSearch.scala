@@ -258,7 +258,6 @@ case class PathSearch(pathRelation: VirtualPathRelation,
     var edges: DataFrame = physGraph.edgeData.head.asInstanceOf[Table[DataFrame]].data
     edges = edges.withColumn("table_label", lit(physGraph.edgeData.head.name.value))
     physGraph.edgeData.drop(1).foreach(table => {
-      //TODO what if edges have different attributes?
       val edgeTable = table.asInstanceOf[Table[DataFrame]].data
         .withColumn("table_label", lit(table.name.value))
       val cols1 = edges.columns.toSet
@@ -274,7 +273,6 @@ case class PathSearch(pathRelation: VirtualPathRelation,
     edges = edges.select(renamedColumns:_*)
 
     pathsNoZero.join(edges, arrayJoinUdf(pathsNoZero("edges"), edges(prefix+"id")), "left")
-
   }
 
   def selectAllPrependOptional(table: DataFrame, ref: Reference, optional: String): String ={

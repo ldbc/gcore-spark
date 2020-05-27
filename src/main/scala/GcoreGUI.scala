@@ -1,4 +1,4 @@
-
+/*
 package  gui
 
 
@@ -549,3 +549,5 @@ object Splash {
 
 
 case class GcoreRunner(sparkSession: SparkSession, compiler: Compiler, catalog: Catalog)
+
+ */

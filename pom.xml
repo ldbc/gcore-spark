@@ -158,6 +158,7 @@
         <sourceDirectory>src/main/scala</sourceDirectory>
         <testSourceDirectory>src/test/scala/queries</testSourceDirectory>
         <plugins>
+
             <!-- Compiler plugin for Scala source files. -->
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
@@ -189,7 +190,7 @@
                 </executions>
             </plugin>
 
-            <!-- Plugin to run tests with mvn test -->
+            <!-- Plugin to run tests with mvn test comment for jenkins-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -198,9 +199,7 @@
 
 
             <!-- Scalatest was the plugin used initially to run test.
-                 Scalatest wasn't working with Jenkins so we decided to change it for Maven Surefire,
-                 but in the end Jenkins was still not working. Finally, we kept Maven Surefire and
-                 disabled Jenkins support, so tests will be executed locally.
+                 Scalatest wasn't working with Jenkins so we decided to change it for Maven Surefire
             -->
             <!--
             <plugin>
@@ -235,7 +234,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>gui.GcoreGUI</mainClass>
+                            <mainClass>GcoreRunner</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
