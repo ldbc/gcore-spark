@@ -21,18 +21,28 @@
 
 
 
+import algebra.AlgebraRewriter
 import compiler.{CompileContext, Compiler, GcoreCompiler}
+import jline.UnsupportedTerminal
+import jline.console.ConsoleReader
+import jline.console.completer.FileNameCompleter
 import org.apache.spark.sql.SparkSession
 import schema.{Catalog, SchemaException}
 import spark.{Directory, SparkCatalog}
-import spark.examples.{CompanyGraph, DummyGraph, PeopleGraph, SocialGraph}
+import spark.examples.{BasicGraph, CompanyGraph, DummyGraph, PeopleGraph, SocialGraph}
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
+import parser.SpoofaxParser
+
+import scala.collection.mutable.ListBuffer
 
 
 /** Main entry point of the interpreter. */
 object GcoreRunner {
 
+  import jline.TerminalFactory
+
+  jline.TerminalFactory.registerFlavor(TerminalFactory.Flavor.WINDOWS, classOf[UnsupportedTerminal])
   def newRunner: GcoreRunner = {
     val sparkSession: SparkSession = SparkSession
       .builder()
@@ -46,8 +56,7 @@ object GcoreRunner {
   }
 
   def main(args: Array[String]): Unit = {
-
-    var log = false;
+    var log = false
     activeLog(log)
     var active = true
     val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
@@ -56,60 +65,67 @@ object GcoreRunner {
         loadDatabase(gcoreRunner, args.last)
     }
     else{
-      gcoreRunner.catalog.registerGraph(DummyGraph(gcoreRunner.sparkSession))
+      /*gcoreRunner.catalog.registerGraph(DummyGraph(gcoreRunner.sparkSession))
       gcoreRunner.catalog.registerGraph(PeopleGraph(gcoreRunner.sparkSession))
       gcoreRunner.catalog.registerGraph(SocialGraph(gcoreRunner.sparkSession))
-      gcoreRunner.catalog.registerGraph(CompanyGraph(gcoreRunner.sparkSession))
-      gcoreRunner.catalog.setDefaultGraph("social_graph")
+      gcoreRunner.catalog.registerGraph(CompanyGraph(gcoreRunner.sparkSession))*/
+      gcoreRunner.catalog.registerGraph(BasicGraph(gcoreRunner.sparkSession))
+      gcoreRunner.catalog.setDefaultGraph("basic_graph")
       loadDatabase(gcoreRunner, "defaultDB")
     }
 
 
     options
+    val console = new ConsoleReader()
+    console.addCompleter(new FileNameCompleter())
+    console.setPrompt("g-core=>")
+    var line = ""
 
-    while(active)
-    {
-      var option = scala.io.StdIn.readLine("g-core=>: ")
-      option.split(" ")(0) match {
-        case "\\r" =>
-          unregisterGraph(gcoreRunner, option)
-        case "\\q" =>
-          active = false
-        case "\\c" =>
-          setDefaultGraph(gcoreRunner, option)
-        case "\\h" =>
-          options
-        case "\\l" =>
-          println(gcoreRunner.catalog.toString)
-        case "\\d" =>
-          println(gcoreRunner.catalog.graph(option.split(" ")(1)).toString)
-        case "\\v" =>
-          log= !log
-          activeLog(log)
-        case _ =>
-          if(option.length >0 && option.substring(option.length-1).trim == ";") {
+    while (active){
+      try {
+        line = console.readLine()
+        line.split(" ")(0) match {
+          case "\\q" =>
+            active = false
+          case "\\c" =>
+            setDefaultGraph(gcoreRunner, line)
+          case "\\h" =>
+            options
+          case "\\l" =>
+            println(gcoreRunner.catalog.toString)
+          case "\\d" =>
+            println(gcoreRunner.catalog.graph(line.split(" ")(1)).toString)
+          case "\\v" =>
+            log = !log
+            activeLog(log)
+          case _ =>
+            if (line.length > 0 && line.substring(line.length - 1).trim == ";") {
 
-            var query = option.replace(";", "").trim
-           /* try {*/
+              var query = line.replace(";", "").trim
+
               println(query)
               gcoreRunner.compiler.compile(
                 query)
-            /*}
-            catch {
-              //case parseException: parser.exceptions.QueryParseException => println(" Query type unsupported for the moment")
-              //case defaultgNotAvalilable: algebra.exceptions.DefaultGraphNotAvailableException => println(" No default graph available")
-              //case analysisException: org.apache.spark.sql.AnalysisException => println("Error: " + analysisException.getMessage())
-              //case unsupportedOperation: common.exceptions.UnsupportedOperation => println("Error: " + unsupportedOperation.getMessage)
-              //case matchError: scala.MatchError => println("Error: " + matchError.getMessage())
-              //case disjunctLabels: algebra.exceptions.DisjunctLabelsException => println("Error: " + disjunctLabels.getMessage)
-              //case schemaExeption: SchemaException => println("Error: " + schemaExeption.getMessage)
-              //case _: Throwable => println("Unexpected exception")
-            }*/
-          }
-          else
-            println("Invalid Option")
+
+
+            }
+            else
+              println("Invalid Option")
+        }
+      }
+      catch {
+        case parseException: parser.exceptions.QueryParseException => println(parseException.getMessage)
+        case defaultgNotAvalilable: algebra.exceptions.DefaultGraphNotAvailableException => println(" No default graph available")
+        case analysisException: org.apache.spark.sql.AnalysisException => println("Error: " + analysisException.getMessage())
+        case unsupportedOperation: common.exceptions.UnsupportedOperation => println("Error: " + unsupportedOperation.getMessage)
+        case matchError: scala.MatchError => println("Error: " + matchError.getMessage())
+        case disjunctLabels: algebra.exceptions.DisjunctLabelsException => println("Error: " + disjunctLabels.getMessage)
+        case schemaExeption: SchemaException => println("Error: " + schemaExeption.getMessage)
+        case indexOutOfBoundsException: IndexOutOfBoundsException => println("Error: Missing parameters")
+        case _: Throwable => println("Unexpected exception")
       }
     }
+
   }
 
   def setDefaultGraph( gcoreRunner: GcoreRunner , graphp: String): String =
@@ -143,7 +159,7 @@ object GcoreRunner {
         |\c Set default graph.   (\c graph name)
         | ; Execute a query.     (ex. CONSTRUCT (x) MATCH (x);)
         |\l Graphs in database.
-        |\d Graph information. (\d graph)
+        |\d Graph information. (\d graph name)
         |\v Log.
         |\q Quit.
       """.stripMargin);
@@ -167,13 +183,24 @@ object GcoreRunner {
     {
       Logger.getLogger("org").setLevel(Level.INFO)
       Logger.getLogger("akka").setLevel(Level.INFO)
+      Logger.getRootLogger.setLevel(Level.INFO)
+      Logger.getLogger("algebra.AlgebraRewriter").setLevel(Level.INFO)
+      Logger.getLogger("parser.SpoofaxParser").setLevel(Level.INFO)
+      Logger.getLogger("spark.sql.SqlPlanner").setLevel(Level.INFO)
+      Logger.getLogger("spark.sql.operators.PathSearch").setLevel(Level.INFO)
       println("Log activated")
     }
 
     else
     {
-      Logger.getLogger("org").setLevel(Level.OFF)
-      Logger.getLogger("akka").setLevel(Level.OFF)
+      Logger.getLogger("org").setLevel(Level.ERROR )
+      Logger.getLogger("akka").setLevel(Level.ERROR )
+      Logger.getRootLogger.setLevel(Level.ERROR )
+      Logger.getLogger(SpoofaxParser.getClass.getName).setLevel(Level.ERROR )
+      Logger.getLogger("algebra.AlgebraRewriter").setLevel(Level.ERROR )
+      Logger.getLogger("parser.SpoofaxParser").setLevel(Level.ERROR )
+      Logger.getLogger("spark.sql.SqlPlanner").setLevel(Level.ERROR )
+      Logger.getLogger("spark.sql.operators.PathSearch").setLevel(Level.ERROR )
       println("Log deactivated")
     }
 

@@ -62,6 +62,10 @@ object GcoreLang {
     val output: ISpoofaxParseUnit = spoofax.syntaxService.parse(input)
     if (!output.valid())
       throw QueryParseException(s"Could not parse query $query")
+    if(!output.success()){
+
+      throw QueryParseException(s"The query has the following error(s): "+ output.messages().toString)
+    }
     output.ast()
   }
 

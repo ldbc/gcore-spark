@@ -138,12 +138,12 @@ case class KleeneOptional(expression: PathExpression) extends PathExpression{
   children = List(expression)
 }
 
-case class KleeneNot(labels: DisjunctLabels) extends PathExpression{
-  children = List(labels)
+case class NegatedLabel(label: Label) extends PathExpression{
+  children = List(label)
 }
 
-case class Reverse(labels: DisjunctLabels) extends PathExpression{
-  children = List(labels)
+case class Reverse(label: Label) extends PathExpression{
+  children = List(label)
 }
 
 case class Wildcard() extends PathExpression

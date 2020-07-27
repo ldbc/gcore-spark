@@ -77,7 +77,8 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
     var matchData: DataFrame = addColumnIndex(SOLUTION_IDENTIFICATOR,rewriteAndSolveBtableOps(matchClause))
     val exp: String = expandExpression(matchWhere)
     matchData = matchData.where(exp)
-    matchData.show // log the binding table
+    if(logger.isInfoEnabled)
+      matchData.show(1000) // log the binding table
     matchData.cache()
   }
 
@@ -333,10 +334,14 @@ case class SqlPlanner(compileContext: CompileContext) extends TargetPlanner {
 
 
     })
-    println("FULL AGG BINDING TABLE")
-    bindtable.show()
-    println("FULL CONSTRUCT BINDING TABLE")
-    fullCBTable.show()
+    if(logger.isInfoEnabled)
+      {
+        println("FULL AGG BINDING TABLE")
+        bindtable.show()
+        println("FULL CONSTRUCT BINDING TABLE")
+        fullCBTable.show()
+
+      }
     fullCBTable
   }
 
