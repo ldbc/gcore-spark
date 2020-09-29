@@ -21,20 +21,24 @@
 
 
 
+import java.io.File
+import java.net.URI
+
 import algebra.AlgebraRewriter
 import compiler.{CompileContext, Compiler, GcoreCompiler}
 import jline.UnsupportedTerminal
 import jline.console.ConsoleReader
 import jline.console.completer.FileNameCompleter
-import org.apache.spark.sql.SparkSession
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import schema.{Catalog, SchemaException}
-import spark.{Directory, SparkCatalog}
+import spark.{Directory, GraphSource, SparkCatalog}
 import spark.examples.{BasicGraph, CompanyGraph, DummyGraph, PeopleGraph, SocialGraph}
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import parser.SpoofaxParser
 
-import scala.collection.mutable.ListBuffer
 
 
 /** Main entry point of the interpreter. */
@@ -46,23 +50,25 @@ object GcoreRunner {
   def newRunner: GcoreRunner = {
     val sparkSession: SparkSession = SparkSession
       .builder()
-      .appName("G-CORE Runner")
       .master("local[*]")
+      .appName("G-CORE Runner")
       .getOrCreate()
     val catalog: SparkCatalog = SparkCatalog(sparkSession)
     val compiler: Compiler = GcoreCompiler(CompileContext(catalog, sparkSession))
-
+    println(sparkSession.version)
     GcoreRunner(sparkSession, compiler, catalog)
+
   }
 
   def main(args: Array[String]): Unit = {
+
     var log = false
     activeLog(log)
     var active = true
     val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
 
     if(args.size > 0 && args.head == "-d"){
-        loadDatabase(gcoreRunner, args.last)
+      loadDatabase(gcoreRunner, args.last)
     }
     else{
       /*gcoreRunner.catalog.registerGraph(DummyGraph(gcoreRunner.sparkSession))
@@ -70,6 +76,7 @@ object GcoreRunner {
       gcoreRunner.catalog.registerGraph(SocialGraph(gcoreRunner.sparkSession))
       gcoreRunner.catalog.registerGraph(CompanyGraph(gcoreRunner.sparkSession))*/
       gcoreRunner.catalog.registerGraph(BasicGraph(gcoreRunner.sparkSession))
+
       gcoreRunner.catalog.setDefaultGraph("basic_graph")
       loadDatabase(gcoreRunner, "defaultDB")
     }
@@ -82,50 +89,68 @@ object GcoreRunner {
     var line = ""
 
     while (active){
-      try {
-        line = console.readLine()
-        line.split(" ")(0) match {
-          case "\\q" =>
-            active = false
-          case "\\c" =>
-            setDefaultGraph(gcoreRunner, line)
-          case "\\h" =>
-            options
-          case "\\l" =>
-            println(gcoreRunner.catalog.toString)
-          case "\\d" =>
-            println(gcoreRunner.catalog.graph(line.split(" ")(1)).toString)
-          case "\\v" =>
-            log = !log
-            activeLog(log)
-          case _ =>
-            if (line.length > 0 && line.substring(line.length - 1).trim == ";") {
+      //try {
+      line = console.readLine()
+      line.split(" ")(0) match {
+        case "\\q" =>
+          active = false
+        case "\\c" =>
+          setDefaultGraph(gcoreRunner, line)
+        case "\\g" =>
+          loadGraphFromJson(gcoreRunner, line.replace("\\g","").trim)
+        case "\\h" =>
+          options
+        case "\\l" =>
+          println(gcoreRunner.catalog.toString)
+        case "\\d" =>
+          println(gcoreRunner.catalog.graph(line.split(" ")(1)).toString)
+        case "\\v" =>
+          log = !log
+          activeLog(log)
+        case _ =>
+          if (line.length > 0 && line.substring(line.length - 1).trim == ";") {
 
-              var query = line.replace(";", "").trim
+            var query = line.replace(";", "").trim
 
-              println(query)
-              gcoreRunner.compiler.compile(
-                query)
+            println(query)
+            gcoreRunner.compiler.compile(
+              query)
 
 
-            }
-            else
-              println("Invalid Option")
-        }
+          }
+          else
+            println("Invalid Option")
       }
-      catch {
-        case parseException: parser.exceptions.QueryParseException => println(parseException.getMessage)
-        case defaultgNotAvalilable: algebra.exceptions.DefaultGraphNotAvailableException => println(" No default graph available")
-        case analysisException: org.apache.spark.sql.AnalysisException => println("Error: " + analysisException.getMessage())
-        case unsupportedOperation: common.exceptions.UnsupportedOperation => println("Error: " + unsupportedOperation.getMessage)
-        case matchError: scala.MatchError => println("Error: " + matchError.getMessage())
-        case disjunctLabels: algebra.exceptions.DisjunctLabelsException => println("Error: " + disjunctLabels.getMessage)
-        case schemaExeption: SchemaException => println("Error: " + schemaExeption.getMessage)
-        case indexOutOfBoundsException: IndexOutOfBoundsException => println("Error: Missing parameters")
-        case _: Throwable => println("Unexpected exception")
-      }
+      //}
+      /*catch {
+         case parseException: parser.exceptions.QueryParseException => println(parseException.getMessage)
+         case defaultgNotAvalilable: algebra.exceptions.DefaultGraphNotAvailableException => println(" No default graph available")
+         case analysisException: org.apache.spark.sql.AnalysisException => println("Error: " + analysisException.getMessage())
+         case unsupportedOperation: common.exceptions.UnsupportedOperation => println("Error: " + unsupportedOperation.getMessage)
+         case matchError: scala.MatchError => println("Error: " + matchError.getMessage())
+         case disjunctLabels: algebra.exceptions.DisjunctLabelsException => println("Error: " + disjunctLabels.getMessage)
+         case schemaExeption: SchemaException => println("Error: " + schemaExeption.getMessage)
+         case indexOutOfBoundsException: IndexOutOfBoundsException => println("Error: Missing parameters")
+         case _: Throwable => println("Unexpected exception")
+       }*/
     }
 
+  }
+
+  def loadGraphFromJson(gcoreRunner: GcoreRunner, jsonName: String):Unit = {
+
+    val hdfs = FileSystem.get(new URI("hdfs://localhost:9000/"), new Configuration())
+    val path = new Path(jsonName)
+    val jsonFile = hdfs.open(path)
+    //val jsonFile: File = new File(jsonName)
+    if(jsonFile != null){
+      val graphSource = new GraphSource(gcoreRunner.sparkSession) {
+        override val loadDataFn: String => DataFrame = _ => gcoreRunner.sparkSession.emptyDataFrame
+      }
+
+      //TODO Aldana show a message if it cannot register the graph
+      gcoreRunner.catalog.asInstanceOf[SparkCatalog].registerGraph(graphSource, jsonFile)
+    }
   }
 
   def setDefaultGraph( gcoreRunner: GcoreRunner , graphp: String): String =
@@ -161,6 +186,7 @@ object GcoreRunner {
         |\l Graphs in database.
         |\d Graph information. (\d graph name)
         |\v Log.
+        |\g Load graph from file.   (\g file_name.json)
         |\q Quit.
       """.stripMargin);
   }

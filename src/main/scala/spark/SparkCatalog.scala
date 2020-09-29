@@ -23,6 +23,7 @@ package spark
 import java.io.File
 import java.nio.file.Path
 
+import org.apache.hadoop.fs.FSDataInputStream
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json4s.FileInput
 import schema.{Catalog, PathPropertyGraph}
@@ -36,9 +37,9 @@ case class SparkCatalog(sparkSession: SparkSession) extends Catalog {
   val parquetSource: ParquetGraphSource = GraphSource.parquet(sparkSession)
 
   /**
-    * Register a graph coming from a [[GraphSource]] and configured through the config file stored
-    * under the given path.
-    */
+   * Register a graph coming from a [[GraphSource]] and configured through the config file stored
+   * under the given path.
+   */
   // TODO: Cache already registered graphs.
   def registerGraph(graphSource: GraphSource, configPath: Path): Unit = {
     val graph = graphSource.loadGraph(configPath)
@@ -47,9 +48,9 @@ case class SparkCatalog(sparkSession: SparkSession) extends Catalog {
   }
 
   /**
-    * Register a graph coming from a [[GraphSource]] and fully contained in a single JSON file
-    */
-  def registerGraph(graphSource: GraphSource, jsonFile: File): Unit = {
+   * Register a graph coming from a [[GraphSource]] and fully contained in a single JSON file
+   */
+  def registerGraph(graphSource: GraphSource, jsonFile: FSDataInputStream): Unit = {
     val graph = graphSource.loadGraph(jsonFile)
 
 
