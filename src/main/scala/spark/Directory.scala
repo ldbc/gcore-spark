@@ -21,9 +21,12 @@
 package spark
 
 import java.io.{File, IOException}
+import java.net.URI
 import java.nio.file.Paths
 
 import org.apache.commons.io.FileUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import schema.Catalog
 
@@ -31,30 +34,35 @@ import schema.Catalog
 
 class Directory {
 
-  def loadDatabase(directory: String, sparkSession:SparkSession, catalog: Catalog): Boolean =
+  def loadDatabase(url: String, sparkSession:SparkSession, catalog: Catalog, hdfs_url: String): Boolean =
   {
-    val dir = new File(directory)
-    if (!dir.exists) {
-      dir.mkdir
-      return true
+    val hadoopConf = new Configuration()
+    val fs = FileSystem.get(new URI(hdfs_url),hadoopConf)
+    val path = new Path(url);
+
+
+    if (!fs.exists(path)) {
+      fs.mkdirs(path)
+      true
     }
     else
     {
-      try {
-        var subDirectories = getListOfSubDirectories(directory)
-        subDirectories.foreach(subDirectory =>{
-          loadGraph(directory+File.separator+subDirectory,subDirectory,sparkSession, catalog)
-        })
-        return true
-      }
-      catch{
-        case _: Throwable => return false
-      }
+
+        fs.listStatus(new Path(s"${path}")).filter(_.isDirectory).map(_.getPath).foreach(
+          subDirectory =>{
+            val folder_name = subDirectory.getName
+            if(!folder_name.contains("free_graph"))
+              loadGraph(subDirectory.toString,folder_name,sparkSession, catalog)
+          }
+        )
+        true
+
+
     }
   }
 
   def deleteGraph(graphName:String, database: String):Boolean = {
-    var directory= database+File.separator+graphName
+    val directory= database+File.separator+graphName
     try{
       FileUtils.deleteDirectory(new File(directory))
       true
@@ -68,11 +76,12 @@ class Directory {
 
   private def loadGraph(subDirectory: String, graphName: String, sparkSession:SparkSession, catalog: Catalog)
   {
-    var sparkCatalog : SparkCatalog = SparkCatalog(sparkSession)
+    val sparkCatalog : SparkCatalog = SparkCatalog(sparkSession)
     val graphSource = new GraphSource(sparkSession) {
       override val loadDataFn: String => DataFrame = _ => sparkSession.emptyDataFrame
     }
-    sparkCatalog.registerGraph(graphSource,Paths.get(subDirectory+File.separator+"config.json"))
+
+    sparkCatalog.registerGraph(graphSource,new Path(subDirectory+File.separator+"config.json"))
     catalog.registerGraph(sparkCatalog.graph(graphName))
   }
 

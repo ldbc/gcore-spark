@@ -22,10 +22,11 @@
 package spark
 
 import java.io.File
-import java.nio.file.{Path, Paths}
+import java.net.URI
 
 import algebra.expressions.Label
-import org.apache.hadoop.fs.FSDataInputStream
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.json4s._
@@ -110,7 +111,7 @@ abstract class GraphSource(spark: SparkSession) {
     dataFiles.map(
       filePath =>
         Table(
-          name = Label(filePath.getFileName.toString),
+          name = Label(filePath.getName),
           data = spark.sqlContext.read.json(filePath.toString).cache()))
 
   private def buildRestrictions(restrictions: Seq[ConnectionRestriction]): LabelRestrictionMap = {
@@ -134,7 +135,10 @@ object GraphSource {
    * path.
    */
   def parseJsonConfig(configPath: Path): GraphJsonConfig = {
-    val configs = Source.fromFile(configPath.toString).mkString
+    //val configs = Source.fromFile(configPath.toString).mkString
+
+    val hdfs = FileSystem.get(new URI(configPath.toString), new Configuration())
+    val configs = hdfs.open(configPath)
     val json = parse(configs)
     json.camelizeKeys.extract[GraphJsonConfig]
   }
@@ -162,10 +166,21 @@ case class GraphJsonConfig(graphName: String,
                            pathRestrictions: Seq[ConnectionRestriction]) {
 
   validateSchema()
+  val hadoopConf = new Configuration()
 
-  val vertexFiles: Seq[Path] = vertexLabels.map(Paths.get(graphRootDir, _))
-  val edgeFiles: Seq[Path] = edgeLabels.map(Paths.get(graphRootDir, _))
-  val pathFiles: Seq[Path] = pathLabels.map(Paths.get(graphRootDir, _))
+  val fs = FileSystem.get(new URI(graphRootDir),hadoopConf)
+  val path = new Path(s"${graphRootDir}")
+  var vertexFiles: Seq[Path]= null
+  var edgeFiles: Seq[Path]= null
+  var pathFiles: Seq[Path]= null
+  if (fs.exists(path)) {
+    vertexFiles= fs.listStatus(path).filter(_.isDirectory).map(_.getPath).filter(file => vertexLabels.exists(_.contains(file.getName)))
+    edgeFiles= fs.listStatus(path).filter(_.isDirectory).map(_.getPath).filter(file => edgeLabels.exists(_.contains(file.getName)))
+    pathFiles = fs.listStatus(path).filter(_.isDirectory).map(_.getPath).filter(file => pathLabels.exists(_.contains(file.getName)))
+
+  }
+
+
 
   def validateSchema(): Unit = {
     assert(vertexLabels.nonEmpty, invalidSchemaMessage("vertex_labels"))

@@ -20,8 +20,11 @@
 package spark
 
 import java.io.{BufferedOutputStream, File, FileOutputStream}
+import java.net.URI
 import java.util
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.DataFrame
 import org.json4s.NoTypeHints
 import org.json4s.jackson.Serialization
@@ -31,11 +34,11 @@ import org.json4s.jackson.Serialization.{read, write}
 
 case class SaveGraph() {
 
-  def saveJsonGraph(graph: PathPropertyGraph, graph_root_dir: String): Unit =
+  def saveJsonGraph(graph: PathPropertyGraph, graph_root_dir: String, hdfs_url: String): Unit =
   {
 
     var graphName= graph.graphName
-    var graphDirectory = graph_root_dir+"\\"+graphName
+    var graphDirectory = graph_root_dir+File.separator+graphName
     var vertex_labels :List[String] = List[String]()
     graph.vertexSchema.labels.foreach(label =>  {vertex_labels = (label.value) :: vertex_labels})
     var edge_labels :List[String] = List[String]()
@@ -47,17 +50,21 @@ case class SaveGraph() {
     var path_restrictions :List[ConnectionRestriction] = List[ConnectionRestriction]()
     graph.storedPathRestrictions.map.foreach(rest =>  {path_restrictions = new ConnectionRestriction(rest._1.value,rest._2._1.value,rest._2._2.value) :: path_restrictions})
 
-    var json = new GraphJsonConfig(graphName,graphDirectory,vertex_labels,edge_labels,path_labels, edge_restrictions,path_restrictions)
+    val json = GraphJsonConfig(graphName,graphDirectory,vertex_labels,edge_labels,path_labels, edge_restrictions,path_restrictions)
     implicit val formats = Serialization.formats(NoTypeHints)
 
 
+    val hadoopConf = new Configuration()
+    val fs = FileSystem.get(new URI(hdfs_url),hadoopConf)
+    val path = new Path(graphDirectory);
 
-    val directory = new File(graphDirectory)
-    if (!directory.exists) {
-      directory.mkdir
+    //val directory = new File(graphDirectory)
+    if (!fs.exists(path)) {
+      //directory.mkdir
+      fs.mkdirs(path)
     }
-
-    val outputStream = new BufferedOutputStream(new FileOutputStream(graphDirectory+File.separator+"config.json"))
+    val output = fs.create(new Path(graphDirectory+File.separator+"config.json"))
+    val outputStream = new BufferedOutputStream(output)
     write(json,outputStream)
     outputStream.close()
 
