@@ -72,7 +72,7 @@ case class SqlRunner(compileContext: CompileContext)  extends RunTargetCodeStage
         compileContext.catalog.registerGraph(graph)
 
         val saveGraph = SaveGraph()
-        saveGraph.saveJsonGraph(graph,compileContext.catalog.databaseDirectory, compileContext.catalog.hdfs_url)
+        saveGraph.saveGraph(graph,compileContext.catalog.databaseDirectory, compileContext.catalog.hdfs_url,true)
         graph
 
       case (dropGraph : Drop) =>

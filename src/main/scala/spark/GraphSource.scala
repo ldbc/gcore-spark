@@ -51,11 +51,11 @@ abstract class GraphSource(spark: SparkSession) {
 
       override var graphName: String = graphConfig.graphName
 
-      override def pathData: Seq[Table[DataFrame]] = loadData(graphConfig.pathFiles)
+      override def pathData: Seq[Table[DataFrame]] = loadParquetData(graphConfig.pathFiles)
 
-      override def vertexData: Seq[Table[DataFrame]] = loadData(graphConfig.vertexFiles)
+      override def vertexData: Seq[Table[DataFrame]] = loadParquetData(graphConfig.vertexFiles)
 
-      override def edgeData: Seq[Table[DataFrame]] = loadData(graphConfig.edgeFiles)
+      override def edgeData: Seq[Table[DataFrame]] = loadParquetData(graphConfig.edgeFiles)
 
       override def edgeRestrictions: LabelRestrictionMap =
         buildRestrictions(graphConfig.edgeRestrictions)
@@ -66,33 +66,23 @@ abstract class GraphSource(spark: SparkSession) {
     }
 
   /** Loads a [[SparkGraph]] from a single JSON file containing all data. */
-  def loadGraph(graphFullFile: FSDataInputStream): SparkGraph ={
+  def loadGraph(graphFullFile: FSDataInputStream, path : String): SparkGraph ={
     val json = GraphSource parseFullGraphJson graphFullFile
+
     var vertexes = Seq[Any]()
-    json.vertexes.foreach(m => m.foreach{
-      case (vertexLabel:String, vertexFile:String) =>
-        /*val rows = vertexData.map(m => Row(m.values.toSeq :_*))
-        val header = vertexData.head.keys.toList
-        val schema = StructType(header.map(fieldName => StructField(fieldName, StringType, true)))
-        val dataRDD = spark.sparkContext.parallelize(rows)
-        val df = spark.createDataFrame(dataRDD, schema)*/
-        val df = spark.read.json(vertexFile)
-        val table = (Table(Label(vertexLabel), df.cache()))
+    json.vertexLabels.foreach(label => {
+        val df = spark.read.json(path+"/"+label+".json")
+        val table = (Table(Label(label), df.cache()))
         vertexes = vertexes :+ table
     })
     var edges = Seq[Any]()
-    json.edges.foreach(m => m.foreach{
-      case (edgeLabel:String, edgeFile:String) =>
-        /*val rows = edgeData.map(m => Row(m.values.toSeq :_*))
-        val header = edgeData.head.keys.toList
-        val schema = StructType(header.map(fieldName => StructField(fieldName, StringType, true)))
-        val dataRDD = spark.sparkContext.parallelize(rows)
-        val df = spark.createDataFrame(dataRDD, schema)*/
-        val df = spark.read.json(edgeFile)
-        val table = (Table(Label(edgeLabel), df.cache()))
+    json.edgeLabels.foreach(label => {
+        val df = spark.read.json(path+"/"+label+".json")
+        val table = (Table(Label(label), df.cache()))
         edges = edges :+ table
     })
-    new SparkGraph{
+
+    val graph =new SparkGraph{
       override var graphName: String = json.graphName
 
       override def vertexData: Seq[Table[DataFrame]] = vertexes.asInstanceOf[Seq[Table[DataFrame]]]
@@ -105,14 +95,15 @@ abstract class GraphSource(spark: SparkSession) {
 
       override def storedPathRestrictions: LabelRestrictionMap = buildRestrictions(json.pathRestrictions)
     }
+    graph
   }
 
-  private def loadData(dataFiles: Seq[Path]): Seq[Table[DataFrame]] =
+  private def loadParquetData(dataFiles: Seq[Path]): Seq[Table[DataFrame]] =
     dataFiles.map(
       filePath =>
         Table(
           name = Label(filePath.getName),
-          data = spark.sqlContext.read.json(filePath.toString).cache()))
+          data = spark.sqlContext.read.parquet(filePath.toString).cache()))
 
   private def buildRestrictions(restrictions: Seq[ConnectionRestriction]): LabelRestrictionMap = {
     restrictions.foldLeft(SchemaMap.empty[Label, (Label, Label)]) {
@@ -201,13 +192,13 @@ case class GraphJsonConfig(graphName: String,
 case class FullGraphJson(graphName: String,
                          edgeRestrictions: Seq[ConnectionRestriction],
                          pathRestrictions: Seq[ConnectionRestriction],
-                         vertexes: List[Map[String, Any]],
-                         edges: List[Map[String, Any]]){
+                         vertexLabels: List[String],
+                         edgeLabels: List[String]){
   implicit val format: DefaultFormats.type = DefaultFormats
   validateSchema()
 
   def validateSchema(): Unit ={
-    assert(vertexes != null, "The provided configuration was invalid. The field vertexes must be present in the json.")
+    assert(vertexLabels != null, "The provided configuration was invalid. The field vertexes must be present in the json.")
   }
 }
 

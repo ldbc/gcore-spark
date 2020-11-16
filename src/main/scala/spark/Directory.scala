@@ -39,8 +39,6 @@ class Directory {
     val hadoopConf = new Configuration()
     val fs = FileSystem.get(new URI(hdfs_url),hadoopConf)
     val path = new Path(url);
-
-
     if (!fs.exists(path)) {
       fs.mkdirs(path)
       true
@@ -51,14 +49,12 @@ class Directory {
         fs.listStatus(new Path(s"${path}")).filter(_.isDirectory).map(_.getPath).foreach(
           subDirectory =>{
             val folder_name = subDirectory.getName
-            if(!folder_name.contains("free_graph"))
-              loadGraph(subDirectory.toString,folder_name,sparkSession, catalog)
+            loadGraph(subDirectory.toString,sparkSession, catalog)
           }
         )
         true
-
-
     }
+
   }
 
   def deleteGraph(graphName:String, database: String):Boolean = {
@@ -74,14 +70,14 @@ class Directory {
   }
 
 
-  private def loadGraph(subDirectory: String, graphName: String, sparkSession:SparkSession, catalog: Catalog)
+  private def loadGraph(subDirectory: String, sparkSession:SparkSession, catalog: Catalog)
   {
     val sparkCatalog : SparkCatalog = SparkCatalog(sparkSession)
     val graphSource = new GraphSource(sparkSession) {
       override val loadDataFn: String => DataFrame = _ => sparkSession.emptyDataFrame
     }
 
-    sparkCatalog.registerGraph(graphSource,new Path(subDirectory+File.separator+"config.json"))
+    val graphName = sparkCatalog.registerGraph(graphSource,new Path(subDirectory+File.separator+"config.json"))
     catalog.registerGraph(sparkCatalog.graph(graphName))
   }
 

@@ -21,27 +21,21 @@
 
 
 
-import java.io.File
-import java.net.URI
 
-import algebra.AlgebraRewriter
+import java.net.URI
 import compiler.{CompileContext, Compiler, GcoreCompiler}
 import jline.UnsupportedTerminal
 import jline.console.ConsoleReader
 import jline.console.completer.FileNameCompleter
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.sql.{AnalysisException, DataFrame, Row, SaveMode, SparkSession}
-import org.apache.spark.sql.functions._
-import schema.{Catalog, SchemaException}
+import org.apache.spark.sql.{DataFrame,  SparkSession}
+import schema.{Catalog}
 import spark.{Directory, GraphSource, SaveGraph, SparkCatalog}
-import spark.examples.{BasicGraph, CompanyGraph, DummyGraph, PeopleGraph, SocialGraph}
+import spark.examples.{BasicGraph}
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-import org.apache.spark.storage.StorageLevel
 import parser.SpoofaxParser
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 
@@ -59,9 +53,7 @@ object GcoreRunner {
       .getOrCreate()
     val catalog: SparkCatalog = SparkCatalog(sparkSession)
     val compiler: Compiler = GcoreCompiler(CompileContext(catalog, sparkSession))
-    println(sparkSession.version)
     GcoreRunner(sparkSession, compiler, catalog)
-
   }
 
   def main(args: Array[String]): Unit = {
@@ -70,29 +62,45 @@ object GcoreRunner {
     activeLog(log)
     var active = true
     val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
-    var freeGraphs: Seq[String] = null
-    val hdfs_url= "hdfs://localhost:9000/";
-    if(args.size > 0 && args.head == "-d"){
-      loadDatabase(gcoreRunner, hdfs_url+"example/"+args.last,"hdfs://localhost:9000/")
-      freeGraphs = loadRegisteredFreeGraphs(gcoreRunner)
+    var hdfs_url= "";
+    var pathDir= "g-core/";
+    var database= "default-db";
+
+    if(args.isEmpty){
+      println("Usage: -h <HDFS URI> -p <PATH DIRECTORY>(Optional) -d <Database name>(Optional)")
+      return
     }
-    else{
-      //ip-172-31-77-252.ec2.internal:8020
-      loadDatabase(gcoreRunner, hdfs_url+"example/defaultDB",hdfs_url)
-      freeGraphs= loadRegisteredFreeGraphs(gcoreRunner)
+    val argList= args.toSeq
+    for (i <- 0 to argList.size-1){
+      if(argList(i).equals("-h"))
+        hdfs_url=argList(i+1)
+      else if(argList(i).equals("-p"))
+        pathDir= argList(i+1)
+      else if(argList(i).equals("-d"))
+        database=argList(i+1)
+
     }
+
+    if(hdfs_url.isEmpty) {
+      println("Usage: -h <HDFS URI> -p <PATH DIRECTORY>(Optional) -d <Database name>(Optional)")
+      return
+    }
+
+    val dbUri= hdfs_url+pathDir+database
+    loadDatabase(gcoreRunner, dbUri,hdfs_url)
+
 
     if(!gcoreRunner.catalog.hasGraph("basic_graph")){
       gcoreRunner.catalog.registerGraph(BasicGraph(gcoreRunner.sparkSession))
       val basic_graph = gcoreRunner.catalog.graph("basic_graph")
-      SaveGraph().saveJsonGraph(basic_graph,gcoreRunner.catalog.databaseDirectory, gcoreRunner.catalog.hdfs_url)
+      SaveGraph().saveGraph(basic_graph,gcoreRunner.catalog.databaseDirectory, gcoreRunner.catalog.hdfs_url,true)
       println("Basic graph created in HDFS")
     }
 
     gcoreRunner.catalog.setDefaultGraph("basic_graph")
-    freeGraphs.foreach(uri =>{
+    /*freeGraphs.foreach(uri =>{
       loadGraphFromJson(gcoreRunner,uri,false)
-    })
+    })*/
 
 
     options
@@ -111,15 +119,13 @@ object GcoreRunner {
           setDefaultGraph(gcoreRunner, line)
         case "\\i" =>
           val dir = gcoreRunner.catalog.databaseDirectory+"/free_graph"
-          loadGraphFromJson(gcoreRunner, line.replace("\\i","").trim,true)
+          loadGraphFromJson(gcoreRunner, line.replace("\\i","").trim)
         case "\\h" =>
           options
         case "\\l" =>
           println(gcoreRunner.catalog.toString)
         case "\\s" =>
           println(gcoreRunner.catalog.graph(line.split(" ")(1)).toString)
-        case "\\0" =>
-          showFreeGraphDataframe(gcoreRunner)
         case "\\r" =>
           removeGraphFreeGraphDataframe(gcoreRunner, line.replace("\\r","").trim)
         case "\\v" =>
@@ -155,75 +161,40 @@ object GcoreRunner {
 
   }
 
-  def showFreeGraphDataframe(gcoreRunner: GcoreRunner) ={
-    val df= readFreeGraphDataframe(gcoreRunner)
-    if(df != null)
-      df.show(false)
-  }
+
   def removeGraphFreeGraphDataframe(gcoreRunner: GcoreRunner, graphName : String)={
-    val df = readFreeGraphDataframe(gcoreRunner)
-    val dir = gcoreRunner.catalog.databaseDirectory+"/free_graph"
-    val dir_t = gcoreRunner.catalog.databaseDirectory+"/temp_free_graph"
-    val path = new Path(dir)
-    val path_t = new Path(dir_t)
     val hdfs = FileSystem.get(new URI(gcoreRunner.catalog.hdfs_url), new Configuration())
-    if(df != null) {
-      if(df.filter(col("graphName").isin((graphName))).count()>0) {
-        val df2 = df.filter(!col("graphName").isin((graphName)))
-        df2.write.format("json").mode(SaveMode.Overwrite).save(dir_t)
-        hdfs.delete(path, true)
-        hdfs.rename(path_t, path)
-        df2.cache()
-        gcoreRunner.catalog.unregisterGraph(graphName)
-      }
-      else if(gcoreRunner.catalog.hasGraph(graphName)) {
-        val graphDir = gcoreRunner.catalog.databaseDirectory+"/"+graphName
-        hdfs.delete(new Path(graphDir),true)
-        gcoreRunner.catalog.unregisterGraph(graphName)
-      }
-
+    if(gcoreRunner.catalog.hasGraph(graphName)) {
+      val graphDir = gcoreRunner.catalog.databaseDirectory+"/"+graphName
+      hdfs.delete(new Path(graphDir),true)
+      gcoreRunner.catalog.unregisterGraph(graphName)
     }
+
   }
 
-  def readFreeGraphDataframe(gcoreRunner: GcoreRunner):DataFrame ={
-    var df:DataFrame =null
-    val dir = gcoreRunner.catalog.databaseDirectory+"/free_graph"
-    if (testDirExist(gcoreRunner,dir))
-      try
-        df = gcoreRunner.sparkSession.sqlContext.read.json(dir)
-    df
-  }
 
-  def loadGraphFromJson(gcoreRunner: GcoreRunner, jsonName: String, new_graph: Boolean):DataFrame = {
+  def loadGraphFromJson(gcoreRunner: GcoreRunner, jsonName: String) = {
 
-    val dir = gcoreRunner.catalog.databaseDirectory+"/free_graph"
     val hdfs = FileSystem.get(new URI(gcoreRunner.catalog.hdfs_url), new Configuration())
     val path = new Path(jsonName)
-    val jsonFile = hdfs.open(path)
-    var newRow:DataFrame = null
+    var jsonFile = hdfs.open(path)
+    var jsonPath = path.getParent.toString
     if(jsonFile != null) {
       val graphSource = new GraphSource(gcoreRunner.sparkSession) {
         override val loadDataFn: String => DataFrame = _ => gcoreRunner.sparkSession.emptyDataFrame
       }
       //TODO Aldana show a message if it cannot register the graph
-      val  graphName = gcoreRunner.catalog.asInstanceOf[SparkCatalog].registerGraph(graphSource, jsonFile)
-      var id = 1;
-      val df = readFreeGraphDataframe(gcoreRunner)
-      var notExist:Boolean = true
-      if(df != null) {
-        if(df.columns.size > 0){
-          id= Integer.valueOf(df.select("id").sort(desc("id")).first().get(0).toString)+1
-          notExist = df.select("uri").filter(col("uri") === jsonName).count() == 0
-        }
-      }
-      val seq = Seq((id, jsonName,graphName))
-      newRow = gcoreRunner.sparkSession.createDataFrame(seq).toDF("id", "uri","graphName")
-      if(new_graph && notExist)
-        newRow.write.format("json").mode(SaveMode.Append).save(dir)
-    }
-    gcoreRunner.sparkSession.catalog.refreshByPath(dir)
-    newRow
 
+      val catalog = gcoreRunner.catalog.asInstanceOf[SparkCatalog]
+      if(!gcoreRunner.catalog.hasGraph(catalog.graphName(graphSource, jsonFile,jsonPath)) ){
+        jsonFile = hdfs.open(path)
+        val  graphName = catalog.registerGraph(graphSource, jsonFile,jsonPath)
+        SaveGraph().saveGraph(gcoreRunner.catalog.graph(graphName),gcoreRunner.catalog.databaseDirectory, gcoreRunner.catalog.hdfs_url,true)
+      }
+      else
+        println("The graph already exists")
+    }
+    jsonFile.close()
   }
 
   def setDefaultGraph( gcoreRunner: GcoreRunner , graphp: String): String =
@@ -243,39 +214,10 @@ object GcoreRunner {
 
   def unregisterGraph(gcoreRunner: GcoreRunner , graphp: String) :Unit =
   {
-    var r_graph = graphp.replace("\\r","").trim
+    val r_graph = graphp.replace("\\r","").trim
     gcoreRunner.catalog.unregisterGraph(r_graph)
   }
-  def loadRegisteredFreeGraphs(gcoreRunner: GcoreRunner) :Seq[String] = {
-    var seq = Seq[String]()
-    val dir = gcoreRunner.catalog.databaseDirectory+"/free_graph"
-    var df:DataFrame = null
-    val schema = StructType(
-      List(
-        StructField("id", IntegerType, true),
-        StructField("uri", StringType, true),
-        StructField("graphName", StringType, true)
-      )
-    )
-    if (testDirExist(gcoreRunner,dir)) {
-    {
-      try {
-        df = gcoreRunner.sparkSession.sqlContext.read.json(dir)
-        df.show(false)
-      }
-      catch {
-        case a:AnalysisException =>
-          df= gcoreRunner.sparkSession.createDataFrame(gcoreRunner.sparkSession.sparkContext.emptyRDD[Row], schema)
-      }
-    }
 
-    }
-    if (df != null){
-      if(df.columns.size > 0)
-        seq = df.select("uri").rdd.map(r => r(0).toString).collect().toSeq
-    }
-    seq
-  }
 
   def testDirExist(gcoreRunner: GcoreRunner ,path: String): Boolean = {
     val hadoopConf = new Configuration()

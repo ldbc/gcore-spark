@@ -34,11 +34,10 @@ import org.json4s.jackson.Serialization.{read, write}
 
 case class SaveGraph() {
 
-  def saveJsonGraph(graph: PathPropertyGraph, graph_root_dir: String, hdfs_url: String): Unit =
+  def saveGraph(graph: PathPropertyGraph, graph_root_dir: String, hdfs_url: String, parquet: Boolean): Unit =
   {
-
-    var graphName= graph.graphName
-    var graphDirectory = graph_root_dir+File.separator+graphName
+    val graphName= graph.graphName
+    val graphDirectory = graph_root_dir+File.separator+graphName
     var vertex_labels :List[String] = List[String]()
     graph.vertexSchema.labels.foreach(label =>  {vertex_labels = (label.value) :: vertex_labels})
     var edge_labels :List[String] = List[String]()
@@ -46,13 +45,12 @@ case class SaveGraph() {
     var path_labels :List[String] = List[String]()
     graph.pathSchema.labels.foreach(label =>   {path_labels = (label.value) :: path_labels})
     var edge_restrictions :List[ConnectionRestriction] = List[ConnectionRestriction]()
-    graph.edgeRestrictions.map.foreach(rest => {edge_restrictions = new ConnectionRestriction(rest._1.value,rest._2._1.value,rest._2._2.value ):: edge_restrictions})
+    graph.edgeRestrictions.map.foreach(rest => {edge_restrictions = ConnectionRestriction(rest._1.value,rest._2._1.value,rest._2._2.value ):: edge_restrictions})
     var path_restrictions :List[ConnectionRestriction] = List[ConnectionRestriction]()
     graph.storedPathRestrictions.map.foreach(rest =>  {path_restrictions = new ConnectionRestriction(rest._1.value,rest._2._1.value,rest._2._2.value) :: path_restrictions})
 
     val json = GraphJsonConfig(graphName,graphDirectory,vertex_labels,edge_labels,path_labels, edge_restrictions,path_restrictions)
     implicit val formats = Serialization.formats(NoTypeHints)
-
 
     val hadoopConf = new Configuration()
     val fs = FileSystem.get(new URI(hdfs_url),hadoopConf)
@@ -68,14 +66,20 @@ case class SaveGraph() {
     write(json,outputStream)
     outputStream.close()
 
-    graph.vertexData foreach(x => {
-      x.data.asInstanceOf[DataFrame].repartition(1).write.json(graphDirectory +File.separator+x.name.value)
-    })
-    graph.edgeData foreach(x => {x.data.asInstanceOf[DataFrame].repartition(1).write.json(graphDirectory +File.separator+ x.name.value)})
-    graph.pathData foreach(x => {x.data.asInstanceOf[DataFrame].repartition(1).write.json(graphDirectory +File.separator+ x.name.value)})
-
+    if(parquet){
+      graph.vertexData foreach(x => {x.data.asInstanceOf[DataFrame].write.parquet(graphDirectory +File.separator+x.name.value)})
+      graph.edgeData foreach(x => {x.data.asInstanceOf[DataFrame].write.parquet(graphDirectory +File.separator+ x.name.value)})
+      graph.pathData foreach(x => {x.data.asInstanceOf[DataFrame].write.parquet(graphDirectory +File.separator+ x.name.value)})
+    }
+    else{
+      graph.vertexData foreach(x => {x.data.asInstanceOf[DataFrame].write.json(graphDirectory +File.separator+x.name.value)})
+      graph.edgeData foreach(x => {x.data.asInstanceOf[DataFrame].write.json(graphDirectory +File.separator+ x.name.value)})
+      graph.pathData foreach(x => {x.data.asInstanceOf[DataFrame].write.json(graphDirectory +File.separator+ x.name.value)})
+    }
 
   }
+
+
 
 
 }

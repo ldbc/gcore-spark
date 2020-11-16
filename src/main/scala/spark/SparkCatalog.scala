@@ -40,18 +40,25 @@ case class SparkCatalog(sparkSession: SparkSession) extends Catalog {
    * under the given path.
    */
   // TODO: Cache already registered graphs.
-  def registerGraph(graphSource: GraphSource, configPath: Path): Unit = {
+  def registerGraph(graphSource: GraphSource, configPath: Path): String = {
     val graph = graphSource.loadGraph(configPath)
     super.registerGraph(graph)
-
+    graph.graphName
   }
 
   /**
    * Register a graph coming from a [[GraphSource]] and fully contained in a single JSON file
    */
-  def registerGraph(graphSource: GraphSource, jsonFile: FSDataInputStream): String = {
-    val graph = graphSource.loadGraph(jsonFile)
+  def registerGraph(graphSource: GraphSource, jsonFile: FSDataInputStream, path: String): String = {
+    val graph = graphSource.loadGraph(jsonFile,path)
     super.registerGraph(graph)
     graph.graphName
   }
+
+  def graphName(graphSource: GraphSource, jsonFile: FSDataInputStream, path: String): String = {
+    val graph = graphSource.loadGraph(jsonFile,path)
+    graph.graphName
+  }
+
+
 }
