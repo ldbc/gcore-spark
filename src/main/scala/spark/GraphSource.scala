@@ -158,9 +158,9 @@ case class GraphJsonConfig(graphName: String,
 
   validateSchema()
   val hadoopConf = new Configuration()
-
-  val fs = FileSystem.get(new URI(graphRootDir),hadoopConf)
   val path = new Path(s"${graphRootDir}")
+  val fs = FileSystem.get(path.toUri,hadoopConf)
+
   var vertexFiles: Seq[Path]= null
   var edgeFiles: Seq[Path]= null
   var pathFiles: Seq[Path]= null

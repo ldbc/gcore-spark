@@ -22,17 +22,20 @@
 
 
 
+import java.io.File
 import java.net.URI
+import java.nio.file.Paths
+
 import compiler.{CompileContext, Compiler, GcoreCompiler}
 import jline.UnsupportedTerminal
 import jline.console.ConsoleReader
 import jline.console.completer.FileNameCompleter
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.sql.{DataFrame,  SparkSession}
-import schema.{Catalog}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import schema.{Catalog, SchemaException}
 import spark.{Directory, GraphSource, SaveGraph, SparkCatalog}
-import spark.examples.{BasicGraph}
+import spark.examples.BasicGraph
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import parser.SpoofaxParser
@@ -59,48 +62,68 @@ object GcoreRunner {
   def main(args: Array[String]): Unit = {
 
     var log = false
+    var demo = true
     activeLog(log)
     var active = true
     val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
-    var hdfs_url= "";
-    var pathDir= "g-core/";
+    val fileSeparator = File.separator
+    var hdfsUri= "";
+    var pathDir= fileSeparator+"g-core"+fileSeparator;
     var database= "default-db";
+    val usageMessage = "Usage: -h <HDFS URI> -p <DIRECTORY PATH> -d <DATABASE NAME>(Optional)"
 
-    if(args.isEmpty){
-      println("Usage: -h <HDFS URI> -p <PATH DIRECTORY>(Optional) -d <Database name>(Optional)")
+    /*if(args.isEmpty){
+      println(usageMessage)
       return
-    }
+    }*/
+
+
     val argList= args.toSeq
     for (i <- 0 to argList.size-1){
-      if(argList(i).equals("-h"))
-        hdfs_url=argList(i+1)
-      else if(argList(i).equals("-p"))
-        pathDir= argList(i+1)
-      else if(argList(i).equals("-d"))
-        database=argList(i+1)
+      if(argList(i).equals("-h")) {
+        hdfsUri=argList(i+1).trim
+        if(!hdfsUri.endsWith(fileSeparator))
+          hdfsUri= hdfsUri+fileSeparator
+      } else if(argList(i).equals("-p")) {
+        demo = false
+        pathDir= argList(i+1).trim
+        if(!pathDir.endsWith(fileSeparator))
+          pathDir= pathDir+fileSeparator
+        if (pathDir.startsWith(fileSeparator))
+          pathDir=pathDir.substring(1)
+      } else if(argList(i).equals("-d"))
+        demo = false
+        database=argList(i+1).trim
 
     }
+    var dbUri = ""
 
-    if(hdfs_url.isEmpty) {
-      println("Usage: -h <HDFS URI> -p <PATH DIRECTORY>(Optional) -d <Database name>(Optional)")
-      return
+    if(hdfsUri.isEmpty){
+      val jarFile = new File(this.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
+      hdfsUri= jarFile.getParentFile.getPath
+      dbUri = Paths.get(hdfsUri, pathDir, database).toString
+    }
+    else{
+      demo = false
+      dbUri = hdfsUri + pathDir + database
+      if(dbUri.contains(fileSeparator+fileSeparator))
+        dbUri=dbUri.replace("\\",fileSeparator)
+
+    }
+    println(dbUri)
+    loadDatabase(gcoreRunner, dbUri,hdfsUri)
+
+
+    if(demo) {
+      if (!gcoreRunner.catalog.hasGraph("basic_graph")) {
+        gcoreRunner.catalog.registerGraph(BasicGraph(gcoreRunner.sparkSession))
+        val basic_graph = gcoreRunner.catalog.graph("basic_graph")
+        SaveGraph().saveGraph(basic_graph, gcoreRunner.catalog.databaseDirectory, gcoreRunner.catalog.hdfs_url, true)
+        println("Basic graph created")
+      }
+      gcoreRunner.catalog.setDefaultGraph("basic_graph")
     }
 
-    val dbUri= hdfs_url+pathDir+database
-    loadDatabase(gcoreRunner, dbUri,hdfs_url)
-
-
-    if(!gcoreRunner.catalog.hasGraph("basic_graph")){
-      gcoreRunner.catalog.registerGraph(BasicGraph(gcoreRunner.sparkSession))
-      val basic_graph = gcoreRunner.catalog.graph("basic_graph")
-      SaveGraph().saveGraph(basic_graph,gcoreRunner.catalog.databaseDirectory, gcoreRunner.catalog.hdfs_url,true)
-      println("Basic graph created in HDFS")
-    }
-
-    gcoreRunner.catalog.setDefaultGraph("basic_graph")
-    /*freeGraphs.foreach(uri =>{
-      loadGraphFromJson(gcoreRunner,uri,false)
-    })*/
 
 
     options
@@ -110,43 +133,43 @@ object GcoreRunner {
     var line = ""
 
     while (active){
-      //try {
-      line = console.readLine()
-      line.split(" ")(0) match {
-        case "\\q" =>
-          active = false
-        case "\\c" =>
-          setDefaultGraph(gcoreRunner, line)
-        case "\\i" =>
-          val dir = gcoreRunner.catalog.databaseDirectory+"/free_graph"
-          loadGraphFromJson(gcoreRunner, line.replace("\\i","").trim)
-        case "\\h" =>
-          options
-        case "\\l" =>
-          println(gcoreRunner.catalog.toString)
-        case "\\s" =>
-          println(gcoreRunner.catalog.graph(line.split(" ")(1)).toString)
-        case "\\r" =>
-          removeGraphFreeGraphDataframe(gcoreRunner, line.replace("\\r","").trim)
-        case "\\v" =>
-          log = !log
-          activeLog(log)
-        case _ =>
-          if (line.length > 0 && line.substring(line.length - 1).trim == ";") {
+      try {
+        line = console.readLine()
+        line.split(" ")(0) match {
+          case "\\q" =>
+            active = false
+          case "\\c" =>
+            setDefaultGraph(gcoreRunner, line)
+          case "\\i" =>
+            val dir = gcoreRunner.catalog.databaseDirectory+"/free_graph"
+            loadGraphFromJson(gcoreRunner, line.replace("\\i","").trim)
+          case "\\h" =>
+            options
+          case "\\l" =>
+            println(gcoreRunner.catalog.toString)
+          case "\\s" =>
+            println(gcoreRunner.catalog.graph(line.split(" ")(1)).toString)
+          case "\\r" =>
+            removeGraphFreeGraphDataframe(gcoreRunner, line.replace("\\r","").trim)
+          case "\\v" =>
+            log = !log
+            activeLog(log)
+          case _ =>
+            if (line.length > 0 && line.substring(line.length - 1).trim == ";") {
 
-            var query = line.replace(";", "").trim
+              var query = line.replace(";", "").trim
 
-            println(query)
-            gcoreRunner.compiler.compile(
-              query)
+              println(query)
+              gcoreRunner.compiler.compile(
+                query)
 
 
-          }
-          else
-            println("Invalid Option")
+            }
+            else
+              println("Invalid Option")
+        }
       }
-      //}
-      /*catch {
+      catch {
          case parseException: parser.exceptions.QueryParseException => println(parseException.getMessage)
          case defaultgNotAvalilable: algebra.exceptions.DefaultGraphNotAvailableException => println(" No default graph available")
          case analysisException: org.apache.spark.sql.AnalysisException => println("Error: " + analysisException.getMessage())
@@ -156,14 +179,14 @@ object GcoreRunner {
          case schemaExeption: SchemaException => println("Error: " + schemaExeption.getMessage)
          case indexOutOfBoundsException: IndexOutOfBoundsException => println("Error: Missing parameters")
          case _: Throwable => println("Unexpected exception")
-       }*/
+       }
     }
 
   }
 
 
   def removeGraphFreeGraphDataframe(gcoreRunner: GcoreRunner, graphName : String)={
-    val hdfs = FileSystem.get(new URI(gcoreRunner.catalog.hdfs_url), new Configuration())
+    val hdfs = FileSystem.get(new Path(gcoreRunner.catalog.databaseDirectory).toUri, new Configuration())
     if(gcoreRunner.catalog.hasGraph(graphName)) {
       val graphDir = gcoreRunner.catalog.databaseDirectory+"/"+graphName
       hdfs.delete(new Path(graphDir),true)
@@ -174,9 +197,9 @@ object GcoreRunner {
 
 
   def loadGraphFromJson(gcoreRunner: GcoreRunner, jsonName: String) = {
-
-    val hdfs = FileSystem.get(new URI(gcoreRunner.catalog.hdfs_url), new Configuration())
     val path = new Path(jsonName)
+    val hdfs = FileSystem.get(path.toUri, new Configuration())
+
     var jsonFile = hdfs.open(path)
     var jsonPath = path.getParent.toString
     if(jsonFile != null) {

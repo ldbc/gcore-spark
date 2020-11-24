@@ -53,8 +53,9 @@ case class SaveGraph() {
     implicit val formats = Serialization.formats(NoTypeHints)
 
     val hadoopConf = new Configuration()
-    val fs = FileSystem.get(new URI(hdfs_url),hadoopConf)
     val path = new Path(graphDirectory);
+    val fs = FileSystem.get(path.toUri,hadoopConf)
+
 
     //val directory = new File(graphDirectory)
     if (!fs.exists(path)) {

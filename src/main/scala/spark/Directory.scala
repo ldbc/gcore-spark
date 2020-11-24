@@ -37,8 +37,8 @@ class Directory {
   def loadDatabase(url: String, sparkSession:SparkSession, catalog: Catalog, hdfs_url: String): Boolean =
   {
     val hadoopConf = new Configuration()
-    val fs = FileSystem.get(new URI(hdfs_url),hadoopConf)
     val path = new Path(url);
+    val fs = FileSystem.get(path.toUri,hadoopConf)
     if (!fs.exists(path)) {
       fs.mkdirs(path)
       true
@@ -48,7 +48,6 @@ class Directory {
 
         fs.listStatus(new Path(s"${path}")).filter(_.isDirectory).map(_.getPath).foreach(
           subDirectory =>{
-            val folder_name = subDirectory.getName
             loadGraph(subDirectory.toString,sparkSession, catalog)
           }
         )
