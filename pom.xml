@@ -186,6 +186,7 @@
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
         <testSourceDirectory>src/test/scala/queries</testSourceDirectory>
+
         <plugins>
 
             <!-- Compiler plugin for Scala source files. -->
@@ -288,6 +289,7 @@
                 <version>3.2.4</version>
 
                 <configuration>
+
                     <filters>
                         <filter>
                             <artifact>*:*</artifact>
@@ -317,12 +319,12 @@
                 <executions>
 
                     <execution>
-                        <phase>package</phase>
+                        <phase>install</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-
+                            <finalName>gcore-shaded</finalName>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ComponentsXmlResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>

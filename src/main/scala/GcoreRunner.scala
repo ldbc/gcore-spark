@@ -62,7 +62,7 @@ object GcoreRunner {
   def main(args: Array[String]): Unit = {
 
     var log = false
-    var demo = true
+
     activeLog(log)
     var active = true
     val gcoreRunner: GcoreRunner = GcoreRunner.newRunner
@@ -85,14 +85,12 @@ object GcoreRunner {
         if(!hdfsUri.endsWith(fileSeparator))
           hdfsUri= hdfsUri+fileSeparator
       } else if(argList(i).equals("-p")) {
-        demo = false
         pathDir= argList(i+1).trim
         if(!pathDir.endsWith(fileSeparator))
           pathDir= pathDir+fileSeparator
         if (pathDir.startsWith(fileSeparator))
           pathDir=pathDir.substring(1)
       } else if(argList(i).equals("-d"))
-        demo = false
         database=argList(i+1).trim
 
     }
@@ -104,7 +102,6 @@ object GcoreRunner {
       dbUri = Paths.get(hdfsUri, pathDir, database).toString
     }
     else{
-      demo = false
       dbUri = hdfsUri + pathDir + database
       if(dbUri.contains(fileSeparator+fileSeparator))
         dbUri=dbUri.replace("\\",fileSeparator)
@@ -112,18 +109,6 @@ object GcoreRunner {
     }
     println(dbUri)
     loadDatabase(gcoreRunner, dbUri,hdfsUri)
-
-
-    if(demo) {
-      if (!gcoreRunner.catalog.hasGraph("basic_graph")) {
-        gcoreRunner.catalog.registerGraph(BasicGraph(gcoreRunner.sparkSession))
-        val basic_graph = gcoreRunner.catalog.graph("basic_graph")
-        SaveGraph().saveGraph(basic_graph, gcoreRunner.catalog.databaseDirectory, gcoreRunner.catalog.hdfs_url, true)
-        println("Basic graph created")
-      }
-      gcoreRunner.catalog.setDefaultGraph("basic_graph")
-    }
-
 
 
     options
@@ -136,6 +121,8 @@ object GcoreRunner {
       try {
         line = console.readLine()
         line.split(" ")(0) match {
+          case "\\b" =>
+            registerBasicGraph(gcoreRunner)
           case "\\q" =>
             active = false
           case "\\c" =>
@@ -182,6 +169,20 @@ object GcoreRunner {
        }
     }
 
+  }
+
+  def registerBasicGraph(gcoreRunner: GcoreRunner): Unit ={
+    if(!gcoreRunner.catalog.hasGraph("basic_graph")) {
+      if (!gcoreRunner.catalog.hasGraph("basic_graph")) {
+        gcoreRunner.catalog.registerGraph(BasicGraph(gcoreRunner.sparkSession))
+        val basic_graph = gcoreRunner.catalog.graph("basic_graph")
+        SaveGraph().saveGraph(basic_graph, gcoreRunner.catalog.databaseDirectory, gcoreRunner.catalog.hdfs_url, true)
+        println("Basic graph created")
+      }
+      gcoreRunner.catalog.setDefaultGraph("basic_graph")
+    }
+    else
+      println("The basic graph is already registered!")
   }
 
 
@@ -256,12 +257,13 @@ object GcoreRunner {
       """
         |Options:
         |\h Help.
+        |\b Register basic graph. (Graph for demo purposes)
         | ; Execute a query.        (ex. CONSTRUCT (x) MATCH (x);)
         |\c Set default graph.      (\c graph name)
         |\l Show graphs in the database.
-        |\s Show graph schema.      (\d graph name)
-        |\i Import graph from HDFS. (\g file_name.json)
-        |\r Remove graph.           (\r id)
+        |\s Show graph schema.      (\s graph name)
+        |\i Import graph from HDFS. (\i file_name.json)
+        |\r Remove graph.           (\r graph_name)
         |\v Activate / Deactivate Log.
         |\q Quit.
       """.stripMargin);
