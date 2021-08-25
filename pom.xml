@@ -67,6 +67,26 @@
     </pluginRepositories>
 
     <dependencies>
+
+        <!-- https://mvnrepository.com/artifact/com.google.inject/guice
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <version>4.2.0</version>
+        </dependency>-->
+        <!-- https://mvnrepository.com/artifact/com.google.guava/guava
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>23.6-android</version>
+        </dependency>-->
+
+        <!-- https://mvnrepository.com/artifact/com.google.inject.extensions/guice-multibindings
+        <dependency>
+            <groupId>com.google.inject.extensions</groupId>
+            <artifactId>guice-multibindings</artifactId>
+            <version>4.2.0</version>
+        </dependency>-->
         <!-- Make Scala available in the project. -->
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -96,6 +116,7 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.version}</artifactId>
             <version>${spark.version}</version>
+
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
@@ -106,6 +127,12 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-graphx_${scala.version}</artifactId>
             <version>${spark.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>2.11</version>
         </dependency>
 
         <!-- Spoofax parser dependecies. -->
@@ -127,6 +154,8 @@
             <version>1.7.25</version>
             <scope>test</scope>
         </dependency>
+
+
 
         <!-- Enable JSON parsing in the project. -->
         <dependency>
@@ -157,6 +186,7 @@
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
         <testSourceDirectory>src/test/scala/queries</testSourceDirectory>
+
         <plugins>
 
             <!-- Compiler plugin for Scala source files. -->
@@ -226,8 +256,10 @@
             <!-- This plugin adds all dependencies to JAR file during 'package'
             command. -->
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.5.3</version>
+                <version>2.5.4</version>
+
                 <configuration>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
@@ -237,13 +269,73 @@
                             <mainClass>GcoreRunner</mainClass>
                         </manifest>
                     </archive>
+
+
                 </configuration>
+
                 <executions>
                     <execution>
                         <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
+
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.4</version>
+
+                <configuration>
+
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                    <artifactSet>
+                        <includes>
+                            <include>**</include>
+                        </includes>
+                    </artifactSet>
+                    <relocations>
+                        <relocation>
+                            <pattern>com.google.common</pattern>
+                            <shadedPattern>shaded.com.google.common</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>com.google.inject</pattern>
+                            <shadedPattern>shaded.com.google.inject</shadedPattern>
+                        </relocation>
+                    </relocations>
+                </configuration>
+                <executions>
+
+                    <execution>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>gcore-shaded</finalName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ComponentsXmlResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <Main-Class>GcoreRunner</Main-Class>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer" >
+                                    <resource>META-INF/sisu/javax.inject.Named</resource>
+                                </transformer>
+                            </transformers>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

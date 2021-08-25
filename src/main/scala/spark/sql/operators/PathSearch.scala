@@ -206,7 +206,7 @@ case class PathSearch(pathRelation: VirtualPathRelation,
         edges.withColumn("edges", castArrayUdf(col("id")))
           .withColumn("cost", lit(1))
           .select("fromId", "toId", "edges", "cost")
-      case KleeneNot(DisjunctLabels(Seq(label))) =>
+      case NegatedLabel(label) =>
         val edgeLabels = physGraph.edgeData.filterNot(table => {
           table.name == label
         })
@@ -219,8 +219,8 @@ case class PathSearch(pathRelation: VirtualPathRelation,
         edges.withColumn("edges", castArrayUdf(col("id")))
           .withColumn("cost", lit(1))
           .select("fromId", "toId", "edges", "cost")
-      case Reverse(DisjunctLabels(Seq(labels))) =>
-        val edgeData: DataFrame = physGraph.tableMap(labels).asInstanceOf[Table[DataFrame]].data
+      case Reverse(label) =>
+        val edgeData: DataFrame = physGraph.tableMap(label).asInstanceOf[Table[DataFrame]].data //Cambios revisar
         edgeData.withColumn("edges", castArrayUdf(col("id")))
           .withColumnRenamed("fromId", "aux")
           .withColumnRenamed("toId", "fromId")

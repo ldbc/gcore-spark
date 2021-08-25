@@ -44,6 +44,7 @@ case class SpoofaxParser(context: ParseContext) extends ParseStage {
 
   val logger: Logger = LoggerFactory.getLogger(getClass.getName)
 
+
   override def parse(query: String): AlgebraTreeNode = {
     val ast: IStrategoTerm = GcoreLang.parseQuery(query)
     val parseTree: SpoofaxBaseTreeNode = SpoofaxTreeBuilder build ast

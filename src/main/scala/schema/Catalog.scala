@@ -48,6 +48,8 @@ abstract class Catalog {
   private var registeredDefaultGraph: PathPropertyGraph = PathPropertyGraph.empty
 
   var databaseDirectory: String = "Default"
+
+  var hdfs_url= "hdfs://localhost:9000/";
   /**
     * All available [[PathPropertyGraph]]s in this database (the default graph is by default
     * included in the result).

@@ -22,9 +22,11 @@
 package spark
 
 import java.io.File
-import java.nio.file.{Path, Paths}
+import java.net.URI
 
 import algebra.expressions.Label
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.json4s._
@@ -49,11 +51,11 @@ abstract class GraphSource(spark: SparkSession) {
 
       override var graphName: String = graphConfig.graphName
 
-      override def pathData: Seq[Table[DataFrame]] = loadData(graphConfig.pathFiles)
+      override def pathData: Seq[Table[DataFrame]] = loadParquetData(graphConfig.pathFiles)
 
-      override def vertexData: Seq[Table[DataFrame]] = loadData(graphConfig.vertexFiles)
+      override def vertexData: Seq[Table[DataFrame]] = loadParquetData(graphConfig.vertexFiles)
 
-      override def edgeData: Seq[Table[DataFrame]] = loadData(graphConfig.edgeFiles)
+      override def edgeData: Seq[Table[DataFrame]] = loadParquetData(graphConfig.edgeFiles)
 
       override def edgeRestrictions: LabelRestrictionMap =
         buildRestrictions(graphConfig.edgeRestrictions)
@@ -63,54 +65,45 @@ abstract class GraphSource(spark: SparkSession) {
 
     }
 
-    /** Loads a [[SparkGraph]] from a single JSON file containing all data. */
-    def loadGraph(graphFullFile: File): SparkGraph ={
-      val json = GraphSource parseFullGraphJson graphFullFile
-      var vertexes = Seq[Any]()
-      json.vertexes.foreach(m => m.foreach{
-        case (vertexLabel:String, vertexData:List[Map[String,String]]) =>
-          val rows = vertexData.map(m => Row(m.values.toSeq :_*))
-          val header = vertexData.head.keys.toList
-          val schema = StructType(header.map(fieldName => StructField(fieldName, StringType, true)))
-          val dataRDD = spark.sparkContext.parallelize(rows)
-          val df = spark.createDataFrame(dataRDD, schema)
+  /** Loads a [[SparkGraph]] from a single JSON file containing all data. */
+  def loadGraph(graphFullFile: FSDataInputStream, path : String): SparkGraph ={
+    val json = GraphSource parseFullGraphJson graphFullFile
 
-          val table = (Table(Label(vertexLabel), df.cache()))
-          vertexes = vertexes :+ table
-      })
-      var edges = Seq[Any]()
-      json.edges.foreach(m => m.foreach{
-        case (edgeLabel:String, edgeData:List[Map[String,String]]) =>
-          val rows = edgeData.map(m => Row(m.values.toSeq :_*))
-          val header = edgeData.head.keys.toList
-          val schema = StructType(header.map(fieldName => StructField(fieldName, StringType, true)))
-          val dataRDD = spark.sparkContext.parallelize(rows)
-          val df = spark.createDataFrame(dataRDD, schema)
+    var vertexes = Seq[Any]()
+    json.vertexLabels.foreach(label => {
+        val df = spark.read.json(path+"/"+label+".json")
+        val table = (Table(Label(label), df.cache()))
+        vertexes = vertexes :+ table
+    })
+    var edges = Seq[Any]()
+    json.edgeLabels.foreach(label => {
+        val df = spark.read.json(path+"/"+label+".json")
+        val table = (Table(Label(label), df.cache()))
+        edges = edges :+ table
+    })
 
-          val table = (Table(Label(edgeLabel), df.cache()))
-          edges = edges :+ table
-      })
-      new SparkGraph{
-        override var graphName: String = json.graphName
+    val graph =new SparkGraph{
+      override var graphName: String = json.graphName
 
-        override def vertexData: Seq[Table[DataFrame]] = vertexes.asInstanceOf[Seq[Table[DataFrame]]]
+      override def vertexData: Seq[Table[DataFrame]] = vertexes.asInstanceOf[Seq[Table[DataFrame]]]
 
-        override def edgeData: Seq[Table[DataFrame]] = edges.asInstanceOf[Seq[Table[DataFrame]]]
+      override def edgeData: Seq[Table[DataFrame]] = edges.asInstanceOf[Seq[Table[DataFrame]]]
 
-        override def pathData: Seq[Table[DataFrame]] = Seq.empty
+      override def pathData: Seq[Table[DataFrame]] = Seq.empty
 
-        override def edgeRestrictions: LabelRestrictionMap = buildRestrictions(json.edgeRestrictions)
+      override def edgeRestrictions: LabelRestrictionMap = buildRestrictions(json.edgeRestrictions)
 
-        override def storedPathRestrictions: LabelRestrictionMap = buildRestrictions(json.pathRestrictions)
-      }
+      override def storedPathRestrictions: LabelRestrictionMap = buildRestrictions(json.pathRestrictions)
     }
+    graph
+  }
 
-  private def loadData(dataFiles: Seq[Path]): Seq[Table[DataFrame]] =
+  private def loadParquetData(dataFiles: Seq[Path]): Seq[Table[DataFrame]] =
     dataFiles.map(
       filePath =>
         Table(
-          name = Label(filePath.getFileName.toString),
-          data = spark.sqlContext.read.json(filePath.toString).cache()))
+          name = Label(filePath.getName),
+          data = spark.sqlContext.read.parquet(filePath.toString).cache()))
 
   private def buildRestrictions(restrictions: Seq[ConnectionRestriction]): LabelRestrictionMap = {
     restrictions.foldLeft(SchemaMap.empty[Label, (Label, Label)]) {
@@ -129,21 +122,23 @@ object GraphSource {
   implicit val format: DefaultFormats.type = DefaultFormats
 
   /**
-    * Creates a [[GraphJsonConfig]] object by deserializing the config JSON stored at the given
-    * path.
-    */
+   * Creates a [[GraphJsonConfig]] object by deserializing the config JSON stored at the given
+   * path.
+   */
   def parseJsonConfig(configPath: Path): GraphJsonConfig = {
-    val configs = Source.fromFile(configPath.toString).mkString
+    //val configs = Source.fromFile(configPath.toString).mkString
+
+    val hdfs = FileSystem.get(new URI(configPath.toString), new Configuration())
+    val configs = hdfs.open(configPath)
     val json = parse(configs)
     json.camelizeKeys.extract[GraphJsonConfig]
   }
 
   /**
-    * Creates a [[SparkGraph]] from a JSON file fully containing it
-    */
-  def parseFullGraphJson(file: File): FullGraphJson = {
-    parse(Source.fromFile(file).mkString)
-      .camelizeKeys
+   * Creates a [[SparkGraph]] from a JSON file fully containing it
+   */
+  def parseFullGraphJson(file: FSDataInputStream): FullGraphJson = {
+    parse(file)
       .extract[FullGraphJson]
   }
 
@@ -162,10 +157,21 @@ case class GraphJsonConfig(graphName: String,
                            pathRestrictions: Seq[ConnectionRestriction]) {
 
   validateSchema()
+  val hadoopConf = new Configuration()
+  val path = new Path(s"${graphRootDir}")
+  val fs = FileSystem.get(path.toUri,hadoopConf)
 
-  val vertexFiles: Seq[Path] = vertexLabels.map(Paths.get(graphRootDir, _))
-  val edgeFiles: Seq[Path] = edgeLabels.map(Paths.get(graphRootDir, _))
-  val pathFiles: Seq[Path] = pathLabels.map(Paths.get(graphRootDir, _))
+  var vertexFiles: Seq[Path]= null
+  var edgeFiles: Seq[Path]= null
+  var pathFiles: Seq[Path]= null
+  if (fs.exists(path)) {
+    vertexFiles= fs.listStatus(path).filter(_.isDirectory).map(_.getPath).filter(file => vertexLabels.exists(_.contains(file.getName)))
+    edgeFiles= fs.listStatus(path).filter(_.isDirectory).map(_.getPath).filter(file => edgeLabels.exists(_.contains(file.getName)))
+    pathFiles = fs.listStatus(path).filter(_.isDirectory).map(_.getPath).filter(file => pathLabels.exists(_.contains(file.getName)))
+
+  }
+
+
 
   def validateSchema(): Unit = {
     assert(vertexLabels.nonEmpty, invalidSchemaMessage("vertex_labels"))
@@ -186,13 +192,13 @@ case class GraphJsonConfig(graphName: String,
 case class FullGraphJson(graphName: String,
                          edgeRestrictions: Seq[ConnectionRestriction],
                          pathRestrictions: Seq[ConnectionRestriction],
-                         vertexes: List[Map[String, Any]],
-                         edges: List[Map[String, Any]]){
+                         vertexLabels: List[String],
+                         edgeLabels: List[String]){
   implicit val format: DefaultFormats.type = DefaultFormats
   validateSchema()
 
   def validateSchema(): Unit ={
-    assert(vertexes != null, "The provided configuration was invalid. The field vertexes must be present in the json.")
+    assert(vertexLabels != null, "The provided configuration was invalid. The field vertexes must be present in the json.")
   }
 }
 

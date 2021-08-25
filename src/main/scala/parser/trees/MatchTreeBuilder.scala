@@ -364,20 +364,14 @@ object MatchTreeBuilder {
           case _ =>
             KleenePlus(extractPathExpression(from.children.head))
         }
-      case "KleeneNot" =>
-        val disjunctLabels =
-          DisjunctLabels(
-            from.children.head.children.map(
-              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
-        KleeneNot(disjunctLabels)
+      case "NegatedLabel" =>
+        val label = Label(from.children.head.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
+        NegatedLabel(label)
       case "KleeneOptional" =>
         KleeneOptional(extractPathExpression(from.children.head))
       case "Reverse" =>
-        val disjunctLabels =
-          DisjunctLabels(
-            from.children.head.children.map(
-              label => Label(label.children.head.asInstanceOf[SpoofaxLeaf[String]].value)))
-        Reverse(disjunctLabels)
+        val label = Label(from.children.head.children.head.asInstanceOf[SpoofaxLeaf[String]].value)
+        Reverse(label)
       case "Wildcard" =>
         Wildcard()
       case other =>

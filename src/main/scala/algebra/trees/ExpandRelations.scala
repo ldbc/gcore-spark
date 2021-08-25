@@ -380,7 +380,7 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
            | Some(SimpleKleeneStar(_,_,_))
            | Some(SimpleKleenePlus(_))
            | Some(KleenePlus(_))
-           | Some(KleeneNot(_))
+           | Some(NegatedLabel(_))
            | Some(Reverse(_))
            | Some(KleeneOptional(_))
            | Some(Wildcard()) =>
@@ -453,12 +453,12 @@ case class ExpandRelations(context: AlgebraContext) extends TopDownRewriter[Alge
         getPathExpressionLabels(exp, edgeLabels)
       case KleeneOptional(exp) =>
         getPathExpressionLabels(exp, edgeLabels)
-      case KleeneNot(DisjunctLabels(labels)) =>
+      case NegatedLabel(Label(labels)) => //Cambio revisar
         mutable.Set(edgeLabels.filterNot(l => {
           l == labels.head
         }) :_*)
-      case Reverse(DisjunctLabels(labels)) =>
-        mutable.Set(labels :_*)
+      case Reverse(Label(labels)) =>
+        mutable.Set(Seq(Label(labels)) :_*)
       case Wildcard() =>
         mutable.Set(edgeLabels :_*)
     }

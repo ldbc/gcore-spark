@@ -44,6 +44,7 @@ case class SqlRunner(compileContext: CompileContext)  extends RunTargetCodeStage
         val matchWhere: AlgebraTreeNode = buildGraph.matchWhere
 
         val matchData: DataFrame = sparkSqlPlanner.solveBindingTable(matchClause,matchWhere)
+
         val constructBindingTable : DataFrame = sparkSqlPlanner.generateConstructBindingTable(matchData, groupConstructs)
         val graph: PathPropertyGraph = sparkSqlPlanner.constructGraph(constructBindingTable, groupConstructs)
 /*
@@ -71,7 +72,7 @@ case class SqlRunner(compileContext: CompileContext)  extends RunTargetCodeStage
         compileContext.catalog.registerGraph(graph)
 
         val saveGraph = SaveGraph()
-        saveGraph.saveJsonGraph(graph,compileContext.catalog.databaseDirectory)
+        saveGraph.saveGraph(graph,compileContext.catalog.databaseDirectory, compileContext.catalog.hdfs_url,true)
         graph
 
       case (dropGraph : Drop) =>
