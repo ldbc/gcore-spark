@@ -61,15 +61,15 @@ case class BasicGraph(spark: SparkSession) extends SparkGraph {
   val celineIsLocatedInHouston= IsLocatedIn(id = 401, fromId = 103, toId = 105)
   val aliceIsLocatedInHouston= IsLocatedIn(id = 402, fromId = 104, toId = 105)
 
-  val johnIsLocatedInHoustonInverse= IsLocatedIn2(id = "403", fromId = 105, toId = 101)
-  val celineIsLocatedInHoustonInverse= IsLocatedIn2(id = "404", fromId = 105, toId = 103)
-  val aliceIsLocatedInHoustonInverse= IsLocatedIn2(id = "405", fromId = 105, toId = 104)
+  //val johnIsLocatedInHoustonInverse= IsLocatedIn2(id = "403", fromId = 105, toId = 101)
+  //val celineIsLocatedInHoustonInverse= IsLocatedIn2(id = "404", fromId = 105, toId = 103)
+  //val aliceIsLocatedInHoustonInverse= IsLocatedIn2(id = "405", fromId = 105, toId = 104)
 
   val celineHasInterestInWagner = HasInterest(id = 500 , fromId = 103, toId = 106)
   val aliceHasInterestInWagner = HasInterest(id = 501 , fromId = 104, toId = 106)
 
-  val celineHasInterestInWagnerInverse = HasInterest2(id = "502" , fromId = 106, toId = 103)
-  val aliceHasInterestInWagnerInverse = HasInterest2(id = "503" , fromId = 106, toId = 104)
+  //val celineHasInterestInWagnerInverse = HasInterest2(id = "502" , fromId = 106, toId = 103)
+  //val aliceHasInterestInWagnerInverse = HasInterest2(id = "503" , fromId = 106, toId = 104)
 
   //path
   val toAlice = ToWagner(700, 2, 101, 104, Seq(201, 205))
@@ -93,10 +93,10 @@ case class BasicGraph(spark: SparkSession) extends SparkGraph {
       Table(Label("IsLocatedIn"),Seq(johnIsLocatedInHouston, celineIsLocatedInHouston, aliceIsLocatedInHouston
       ).toDF()),
       Table(Label("HasInterest"),Seq(celineHasInterestInWagner, aliceHasInterestInWagner
-      ).toDF()),
-      Table(Label("IsLocatedIn2"),Seq( johnIsLocatedInHoustonInverse, celineIsLocatedInHoustonInverse,
-        aliceIsLocatedInHoustonInverse).toDF()),
-      Table(Label("HasInterest2"),Seq( celineHasInterestInWagnerInverse, aliceHasInterestInWagnerInverse).toDF())
+      ).toDF())
+      //,Table(Label("IsLocatedIn2"),Seq( johnIsLocatedInHoustonInverse, celineIsLocatedInHoustonInverse,
+       // aliceIsLocatedInHoustonInverse).toDF()),
+      //Table(Label("HasInterest2"),Seq( celineHasInterestInWagnerInverse, aliceHasInterestInWagnerInverse).toDF())
     )
 
   override def pathData: Seq[Table[DataFrame]] = Seq(Table(Label("ToWagner"), Seq(toCeline,toAlice).toDF()))
@@ -105,9 +105,10 @@ case class BasicGraph(spark: SparkSession) extends SparkGraph {
     SchemaMap(Map(
       Label("Knows") -> (Label("Person"), Label("Person")),
       Label("IsLocatedIn") -> (Label("Person"), Label("Place")),
-      Label("HasInterest") -> (Label("Person"), Label("Tag")),
-      Label("IsLocatedIn2") -> (Label("Place"), Label("Person")),
-      Label("HasInterest2") -> (Label("Tag"), Label("Person"))
+      Label("HasInterest") -> (Label("Person"), Label("Tag"))
+      //,
+      //Label("IsLocatedIn2") -> (Label("Place"), Label("Person")),
+     // Label("HasInterest2") -> (Label("Tag"), Label("Person"))
     ))
 
   override def storedPathRestrictions: LabelRestrictionMap = SchemaMap(Map(Label("ToWagner") -> (Label("Person"), Label("Tag"))))
@@ -125,5 +126,5 @@ sealed case class HasInterest(id: Int, fromId: Int, toId: Int)
 //Path
 sealed case class ToWagner(id: Int, hops: Int, fromId: Int, toId: Int, edges: Seq[Int])
 */
-sealed case class IsLocatedIn2(id: String, fromId: Int, toId: Int)
-sealed case class HasInterest2(id: String, fromId: Int, toId: Int)
+//sealed case class IsLocatedIn2(id: String, fromId: Int, toId: Int)
+//sealed case class HasInterest2(id: String, fromId: Int, toId: Int)
